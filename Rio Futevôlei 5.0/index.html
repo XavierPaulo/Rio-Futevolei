@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Rio Futevôlei</title>
+  <!-- tudo local (caminhos relativos), para rodar no itch.io sem depender de outros servidores -->
+  <link rel="stylesheet" href="vendor/fonts/fonts.css">
+  <link rel="stylesheet" href="styles.css">
+  <script type="importmap">
+    { "imports": { "three": "./vendor/three/three.module.js" } }
+  </script>
+</head>
+<body>
+  <!-- carregando (some quando o jogo abre); se o navegador não conseguir rodar o jogo, avisa -->
+  <div id="boot" style="position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;background:#f4dfae;color:#221433;font:900 20px sans-serif;z-index:99;text-align:center;padding:16px">
+    <b style="font-size:34px">RIO FUTEVÔLEI</b><span id="boot-msg">Carregando…</span>
+  </div>
+  <script>
+    window.addEventListener('error', function () { var m = document.getElementById('boot-msg'); if (m) m.textContent = 'Não foi possível abrir o jogo. Use o Chrome, o Edge ou o Firefox atualizado.'; });
+  </script>
+  <canvas id="game"></canvas>
+  <div id="hud"></div>
+  <script type="module" src="src/main.js"></script>
+</body>
+</html>

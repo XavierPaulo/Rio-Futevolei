@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Editores Rio Futevôlei</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Nunito:wght@600;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="editores.css">
+<style>
+.hub { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 270px), 1fr)); gap: 14px; }
+.tile { display: flex; flex-direction: column; gap: 8px; background: var(--surface); border: 2px solid transparent; border-radius: 18px; padding: 16px; text-decoration: none; transition: border-color .15s, transform .15s; }
+.tile:hover { border-color: var(--zone); transform: translateY(-2px); }
+.tile .ico { font-size: 40px; line-height: 1; }
+.tile b { font-family: var(--display); font-weight: 400; font-size: 26px; line-height: 1.05; }
+.tile p { margin: 0; color: var(--muted); font-weight: 700; font-size: 14px; }
+.tile small { margin-top: auto; color: var(--muted); font-weight: 900; font-size: 12px; letter-spacing: .5px; }
+.tile.game { background: var(--zone); color: #fff; }
+.tile.game p, .tile.game small { color: rgba(255, 255, 255, .9); }
+.tile.game:hover { border-color: var(--fg); }
+h2.sec { font: 900 12px var(--body); letter-spacing: 1.4px; text-transform: uppercase; color: var(--muted); margin: 8px 0 0; }
+@media (prefers-reduced-motion: reduce) { .tile { transition: none; } .tile:hover { transform: none; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Rio Futevôlei <span>5.0</span> · Editores</h1>
+      <p class="kicker">Tudo o que dá para mudar no jogo sem mexer no código. Cada editor grava direto nos arquivos do jogo; depois é só recarregar o jogo.</p>
+    </div>
+    <div class="tools"><span id="padpick"></span><span class="status" id="status"><i></i><span>verificando o servidor…</span></span></div>
+  </header>
+
+  <div class="hub">
+    <a class="tile game" href="../">
+      <span class="ico">🏐</span><b>Jogar</b>
+      <p>Abre o jogo. Recarregue depois de gravar num editor.</p>
+      <small>localhost:8769</small>
+    </a>
+    <a class="tile game" href="teaser.html">
+      <span class="ico">🎬</span><b>Teaser</b>
+      <p>Clipes de rock dos anos 90 feitos com o jogo: o completo (1:30) e a versão rock de 30 segundos, com lances, golpes, fotos dos atletas e paisagens do Rio.</p>
+      <small>feito com o próprio jogo</small>
+    </a>
+    <a class="tile game" href="teste-telas.html">
+      <span class="ico">📐</span><b>Teste de telas</b>
+      <p>Passa por todas as telas em 3 tamanhos (celular deitado, notebook e TV) e aponta rolagem, coisa fora da tela e texto menor que 14 px.</p>
+      <small>rode a cada mudança de tela</small>
+    </a>
+  </div>
+
+  <h2 class="sec">Editores</h2>
+  <div class="hub">
+    <a class="tile" href="editor-partida.html">
+      <span class="ico">🎯</span><b>Partida 5.0</b>
+      <p>Hitbox em 3 partes e os golpes de cada parte, especiais de 50% e 100%, formações, saque e o <b>controle</b>: qual botão faz o quê, pulo, carrinho, corrida, mira e toque duplo.</p>
+      <small>src/data/partida5.js</small>
+    </a>
+    <a class="tile" href="editor-golpes.html">
+      <span class="ico">🦶</span><b>Golpes</b>
+      <p>Trajetórias, mira, hitbox, especiais e a árvore de decisão da CPU.</p>
+      <small>src/data/moves.js · tilt.js · ai-tree.js</small>
+    </a>
+    <a class="tile" href="editor-atletas.html">
+      <span class="ico">🧑‍🤝‍🧑</span><b>Atletas</b>
+      <p>Os atletas do Modo História: visual, atributos, especiais e quem joga em cada dupla.</p>
+      <small>src/data/athletes.js</small>
+    </a>
+    <a class="tile" href="editor-marcas.html">
+      <span class="ico">📣</span><b>Marcas</b>
+      <p>Patrocinadores das placas, da faixa do avião e da bandeirinha: logo, nome, descrição, cores. Criar, excluir, ativar.</p>
+      <small>src/data/brands.js</small>
+    </a>
+    <a class="tile" href="editor-itens.html">
+      <span class="ico">🛍️</span><b>Itens</b>
+      <p>O que se compra nas lojas: imagem, nome, descrição, preço e efeito. Criar, excluir, ativar.</p>
+      <small>src/data/items.js</small>
+    </a>
+    <a class="tile" href="editor-clima.html">
+      <span class="ico">🌦️</span><b>Clima</b>
+      <p>Chuva, vento forte e sol forte: nome, ícone, descrição, força de cada efeito, visual na arena e o sorteio do dia.</p>
+      <small>src/data/weather.js</small>
+    </a>
+    <a class="tile" href="editor-visual.html">
+      <span class="ico">✂️</span><b>Visual Colagem</b>
+      <p>O estilo de recortes de revista: tintas, retícula de gráfica, céu em mosaico, borda de papel dos atletas e os atletas sugeridos.</p>
+      <small>src/data/colagem.js</small>
+    </a>
+  </div>
+</div>
+<script type="module">
+import { padPicker } from './editores.js';
+document.getElementById('padpick').append(padPicker());
+// o servidor do jogo (serve.ps1) é quem grava; sem ele os editores só mostram
+const st = document.getElementById('status');
+fetch('/api/dados/itens').then(r => r.json()).then(j => {
+  st.className = 'status ' + (j.ok ? 'saved' : 'error');
+  st.lastElementChild.textContent = j.ok ? 'servidor do jogo ligado: os editores gravam direto' : 'servidor sem gravação';
+}).catch(() => { st.className = 'status error'; st.lastElementChild.textContent = 'sem o servidor do jogo: os editores só mostram'; });
+</script>
+</body>
+</html>

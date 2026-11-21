@@ -1,0 +1,282 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Editor de Itens 4.0</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Nunito:wght@600;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="editores.css">
+<style>
+.big-ico { width: 96px; height: 96px; display: grid; place-items: center; font-size: 64px; background: var(--surface); border-radius: 18px; border: 2px solid var(--line); }
+.big-ico img { width: 84px; height: 84px; object-fit: contain; }
+.mini { width: 20px; height: 20px; display: inline-grid; place-items: center; font-size: 16px; flex: none; }
+.mini img { width: 20px; height: 20px; object-fit: contain; }
+.shop-card { display: flex; flex-direction: column; gap: 4px; }
+.shop-card b { font-family: var(--display); font-weight: 400; font-size: 22px; }
+#giulia { width: 180px; height: 180px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <a class="back" href="index.html">← Editores</a>
+      <h1>Editor de <span>Itens</span> 4.0</h1>
+      <p class="kicker">O que se compra nas lojas do Modo História (e os consumíveis das pausas da Exibição): imagem, nome, descrição, preço e efeito. Grave e recarregue o jogo para ver.</p>
+    </div>
+    <div class="tools">
+      <span class="status" id="status"><i></i><span>carregando…</span></span>
+      <button id="undo" type="button" disabled>Desfazer tudo</button>
+      <button id="save" class="primary" type="button" disabled>Gravar no jogo</button>
+    </div>
+  </header>
+  <div class="main">
+    <nav id="nav" aria-label="Itens por loja"></nav>
+    <div class="editor" id="editor"></div>
+  </div>
+</div>
+<script type="module">
+import ITEMS from '../src/data/items.js';
+import { OPTIONS } from '../src/art/custom.js';
+import { CHARACTERS } from '../src/art/characters.js';
+import { drawAthlete } from '../src/art/draw.js';
+import { poseFor } from '../src/art/poses.js';
+import { dummy } from '../src/ui/portraits.js';
+import { clone, esc, makeId, saver, uploadImage, row, text, num, select, check, color, button, filePick } from './editores.js';
+
+const original = JSON.stringify(ITEMS);
+let data = clone(ITEMS);
+const items = () => data.items;
+let cur = Object.keys(items())[0];
+
+// lojas: as que vendem itens (dá para criar novos) e os serviços (um item fixo cada)
+const SHOPS = {
+  lanchonete: { name: 'Lanchonete', info: 'Comida e bebida: na hora ou na mochila; também nas pausas da Exibição', icon: '🥤' },
+  farmacia: { name: 'Farmácia', info: 'Remédios e protetor: na hora ou na mochila; também nas pausas da Exibição', icon: '💊' },
+  esportes: { name: 'Artigos Esportivos', info: 'Equipamento: compra uma vez, vale para sempre', icon: '🏐' },
+  moda: { name: 'Moda', info: 'Roupas da Giulia na história', icon: '👕' },
+  spa: { name: 'Spa', info: 'Serviço (item fixo)', icon: '💆', service: true },
+  academia: { name: 'Academia', info: 'Serviço (item fixo)', icon: '🏋️', service: true },
+};
+const STATS = [['forca', 'Força'], ['agilidade', 'Agilidade'], ['precisao', 'Precisão'], ['pique', 'Pique']];
+const statName = k => (STATS.find(s => s[0] === k) || [k, k])[1];
+const FLAGS = [['lesionado', 'Lesionado'], ['fadiga', 'Fadiga'], ['sono', 'Sono'], ['ansiedade', 'Ansiedade']];
+const flagName = k => (FLAGS.find(s => s[0] === k) || [k, k])[1];
+const GEAR_FX = [['sol', 'Sol Forte gasta metade do Pique'], ['stat', '+ pontos num atributo nas partidas'], ['semLesao', 'Malhar demais não causa Lesionado']];
+const KINDS = [['blusa', 'Blusa'], ['short', 'Short'], ['cabeca', 'Acessório de cabeça']];
+
+const S = saver({
+  kind: 'itens', original, get: () => data,
+  statusEl: document.getElementById('status'), saveBtn: document.getElementById('save'), undoBtn: document.getElementById('undo'),
+  onUndo: () => { data = JSON.parse(original); if (!items()[cur]) cur = Object.keys(items())[0]; render(); },
+});
+const changed = () => { S.dirty(); renderNav(); };
+const icoHTML = (it, cls) => (it.image ? `<span class="${cls}"><img src="../${esc(it.image)}" alt=""></span>` : `<span class="${cls}">${esc(it.icon || '·')}</span>`);
+const money = v => 'R$ ' + v;
+
+// descrição gerada pelo efeito (o botão "Gerar pelo efeito")
+function autoDesc(it) {
+  const e = it.effect || {};
+  if (it.shop === 'lanchonete' || it.shop === 'farmacia') {
+    const out = [];
+    if (e.sede) out.push(`cura ${e.sede} de sede`);
+    if (e.fome) out.push(`cura ${e.fome} de fome`);
+    if (e.buff) out.push(`+${e.buff.v} ${statName(e.buff.stat)} por ${e.buff.t} s`);
+    if (e.sunblock) out.push('anula o Sol Forte');
+    if (e.cure) out.push(`cura ${flagName(e.cure)}`);
+    return out.join(' · ') || 'sem efeito';
+  }
+  if (it.shop === 'esportes') return e.gear === 'sol' ? 'o Sol Forte gasta metade do Pique' : e.gear === 'stat' ? `+${e.v || 1} de ${statName(e.stat)} nas partidas` : 'malhar demais não causa mais Lesionado';
+  if (it.shop === 'spa') return `cura ${(e.cures || []).map(flagName).join(', ') || 'nada'} da Giulia · 1 hora`;
+  if (it.shop === 'academia') return `+${e.forma} de forma física · 1 hora`;
+  return it.desc;
+}
+
+// ---------- lista ----------
+function renderNav() {
+  const nav = document.getElementById('nav');
+  nav.innerHTML = '';
+  for (const [shop, sh] of Object.entries(SHOPS)) {
+    const h = document.createElement('h3');
+    h.innerHTML = `<span>${sh.icon} ${sh.name}</span>`;
+    if (!sh.service) h.append(button('+ novo', () => addItem(shop)));
+    nav.append(h);
+    for (const [id, it] of Object.entries(items()).filter(([, i]) => i.shop === shop)) {
+      const b = document.createElement('button'); b.type = 'button';
+      b.className = 'it' + (it.enabled === false ? ' off' : '');
+      b.innerHTML = `<span class="nm">${icoHTML(it, 'mini')}${esc(it.name)}</span><small>${it.enabled === false ? 'desativado' : money(it.price)}</small>`;
+      b.setAttribute('aria-current', String(id === cur));
+      b.onclick = () => { cur = id; render(); };
+      nav.append(b);
+    }
+  }
+}
+function addItem(shop) {
+  const base = { enabled: true, shop, name: 'Item novo', desc: '', price: 10, icon: SHOPS[shop].icon, image: null };
+  if (shop === 'lanchonete') Object.assign(base, { name: 'Lanche novo', effect: { fome: 30 } });
+  if (shop === 'farmacia') Object.assign(base, { name: 'Remédio novo', effect: { cure: 'fadiga' } });
+  if (shop === 'esportes') Object.assign(base, { name: 'Equipamento novo', price: 40, effect: { gear: 'stat', stat: 'pique', v: 1 } });
+  if (shop === 'moda') Object.assign(base, { name: 'Peça nova', price: 30, kind: 'blusa', look: { topStyle: 'regata', top: '#1fbf6a', topAccent: '#ffffff' } });
+  base.desc = shop === 'moda' ? 'Blusa' : autoDesc(base);
+  const id = makeId(base.name, Object.keys(items()));
+  items()[id] = base;
+  cur = id; S.dirty(); render();
+}
+
+// ---------- prévia da Giulia vestindo a peça (Moda) ----------
+let giuliaC = null;
+function drawGiulia(t) {
+  if (giuliaC && giuliaC.isConnected) {
+    const it = items()[cur];
+    const ch = { ...CHARACTERS.giulia, ...(it && it.look ? it.look : {}) };
+    const g = giuliaC.getContext('2d');
+    g.clearRect(0, 0, giuliaC.width, giuliaC.height);
+    drawAthlete(g, ch, poseFor(dummy(), t / 1000), t / 1000);
+  }
+  requestAnimationFrame(drawGiulia);
+}
+requestAnimationFrame(drawGiulia);
+
+// ---------- edição ----------
+function render() {
+  renderNav();
+  const ed = document.getElementById('editor');
+  ed.innerHTML = '';
+  const it = items()[cur];
+  if (!it) { ed.innerHTML = '<div class="card empty">Escolha um item na lista.</div>'; return; }
+  const sh = SHOPS[it.shop];
+
+  // cabeçalho: ícone, nome, loja, ativar e excluir
+  const top = document.createElement('section'); top.className = 'card';
+  const tr = document.createElement('div'); tr.className = 'title-row';
+  const left = document.createElement('div'); left.className = 'inline'; left.style.gap = '14px';
+  const big = document.createElement('div'); big.className = 'big-ico';
+  big.innerHTML = it.image ? `<img src="../${esc(it.image)}" alt="">` : esc(it.icon || '·');
+  const tt = document.createElement('div'); tt.className = 'shop-card';
+  tt.innerHTML = `<b>${esc(it.name)}</b><span class="hint" style="margin:0">${sh.icon} ${sh.name} · ${sh.info}</span>`;
+  left.append(big, tt);
+  const acts = document.createElement('div'); acts.className = 'inline';
+  if (!sh.service) {
+    acts.append(
+      check('Aparece no jogo', it.enabled !== false, v => { it.enabled = v; changed(); }),
+      button('Excluir item', () => {
+        if (!confirm(`Excluir "${it.name}"? Ele sai das lojas quando você gravar (quem já tem na mochila perde).`)) return;
+        delete items()[cur]; cur = Object.keys(items())[0]; S.dirty(); render();
+      }, 'danger'),
+    );
+  }
+  tr.append(left, acts); top.append(tr);
+  if (it.shop === 'moda') {
+    const pv = document.createElement('div'); pv.className = 'preview';
+    giuliaC = document.createElement('canvas'); giuliaC.id = 'giulia'; giuliaC.width = giuliaC.height = 256;
+    pv.append(giuliaC); top.append(pv);
+  } else giuliaC = null;
+
+  // nome, descrição, preço e imagem
+  const f = document.createElement('section'); f.className = 'card';
+  f.innerHTML = '<h4>Item</h4>';
+  const grid = document.createElement('div'); grid.className = 'fields';
+  const c1 = document.createElement('div'), c2 = document.createElement('div');
+  const desc = text(it.desc, v => { it.desc = v; changed(); }, { max: 140, area: true });
+  c1.append(
+    row('Nome', text(it.name, v => { it.name = v || 'Item'; tt.querySelector('b').textContent = it.name; changed(); }, { max: 28 })),
+    row('Preço (R$)', num(it.price, v => { it.price = v; changed(); }, { min: 0, max: 999 })),
+    row('Descrição', [desc]),
+  );
+  if (it.shop !== 'moda') c1.append(row('', button('Gerar pelo efeito', () => { it.desc = autoDesc(it); desc.value = it.desc; changed(); })));
+  const msg = document.createElement('p'); msg.className = 'hint';
+  const emoji = text(it.icon, v => { it.icon = v; if (!it.image) big.textContent = v || '·'; changed(); }, { max: 8 });
+  emoji.style.width = '80px';
+  const up = filePick(it.image ? 'Trocar imagem' : 'Enviar imagem', async file => {
+    if (!S.canSave()) { msg.textContent = 'Para enviar imagem, abra esta página pelo jogo (serve.ps1).'; return; }
+    msg.textContent = 'enviando…';
+    try { it.image = await uploadImage('itens', cur, file); S.dirty(); render(); }
+    catch (e) { msg.textContent = 'Não enviou: ' + e.message; }
+  });
+  const imgBox = document.createElement('div'); imgBox.className = 'inline'; imgBox.append(up);
+  if (it.image) imgBox.append(button('Usar o emoji', () => { it.image = null; S.dirty(); render(); }));
+  c2.append(row('Emoji', emoji), row('Imagem', imgBox));
+  msg.textContent = it.image ? `Usando a imagem ${it.image} (no lugar do emoji).` : 'Sem imagem: o jogo mostra o emoji. Envie PNG/JPG/WEBP/GIF (até 3 MB); quadrada e com fundo transparente fica melhor.';
+  c2.append(msg);
+  grid.append(c1, c2); f.append(grid);
+  const ph = document.createElement('p'); ph.className = 'hint';
+  ph.textContent = 'O preço é o do Médio: no Fácil sai 20% mais barato e no Difícil 25% mais caro.';
+  f.append(ph);
+
+  ed.append(top, f, effectCard(it));
+}
+
+// ---------- efeito, conforme a loja ----------
+function effectCard(it) {
+  const c = document.createElement('section'); c.className = 'card';
+  const e = it.effect || (it.effect = {});
+  const re = () => { S.dirty(); render(); };
+  if (it.shop === 'lanchonete' || it.shop === 'farmacia') {
+    c.innerHTML = '<h4>Efeito</h4>';
+    const grid = document.createElement('div'); grid.className = 'fields';
+    const c1 = document.createElement('div'), c2 = document.createElement('div');
+    c1.append(
+      row('Cura fome', num(e.fome || 0, v => { if (v) e.fome = v; else delete e.fome; S.dirty(); }, { max: 100 })),
+      row('Cura sede', num(e.sede || 0, v => { if (v) e.sede = v; else delete e.sede; S.dirty(); }, { max: 100 })),
+      row('Cura marca', select([['', 'nenhuma'], ...FLAGS], e.cure || '', v => { if (v) e.cure = v; else delete e.cure; S.dirty(); })),
+      row('Sol Forte', check('anula (protetor)', e.sunblock, v => { if (v) e.sunblock = true; else delete e.sunblock; S.dirty(); })),
+    );
+    c2.append(row('Bônus na partida', select([['', 'nenhum'], ...STATS], e.buff ? e.buff.stat : '', v => { if (v) e.buff = { stat: v, v: (e.buff && e.buff.v) || 1, t: (e.buff && e.buff.t) || 15 }; else delete e.buff; re(); })));
+    if (e.buff) c2.append(
+      row('Pontos', num(e.buff.v, v => { e.buff.v = Math.max(1, v); S.dirty(); }, { min: 1, max: 5 })),
+      row('Segundos', num(e.buff.t, v => { e.buff.t = Math.max(1, v); S.dirty(); }, { min: 1, max: 120 })),
+    );
+    grid.append(c1, c2); c.append(grid);
+    const h = document.createElement('p'); h.className = 'hint';
+    h.textContent = 'Comido fora da partida: cura fome, sede e marca. O bônus de atributo e o protetor só valem dentro da partida (troca de lado ou pausa técnica).';
+    c.append(h);
+  } else if (it.shop === 'esportes') {
+    c.innerHTML = '<h4>Efeito do equipamento</h4>';
+    c.append(row('Efeito', select(GEAR_FX, e.gear || 'stat', v => { e.gear = v; if (v === 'stat') { e.stat = e.stat || 'agilidade'; e.v = e.v || 1; } else { delete e.stat; delete e.v; } re(); })));
+    if (e.gear === 'stat') c.append(
+      row('Atributo', select(STATS, e.stat, v => { e.stat = v; S.dirty(); })),
+      row('Pontos', num(e.v || 1, v => { e.v = Math.max(1, v); S.dirty(); }, { min: 1, max: 3 })),
+    );
+  } else if (it.shop === 'moda') {
+    c.innerHTML = '<h4>Peça</h4>';
+    const L = it.look || (it.look = {});
+    delete it.effect;
+    c.append(row('Tipo', select(KINDS, it.kind, v => {
+      it.kind = v;
+      it.look = v === 'blusa' ? { topStyle: 'regata', top: '#1fbf6a', topAccent: '#ffffff' } : v === 'short' ? { shortsStyle: 'lisa', shorts: '#1d5cff', shortsAccent: '#ffffff' } : { extra: null, headwear: 'cap', hatColor: '#1fbf6a' };
+      re();
+    })));
+    const col = (label, key) => row(label, color(OPTIONS.color, L[key] || '#ffffff', (v, live) => { L[key] = v; S.dirty(); if (!live) render(); }));
+    if (it.kind === 'blusa') c.append(row('Modelo', select(OPTIONS.topStyle, L.topStyle || 'regata', v => { L.topStyle = v; S.dirty(); })), col('Cor', 'top'), col('Cor de detalhe', 'topAccent'));
+    if (it.kind === 'short') c.append(row('Modelo', select(OPTIONS.shortsStyle, L.shortsStyle || 'lisa', v => { L.shortsStyle = v; S.dirty(); })), col('Cor', 'shorts'), col('Cor de detalhe', 'shortsAccent'));
+    if (it.kind === 'cabeca') {
+      c.append(
+        row('Chapéu', select(OPTIONS.headwear, L.headwear || 'none', v => { L.headwear = v === 'none' ? null : v; S.dirty(); render(); })),
+        row('Rosto', select(OPTIONS.face, L.extra || 'none', v => { L.extra = v === 'none' ? null : v; S.dirty(); })),
+      );
+      if (L.headwear) c.append(col('Cor do chapéu', 'hatColor'));
+    }
+    const h = document.createElement('p'); h.className = 'hint';
+    h.textContent = 'A Giulia veste uma peça de cada tipo (comprada na Moda). A prévia acima mostra a Giulia com esta peça.';
+    c.append(h);
+  } else if (it.shop === 'spa') {
+    c.innerHTML = '<h4>O que o tratamento cura</h4>';
+    const box = document.createElement('div'); box.className = 'inline';
+    e.cures = e.cures || [];
+    for (const [k, n] of FLAGS) box.append(check(n, e.cures.includes(k), v => { e.cures = v ? [...new Set([...e.cures, k])] : e.cures.filter(x => x !== k); S.dirty(); }));
+    c.append(box);
+  } else if (it.shop === 'academia') {
+    c.innerHTML = '<h4>Treino</h4>';
+    c.append(row('Forma física ganha', num(e.forma, v => { e.forma = Math.max(1, v); S.dirty(); }, { min: 1, max: 100 })));
+    const h = document.createElement('p'); h.className = 'hint';
+    h.textContent = 'Malhar duas vezes no mesmo dia pode causar Lesionado, Fadiga, Sono ou Ansiedade.';
+    c.append(h);
+  }
+  return c;
+}
+render();
+</script>
+</body>
+</html>

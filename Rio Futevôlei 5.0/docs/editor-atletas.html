@@ -1,0 +1,322 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Editor de Atletas 5.0</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Nunito:wght@600;800;900&display=swap" rel="stylesheet">
+<style>
+/* Editor dos atletas do Modo História: lista das duplas à esquerda; à direita a dupla desenhada como no
+   jogo e os campos do atleta (visual, atributos, especiais). Grava src/data/athletes.js pelo serve.ps1. */
+:root {
+  --bg: #e9f3ef; --surface: #ffffff; --surface-2: #d8ebe5; --fg: #10233d; --muted: #4e6378; --line: #bcd7cf;
+  --sand: #f4dfae; --zone: #ff5a3c; --ok: #139a55; --warn: #d6361f; --sun: #ffcf2e; --sky: #bfe6f7;
+  --display: 'Lilita One', 'Arial Rounded MT Bold', system-ui, sans-serif;
+  --body: 'Nunito', 'Segoe UI', system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0d1a27; --surface: #142638; --surface-2: #1c3349; --fg: #eaf2fb; --muted: #9db2c9; --line: #284865;
+  --sand: #3b3424; --zone: #ff7a5e; --ok: #3fcf83; --warn: #ff7a66; --sun: #ffd84d; --sky: #1d3a52; color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --bg: #0d1a27; --surface: #142638; --surface-2: #1c3349; --fg: #eaf2fb; --muted: #9db2c9; --line: #284865;
+  --sand: #3b3424; --zone: #ff7a5e; --ok: #3fcf83; --warn: #ff7a66; --sun: #ffd84d; --sky: #1d3a52; color-scheme: dark; }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--fg); font-family: var(--body); font-size: 15px; line-height: 1.45; }
+.wrap { max-width: 1240px; margin: 0 auto; padding: 18px 16px 40px; display: flex; flex-direction: column; gap: 14px; }
+header { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 10px; }
+h1 { font-family: var(--display); font-weight: 400; font-size: clamp(28px, 4.5vw, 42px); line-height: 1; margin: 0; }
+h1 span { color: var(--zone); }
+.kicker { margin: 4px 0 0; color: var(--muted); font-weight: 800; max-width: 70ch; }
+.tools { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.status { display: inline-flex; align-items: center; gap: 8px; font-weight: 900; font-size: 13px; color: var(--muted); }
+.status i { width: 10px; height: 10px; border-radius: 50%; background: var(--muted); }
+.status.saved i { background: var(--ok); } .status.dirty i, .status.saving i { background: var(--sun); } .status.error i { background: var(--warn); }
+button, select, input[type="text"] { font: 800 14px var(--body); color: var(--fg); background: var(--surface); border: 2px solid var(--line); border-radius: 10px; padding: 6px 10px; }
+button { cursor: pointer; } button:hover { border-color: var(--muted); }
+button.primary { background: var(--zone); border-color: var(--zone); color: #fff; }
+button:disabled { opacity: .5; cursor: default; }
+button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px solid var(--sun); outline-offset: 2px; }
+button[aria-pressed="true"] { border-color: var(--zone); background: var(--surface-2); }
+.main { display: grid; grid-template-columns: minmax(200px, 260px) minmax(0, 1fr); gap: 14px; align-items: start; }
+nav { background: var(--surface); border-radius: 16px; padding: 10px; display: flex; flex-direction: column; gap: 8px; position: sticky; top: 0; max-height: 100vh; overflow: auto; }
+nav h3 { margin: 6px 6px 0; font: 900 11px var(--body); letter-spacing: 1.2px; text-transform: uppercase; color: var(--muted); }
+nav button { display: flex; width: 100%; justify-content: space-between; align-items: center; gap: 6px; text-align: left; padding: 5px 9px; }
+nav button small { color: var(--muted); font-size: 11px; white-space: nowrap; }
+nav button[aria-current="true"] { border-color: var(--zone); background: var(--surface-2); }
+.editor { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.card { background: var(--surface); border-radius: 16px; padding: 14px 16px; min-width: 0; }
+.card h2 { font-family: var(--display); font-weight: 400; font-size: 26px; margin: 0; line-height: 1.1; }
+.card h4 { margin: 0 0 8px; font: 900 11px var(--body); letter-spacing: 1.2px; text-transform: uppercase; color: var(--muted); }
+.stage { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); gap: 14px; align-items: center; }
+.duo { display: flex; justify-content: center; gap: 4px; background: linear-gradient(var(--sky) 0 58%, var(--sand) 58%); border-radius: 12px; padding: 6px; }
+.duo figure { margin: 0; text-align: center; cursor: pointer; border-radius: 10px; border: 2px solid transparent; flex: 1; max-width: 210px; }
+.duo figure.on { border-color: var(--zone); }
+.duo canvas { display: block; width: 100%; height: auto; aspect-ratio: 1; }
+.duo figcaption { font-weight: 900; font-size: 13px; }
+.team-row { display: grid; grid-template-columns: auto 1fr 1fr; gap: 8px; align-items: center; margin-top: 10px; }
+.fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 14px; }
+.row { display: grid; grid-template-columns: minmax(110px, 40%) minmax(0, 1fr); gap: 8px; align-items: center; margin: 6px 0; }
+.row label { font-weight: 800; color: var(--muted); font-size: 13px; }
+.row select, .row input[type="text"] { width: 100%; min-width: 0; }
+.color { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+.color button { width: 24px; height: 24px; padding: 0; border-radius: 50%; border: 2px solid var(--line); }
+.color button[aria-pressed="true"] { outline: 3px solid var(--zone); outline-offset: 1px; }
+.color input[type="color"] { width: 30px; height: 26px; padding: 0; border: none; background: none; }
+.stat { display: grid; grid-template-columns: 90px minmax(0, 1fr) 28px; gap: 8px; align-items: center; margin: 6px 0; }
+.stat input { width: 100%; accent-color: var(--zone); }
+.stat b { text-align: right; font-variant-numeric: tabular-nums; }
+.total { font-weight: 900; color: var(--muted); font-size: 13px; }
+.hint { color: var(--muted); font-size: 13px; margin: 6px 0 0; }
+@media (max-width: 760px) { .main, .stage { grid-template-columns: minmax(0, 1fr); } nav { position: static; max-height: 260px; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <a href="index.html" style="display:inline-block;margin-bottom:6px;font-weight:900;font-size:13px;color:var(--muted);text-decoration:none">← Editores</a>
+      <h1>Editor de <span>Atletas</span> 5.0</h1>
+      <p class="kicker">Os atletas do Modo História: Rei e Rainha da Areia, as chaves do CT da Urca, a dupla de cada CT e o King Size. Grave e recarregue o jogo para ver.</p>
+    </div>
+    <div class="tools">
+      <span class="status" id="status"><i></i><span>carregando…</span></span>
+      <button id="art" type="button" title="Estilo do desenho (como nas Configurações do jogo)">Pincel</button>
+      <button id="undo" type="button" disabled>Desfazer tudo</button>
+      <button id="save" class="primary" type="button" disabled>Gravar no jogo</button>
+    </div>
+  </header>
+  <div class="main">
+    <nav id="nav" aria-label="Duplas e atletas"></nav>
+    <div class="editor" id="editor"></div>
+  </div>
+</div>
+<script type="module">
+import ATH from '../src/data/athletes.js';
+import TILT from '../src/data/tilt.js';
+import { OPTIONS, buildCharacter } from '../src/art/custom.js';
+import { drawAthlete } from '../src/art/draw.js';
+import { poseFor } from '../src/art/poses.js';
+import { dummy } from '../src/ui/portraits.js';
+import { settings } from '../src/ui/settings.js';
+import { HOODS } from '../src/story/data.js';
+
+const clone = o => JSON.parse(JSON.stringify(o));
+const original = JSON.stringify(ATH);
+let data = clone(ATH);
+let curTeam = 'final', curId = data.teams.final[0];
+
+// nomes das duplas na lista, na ordem da história
+const TEAM_LABELS = {
+  final: ['Rei e Rainha da Areia', 'desafio na Urca e final do Rio Futevôlei'],
+  urca1: ['CT da Urca · 1ª chave', 'campeonato do CT'], urca2: ['CT da Urca · 2ª chave', 'campeonato do CT'],
+  urca3: ['CT da Urca · Final', 'campeonato do CT e desafio diário'],
+  niteroi: ['Niterói', 'epílogo do Difícil'],
+};
+const teamLabel = k => TEAM_LABELS[k] || [HOODS[k] ? HOODS[k].ct + ' · ' + HOODS[k].name : k, 'Rio Futevôlei e desafio diário'];
+const STATS = [['forca', 'Força'], ['agilidade', 'Agilidade'], ['precisao', 'Precisão'], ['pique', 'Pique']];
+const spName = id => (TILT.specialDefs[id] && TILT.specialDefs[id].name) || id;
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+// ---------- estado de gravação ----------
+const statusEl = document.getElementById('status'), saveBtn = document.getElementById('save'), undoBtn = document.getElementById('undo');
+let canSave = false;
+function setStatus(kind, text) { statusEl.className = 'status ' + kind; statusEl.lastElementChild.textContent = text; }
+// 5.0: Ctrl+Z desfaz e Ctrl+Y (ou Ctrl+Shift+Z) refaz; mudanças seguidas em menos de 0,7 s viram um passo
+const past = [], future = [];
+let lastSnap = original, lastT = 0;
+function track() {
+  const now = JSON.stringify(data);
+  if (now === lastSnap) return;
+  const t = performance.now();
+  if (!(t - lastT < 700 && past.length)) { past.push(lastSnap); if (past.length > 200) past.shift(); }
+  lastT = t; lastSnap = now; future.length = 0;
+}
+function jump(from, to) {
+  if (!from.length) return;
+  to.push(JSON.stringify(data));
+  lastSnap = from.pop(); lastT = 0;
+  data = JSON.parse(lastSnap);
+  render(); dirty(true);
+}
+addEventListener('keydown', e => {
+  if (!(e.ctrlKey || e.metaKey)) return;
+  const k = e.key.toLowerCase();
+  if (k === 'z' && !e.shiftKey) { e.preventDefault(); jump(past, future); }
+  else if (k === 'y' || (k === 'z' && e.shiftKey)) { e.preventDefault(); jump(future, past); }
+});
+function dirty(restoring = false) {
+  if (restoring !== true) track();
+  const d = JSON.stringify(data) !== original;
+  saveBtn.disabled = !d || !canSave; undoBtn.disabled = !d;
+  if (d) setStatus('dirty', canSave ? 'alterações não gravadas' : 'sem servidor: abra pelo jogo (serve.ps1)');
+  else setStatus(canSave ? 'saved' : 'error', canSave ? 'igual ao jogo' : 'sem servidor: só visualização');
+}
+fetch('/api/dados/atletas').then(r => r.json()).then(j => { canSave = !!j.ok; dirty(); }).catch(() => { canSave = false; dirty(); });
+saveBtn.onclick = async () => {
+  setStatus('saving', 'gravando…'); saveBtn.disabled = true;
+  try {
+    const r = await fetch('/api/atletas', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ athletesText: JSON.stringify(data, null, 2) }) });
+    const j = await r.json();
+    if (!j.ok) throw new Error(j.error || 'erro');
+    location.reload(); // relê o arquivo gravado
+  } catch (e) { setStatus('error', 'não gravou: ' + e.message); saveBtn.disabled = false; }
+};
+undoBtn.onclick = () => { if (confirm('Desfazer todas as alterações não gravadas?')) { past.push(JSON.stringify(data)); future.length = 0; data = JSON.parse(original); lastSnap = original; render(); dirty(true); } };
+undoBtn.title = 'Volta tudo ao que está no jogo (Ctrl+Z desfaz um passo, Ctrl+Y refaz)';
+const artBtn = document.getElementById('art');
+settings.art = 'pincel';
+artBtn.onclick = () => { settings.art = settings.art === 'pincel' ? 'cartoon' : 'pincel'; artBtn.textContent = settings.art === 'pincel' ? 'Pincel' : 'Cartoon'; };
+
+// ---------- lista ----------
+function renderNav() {
+  const nav = document.getElementById('nav');
+  nav.innerHTML = '';
+  for (const [k, ids] of Object.entries(data.teams)) {
+    const h = document.createElement('h3'); h.textContent = teamLabel(k)[0]; nav.append(h);
+    for (const id of ids) {
+      const a = data.athletes[id], b = document.createElement('button');
+      b.type = 'button';
+      b.innerHTML = `<span>${esc(a.name)}</span><small>${STATS.map(([s]) => a.stats[s]).join('·')}</small>`;
+      b.setAttribute('aria-current', k === curTeam && id === curId);
+      b.onclick = () => { curTeam = k; curId = id; render(); };
+      nav.append(b);
+    }
+  }
+}
+
+// ---------- campos ----------
+function select(label, opts, value, set) {
+  const row = document.createElement('div'); row.className = 'row';
+  const sel = document.createElement('select');
+  for (const [v, t] of opts) sel.add(new Option(t, v, false, v === value));
+  sel.onchange = () => set(sel.value);
+  row.innerHTML = `<label>${label}</label>`; row.append(sel);
+  return row;
+}
+function color(label, opts, value, set) {
+  const row = document.createElement('div'); row.className = 'row';
+  row.innerHTML = `<label>${label}</label>`;
+  const box = document.createElement('div'); box.className = 'color';
+  for (const [v, t] of opts) {
+    const b = document.createElement('button'); b.type = 'button'; b.title = t; b.style.background = v;
+    b.setAttribute('aria-pressed', v.toLowerCase() === value.toLowerCase()); b.onclick = () => set(v);
+    box.append(b);
+  }
+  const pick = document.createElement('input'); pick.type = 'color'; pick.value = value; pick.title = 'Outra cor';
+  pick.oninput = () => set(pick.value, true);
+  box.append(pick); row.append(box);
+  return row;
+}
+
+function render() {
+  if (!data.teams[curTeam] || !data.teams[curTeam].includes(curId)) { curTeam = Object.keys(data.teams)[0]; curId = data.teams[curTeam][0]; }
+  renderNav();
+  const a = data.athletes[curId], ed = document.getElementById('editor');
+  // mudança num campo: redesenha (e a lista, se mudou nome ou atributo); soft = sem refazer os campos
+  const change = (fn, soft) => v => { fn(v); dirty(); if (soft) { renderNav(); return; } render(); };
+  ed.innerHTML = '';
+
+  // dupla desenhada
+  const top = document.createElement('section'); top.className = 'card';
+  const [lab, use] = teamLabel(curTeam);
+  top.innerHTML = `<h4>${esc(lab)} · ${esc(use)}</h4><div class="stage"><div class="duo" id="duo"></div><div id="who"></div></div>`;
+  ed.append(top);
+  const duo = top.querySelector('#duo');
+  figs = data.teams[curTeam].map(id => {
+    const f = document.createElement('figure'); f.className = id === curId ? 'on' : '';
+    const c = document.createElement('canvas'); c.width = c.height = 256;
+    f.append(c); f.insertAdjacentHTML('beforeend', `<figcaption>${esc(data.athletes[id].name)}</figcaption>`);
+    f.onclick = () => { curId = id; render(); };
+    duo.append(f);
+    return { id, c };
+  });
+  const who = top.querySelector('#who');
+  const name = document.createElement('div'); name.className = 'row';
+  name.innerHTML = '<label>Nome</label>';
+  const nin = document.createElement('input'); nin.type = 'text'; nin.value = a.name; nin.maxLength = 28;
+  nin.oninput = () => { a.name = nin.value || 'Atleta'; dirty(); renderNav(); figs.forEach((f, i) => { if (f.id === curId) duo.children[i].querySelector('figcaption').textContent = a.name; }); };
+  name.append(nin); who.append(name);
+  who.append(select('Especial de ataque', TILT.specials.attack.map(id => [id, spName(id)]), a.attack, change(v => { a.attack = v; }, true)));
+  who.append(select('Especial de defesa', TILT.specials.defense.map(id => [id, spName(id)]), a.defense, change(v => { a.defense = v; }, true)));
+  const hint = document.createElement('p'); hint.className = 'hint';
+  hint.textContent = 'A CPU usa estes especiais quando a barra enche. Clique no outro atleta da dupla para editá-lo.';
+  who.append(hint);
+
+  // atributos
+  const st = document.createElement('section'); st.className = 'card';
+  const sum = () => STATS.reduce((t, [k]) => t + a.stats[k], 0);
+  st.innerHTML = `<h4>Atributos (1 a 10)</h4>`;
+  const tot = document.createElement('p'); tot.className = 'total';
+  const showTot = () => { tot.textContent = `Total ${sum()} · os atletas jogáveis somam 24; os da história podem passar disso (Rolando 33, King Size 36).`; };
+  for (const [k, t] of STATS) {
+    const r = document.createElement('div'); r.className = 'stat';
+    r.innerHTML = `<label for="st-${k}">${t}</label><input id="st-${k}" type="range" min="1" max="10" step="1" value="${a.stats[k]}"><b>${a.stats[k]}</b>`;
+    const inp = r.querySelector('input'), out = r.querySelector('b');
+    inp.oninput = () => { a.stats[k] = +inp.value; out.textContent = inp.value; showTot(); dirty(); renderNav(); };
+    st.append(r);
+  }
+  showTot(); st.append(tot);
+
+  // visual
+  const vis = document.createElement('section'); vis.className = 'card';
+  vis.innerHTML = '<h4>Visual</h4>';
+  const grid = document.createElement('div'); grid.className = 'fields';
+  const col1 = document.createElement('div'), col2 = document.createElement('div');
+  const setv = k => (v, live) => { a[k] = v; dirty(); if (!live) render(); };
+  col1.append(
+    color('Pele', OPTIONS.skin, a.skin, setv('skin')),
+    select('Cabelo', OPTIONS.hairStyle, a.hairStyle, change(v => { a.hairStyle = v; })),
+    color('Cor do cabelo', OPTIONS.hairColor, a.hairColor, setv('hairColor')),
+    select('Cabeça', OPTIONS.headwear, a.headwear, change(v => { a.headwear = v; })),
+    color('Cor do chapéu e do pulso', OPTIONS.color, a.hatColor, setv('hatColor')),
+    select('Rosto', OPTIONS.face, a.face, change(v => { a.face = v; })),
+  );
+  col2.append(
+    select('Blusa', OPTIONS.topStyle, a.topStyle, change(v => { a.topStyle = v; })),
+    color('Cor da blusa', OPTIONS.color, a.topColor, setv('topColor')),
+    select('Short', OPTIONS.shortsStyle, a.shortsStyle, change(v => { a.shortsStyle = v; })),
+    color('Cor do short', OPTIONS.color, a.shortsColor, setv('shortsColor')),
+    select('Pulso', OPTIONS.wrist, a.wrist, change(v => { a.wrist = v; })),
+  );
+  grid.append(col1, col2); vis.append(grid);
+
+  // quem joga nesta dupla
+  const tm = document.createElement('section'); tm.className = 'card';
+  tm.innerHTML = '<h4>Dupla</h4>';
+  const tr = document.createElement('div'); tr.className = 'team-row';
+  tr.innerHTML = '<span class="total">Quem joga</span>';
+  const all = Object.entries(data.athletes).map(([id, x]) => [id, x.name]).sort((p, q) => p[1].localeCompare(q[1]));
+  data.teams[curTeam].forEach((id, i) => {
+    const s = document.createElement('select');
+    for (const [v, t] of all) s.add(new Option(t, v, false, v === id));
+    s.onchange = () => { data.teams[curTeam][i] = s.value; curId = s.value; dirty(); render(); };
+    tr.append(s);
+  });
+  tm.append(tr);
+  const th = document.createElement('p'); th.className = 'hint';
+  th.textContent = 'Troca o atleta desta partida por outro já existente. As falas da história com nome (Rolando, Marra, King Size) não mudam.';
+  tm.append(th);
+
+  ed.append(st, vis, tm);
+}
+
+// ---------- desenho (pose de espera, animada) ----------
+let figs = [];
+function frame(t) {
+  const time = t / 1000;
+  for (const f of figs) {
+    const ch = buildCharacter({ id: f.id, ...data.athletes[f.id], special: data.athletes[f.id].attack });
+    const g = f.c.getContext('2d');
+    g.clearRect(0, 0, 256, 256);
+    drawAthlete(g, ch, poseFor(dummy(), time), time);
+  }
+  requestAnimationFrame(frame);
+}
+render();
+dirty();
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

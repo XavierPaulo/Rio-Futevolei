@@ -1,0 +1,10 @@
+# Vídeos grandes (ficam só no computador)
+videos/
+*.mp4
+# Pacotes gerados
+dist/*.zip
+# Configurações locais do Claude Code
+.claude/settings.local.json
+# Sistema
+Thumbs.db
+desktop.ini

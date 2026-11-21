@@ -1,0 +1,38 @@
+RIO FUTEVÔLEI 5.0 — COMO PUBLICAR NO ITCH.IO
+=============================================
+
+O arquivo para enviar é: rio-futevolei-5-itch.zip (nesta pasta).
+Ele tem só o jogo (sem os editores, o teaser e os vídeos) e roda direto no navegador.
+
+1. CRIAR A PÁGINA DO JOGO
+   - Entre em https://itch.io (crie uma conta, se ainda não tiver).
+   - No menu do seu perfil: "Upload new project" (Enviar novo projeto).
+   - Title (título): Rio Futevôlei
+   - Kind of project (tipo de projeto): HTML
+   - Uploads: envie o arquivo rio-futevolei-5-itch.zip e marque
+     "This file will be played in the browser" (este arquivo roda no navegador).
+
+2. TAMANHO DA TELA (Embed options)
+   - Viewport dimensions: 1280 × 720
+   - Marque "Fullscreen button" (botão de tela cheia).
+   - Para celular: marque "Mobile friendly" e escolha "Landscape" (deitado).
+   - Opcional: "Automatically start on page load".
+
+3. QUEM PODE VER (Visibility & access)
+   - Draft (rascunho): só você vê. Use para testar a página antes.
+   - Restricted (restrito): só quem você convidar ou quem tiver a senha
+     ("Password protect"). Bom para mostrar só para quem você quiser.
+   - Public (público): qualquer pessoa pode achar e jogar.
+   Clique em "Save" e depois em "View page" para testar.
+
+4. BOM SABER
+   - O jogo salvo (Modo História, Campeonato, atletas criados, configurações)
+     fica no navegador de cada jogador.
+   - Controle (Xbox/PlayStation): funciona no Chrome e no Edge. Se o controle
+     não responder, clique uma vez no jogo e aperte um botão; em tela cheia
+     funciona melhor.
+   - O teclado também funciona (Configurações → Controles).
+
+5. ATUALIZAR O JOGO DEPOIS DE MUDANÇAS
+   - Dê dois cliques em "Gerar pacote itch.io.bat" (na pasta Rio Futevôlei 5.0).
+   - No itch.io, em "Edit game", envie o zip novo e apague o antigo.

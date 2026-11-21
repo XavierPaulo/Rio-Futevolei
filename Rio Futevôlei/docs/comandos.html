@@ -1,0 +1,1669 @@
+<title>Comandos Rio Futevôlei</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Nunito:wght@600;800;900&display=swap" rel="stylesheet">
+<style>
+/* Layout: palco da Giulia + controle lado a lado (empilham no celular); lista de comandos por toque logo abaixo. */
+:root {
+  --bg: #e6f3f1; --surface: #ffffff; --surface-2: #d5ebe7; --fg: #10233d; --muted: #4c6178;
+  --line: #b9d6d1; --sun: #ffcf2e; --hot: #ff5a3c; --ok: #139a55; --pad: #25324a; --pad-2: #33435f; --pad-fg: #e9f1ff;
+  --display: 'Lilita One', 'Arial Rounded MT Bold', system-ui, sans-serif;
+  --body: 'Nunito', 'Segoe UI', system-ui, sans-serif;
+  /* manual: quadra vista de cima */
+  --sand: #f6e2b5; --sand-line: #1d5cff; --zone: #ff5a3c; --zone-2: #139a55; --net: #10233d;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0c1a29; --surface: #13263b; --surface-2: #1b3350; --fg: #eaf2fb; --muted: #9db2c9;
+  --line: #264666; --sun: #ffd84d; --hot: #ff6f55; --ok: #36c77c; --pad: #1e2a40; --pad-2: #2b3a56; --pad-fg: #e9f1ff;
+  --sand: #3a3324; --sand-line: #6f9bff; --zone: #ff7a5e; --zone-2: #42d38a; --net: #eaf2fb; color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --bg: #0c1a29; --surface: #13263b; --surface-2: #1b3350; --fg: #eaf2fb; --muted: #9db2c9;
+  --line: #264666; --sun: #ffd84d; --hot: #ff6f55; --ok: #36c77c; --pad: #1e2a40; --pad-2: #2b3a56; --pad-fg: #e9f1ff;
+  --sand: #3a3324; --sand-line: #6f9bff; --zone: #ff7a5e; --zone-2: #42d38a; --net: #eaf2fb; color-scheme: dark; }
+
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--fg); font-family: var(--body); font-size: 15px; line-height: 1.5; }
+.wrap { max-width: 1120px; margin: 0 auto; padding-inline: 16px; padding-block: 20px 40px; display: flex; flex-direction: column; gap: 18px; }
+header { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 12px; }
+h1 { font-family: var(--display); font-weight: 400; font-size: clamp(30px, 5vw, 46px); line-height: 1; margin: 0; text-wrap: balance; letter-spacing: 0.5px; }
+h1 span { color: var(--hot); }
+.kicker { margin: 4px 0 0; color: var(--muted); font-weight: 800; }
+.seg { display: inline-flex; background: var(--surface-2); border-radius: 999px; padding: 4px; gap: 4px; }
+.seg button { border: 0; background: transparent; color: var(--fg); font: 800 14px var(--body); padding: 7px 14px; border-radius: 999px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
+.seg button[aria-pressed="true"] { background: var(--surface); box-shadow: 0 1px 0 var(--line); }
+.seg svg { display: block; }
+button:focus-visible { outline: 3px solid var(--sun); outline-offset: 2px; }
+
+.main { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+.stage { position: relative; border-radius: 18px; overflow: hidden; background: var(--surface-2); min-width: 0; }
+.stage canvas { display: block; width: 100%; height: auto; aspect-ratio: 16 / 9; max-width: 100%; }
+.stage .badge { position: absolute; left: 12px; top: 12px; background: rgba(16, 35, 61, 0.78); color: #fff; font: 800 12px var(--body); padding: 4px 10px; border-radius: 999px; letter-spacing: 0.6px; text-transform: uppercase; }
+.stage .play { position: absolute; right: 12px; top: 10px; border: 0; background: rgba(16, 35, 61, 0.78); color: #fff; font: 800 12px var(--body); padding: 6px 12px; border-radius: 999px; cursor: pointer; }
+
+.pad-card { background: var(--surface); border-radius: 18px; padding: 14px; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+#pad svg { width: 100%; height: auto; max-width: 100%; display: block; }
+.how { font-weight: 800; font-size: 15px; min-height: 3em; }
+.how .step { display: flex; align-items: center; gap: 8px; } .how .step > span:last-child { display: inline; } .how .btn-ico { margin: 0 2px; }
+.how .step.on { color: var(--hot); }
+.how .n { font: 12px var(--display); width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; background: var(--surface-2); color: var(--muted); flex: none; }
+.how .step.on .n { background: var(--hot); color: #fff; }
+
+.info { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; }
+.info section { background: var(--surface); border-radius: 18px; padding: 16px 18px; min-width: 0; }
+.info h2 { font-family: var(--display); font-weight: 400; font-size: 28px; margin: 0; line-height: 1.1; }
+.info .touch { display: inline-block; font: 900 11px var(--body); letter-spacing: 1px; text-transform: uppercase; color: var(--muted); margin-bottom: 4px; }
+.info p { margin: 8px 0 0; max-width: 62ch; }
+.info .tactic { color: var(--muted); }
+.chips { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 10px; font-weight: 800; }
+
+.groups { display: flex; flex-direction: column; gap: 14px; }
+.group h3 { font: 900 12px var(--body); letter-spacing: 1.2px; text-transform: uppercase; color: var(--muted); margin: 0 0 6px; }
+.group .list { display: flex; flex-wrap: wrap; gap: 6px; }
+.cmd { display: inline-flex; align-items: center; gap: 8px; border: 2px solid var(--line); background: var(--surface); color: var(--fg); font: 800 14px var(--body); padding: 6px 10px 6px 8px; border-radius: 12px; cursor: pointer; }
+.cmd:hover { border-color: var(--muted); }
+.cmd[aria-current="true"] { border-color: var(--hot); background: var(--surface-2); }
+.cmd .keys { display: inline-flex; align-items: center; gap: 3px; }
+
+/* ícones de botão */
+.btn-ico { display: inline-flex; vertical-align: middle; }
+.cap { display: inline-flex; align-items: center; justify-content: center; min-width: 24px; height: 24px; padding: 0 6px; border-radius: 6px; background: var(--surface); color: var(--fg); border: 2px solid var(--fg); border-bottom-width: 4px; font: 900 12px var(--body); }
+.pill { display: inline-flex; align-items: center; justify-content: center; height: 22px; padding: 0 8px; border-radius: 8px; background: var(--pad); color: var(--pad-fg); font: 900 11px var(--body); }
+.plus { color: var(--muted); font-weight: 900; }
+.note { color: var(--muted); font-size: 13px; margin: 0; }
+
+/* ---------- manual de direcionamento ---------- */
+.manual { display: flex; flex-direction: column; gap: 14px; margin-top: 10px; }
+.manual > h2 { font-family: var(--display); font-weight: 400; font-size: clamp(26px, 4vw, 36px); line-height: 1.05; margin: 0; text-wrap: balance; }
+.manual > .lead { margin: 0; max-width: 70ch; color: var(--muted); font-weight: 600; }
+.howto { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 250px), 1fr)); gap: 10px; }
+.howto div { background: var(--surface); border-radius: 14px; padding: 12px 14px; min-width: 0; }
+.howto b { display: block; font: 900 11px var(--body); letter-spacing: 1px; text-transform: uppercase; color: var(--muted); margin-bottom: 2px; }
+.howto p { margin: 0; font-size: 14px; }
+.legend { display: flex; flex-wrap: wrap; gap: 14px; font-size: 13px; font-weight: 800; color: var(--muted); }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.legend i { display: inline-block; width: 16px; height: 12px; border-radius: 3px; }
+.filters { display: flex; flex-wrap: wrap; gap: 6px; }
+.filters button { border: 2px solid var(--line); background: var(--surface); color: var(--fg); font: 800 13px var(--body); padding: 5px 12px; border-radius: 999px; cursor: pointer; }
+.filters button[aria-pressed="true"] { border-color: var(--hot); background: var(--surface-2); }
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr)); gap: 14px; }
+.card { background: var(--surface); border-radius: 18px; padding: 14px 16px 16px; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.card header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+.card h3 { font-family: var(--display); font-weight: 400; font-size: 23px; line-height: 1.1; margin: 0; }
+.card .keys { display: inline-flex; align-items: center; gap: 3px; font-weight: 900; }
+.tags { display: flex; flex-wrap: wrap; gap: 5px; }
+.tags span { font: 900 11px var(--body); letter-spacing: 0.6px; text-transform: uppercase; background: var(--surface-2); color: var(--muted); padding: 2px 8px; border-radius: 999px; }
+.tags .sp { background: var(--sun); color: #10233d; }
+.court svg { display: block; width: 100%; height: auto; max-width: 100%; }
+.facts { display: grid; grid-template-columns: minmax(84px, auto) minmax(0, 1fr); gap: 5px 12px; margin: 0; font-size: 14px; }
+.facts dt { font: 900 11px var(--body); letter-spacing: 0.6px; text-transform: uppercase; color: var(--muted); padding-top: 3px; }
+.facts dd { margin: 0; min-width: 0; font-variant-numeric: tabular-nums; }
+.facts .warn { color: var(--hot); font-weight: 800; }
+
+@media (max-width: 820px) { .main, .info { grid-template-columns: 1fr; } }
+@media (prefers-reduced-motion: reduce) { .cmd { transition: none; } }
+</style>
+
+<div class="wrap">
+  <header>
+    <div>
+      <h1><span>RIO</span> FUTEVÔLEI · Comandos</h1>
+      <p class="kicker">A Giulia mostra cada golpe. Escolha um comando para ver os botões na ordem.</p>
+    </div>
+    <div class="seg" role="group" aria-label="Tipo de controle">
+      <button type="button" id="dev-ps" data-dev="ps" aria-pressed="true"></button>
+      <button type="button" id="dev-xbox" data-dev="xbox" aria-pressed="false"></button>
+      <button type="button" id="dev-kb" data-dev="kb" aria-pressed="false">Teclado</button>
+    </div>
+  </header>
+
+  <div class="main">
+    <div class="stage">
+      <canvas id="stage" width="960" height="540" aria-label="Giulia executando o comando escolhido"></canvas>
+      <span class="badge" id="badge">1º toque</span>
+      <button type="button" class="play" id="auto">Pausar demonstração</button>
+    </div>
+    <div class="pad-card">
+      <div id="pad"></div>
+      <div class="how" id="how"></div>
+    </div>
+  </div>
+
+  <div class="info">
+    <section>
+      <span class="touch" id="i-touch"></span>
+      <h2 id="i-name"></h2>
+      <div class="chips" id="i-keys"></div>
+      <p id="i-desc"></p>
+    </section>
+    <section>
+      <span class="touch">Função tática</span>
+      <p class="tactic" id="i-tactic"></p>
+      <p class="note">O golpe muda conforme o toque da dupla (1º domínio, 2º levantamento, 3º ataque) e se a atleta está no chão ou no ar. Todos os controles seguem a mesma posição de botões.</p>
+    </section>
+  </div>
+
+  <div class="groups" id="groups"></div>
+
+  <section class="manual" id="manual" aria-labelledby="manual-t">
+    <h2 id="manual-t">Manual de direcionamento</h2>
+    <p class="lead">Golpe por golpe: em que altura a bola precisa estar, até onde o toque alcança, as 9 subáreas de destino e qual direcional leva a cada uma. Os números vêm direto do código do jogo.</p>
+    <div class="howto">
+      <div><b>9 subáreas, uma por direção</b><p>A área de destino de cada golpe é uma malha de 9 subáreas: círculos, ou elipses nos golpes que cobrem uma faixa (pingo rente à rede, cabeçada na linha de fundo). A do centro é 60% maior que o tamanho base e os outros 8 são 40% maiores, crescendo em direção ao centro, por isso se sobrepõem. Direcional solto = círculo do centro; cada uma das 8 direções = o círculo daquele lado. Vale a direção no instante em que você solta o botão (ou aperta, no ar). Do aperto do botão até o fim do golpe o atleta não anda: o direcional só mira. Inclinação menor que 30% conta como solto.</p></div>
+      <div><b>Frente, trás e lados</b><p><strong>Frente</strong> é para o lado do adversário: no ataque a bola vai mais funda; no passe para a parceira, mais perto da rede. Os desenhos mostram a quadra de cima como na câmera lateral (você à esquerda), então as setas são as do direcional. Na câmera por trás, frente = cima da tela.</p></div>
+      <div><b>Altura de contato e alcance</b><p>A bola precisa estar dentro da faixa de altura do golpe (medida a partir dos pés, com 0,2 m de folga para você) e dentro do alcance: um raio na frente/trás e 25% maior para os lados. O golpe fica ativo 0,3 s depois de soltar o botão.</p></div>
+      <div><b>Precisão</b><p>A bola mira o centro do círculo escolhido. Precisão 10 acerta o centro exato. Cada ponto a menos afasta a bola 1/9 do raio do círculo, numa direção sorteada: Precisão 5 cai a pouco mais de meio raio do centro e Precisão 1 chega à borda. Na CPU, o nível de dificuldade soma um erro próprio.</p></div>
+      <div><b>Força</b><p>A Força não muda onde a bola cai: ela deixa a trajetória mais rápida. Cada ponto acima de 5 soma 5% de velocidade (Força 9 = 20% mais rápida). As velocidades do manual são para Força 5.</p></div>
+      <div><b>Nota da ação</b><p>Cada toque ganha uma nota pelo que você recebeu. <strong>Ótimo</strong>: o próximo toque sai 15% mais rápido e 30% mais perto do centro da subárea. <strong>Ruim</strong>: o atleta é empurrado para trás. <strong>Pior</strong>: cai na areia. Os especiais são sempre Bom.</p></div>
+    </div>
+    <div class="legend" aria-hidden="true">
+      <span><i style="background: color-mix(in srgb, var(--zone) 20%, transparent); border: 2px solid var(--zone); border-radius: 50%; width: 14px; height: 14px"></i>subárea (a seta é o direcional)</span>
+      <span><i style="background: var(--zone); border-radius: 50%; width: 12px"></i>direcional solto (centro)</span>
+      <span><i style="background: color-mix(in srgb, var(--zone-2) 20%, transparent); border: 2px solid var(--zone-2); border-radius: 50%; width: 14px; height: 14px"></i>caso alternativo (3º toque)</span>
+      <span><i style="background: repeating-linear-gradient(45deg, var(--sun) 0 3px, transparent 3px 6px)"></i>onde o golpe funciona</span>
+    </div>
+    <div class="filters" role="group" aria-label="Filtrar golpes" id="filters"></div>
+    <div class="cards" id="cards"></div>
+  </section>
+</div>
+
+<script>
+// ===== desenho da Giulia (código do jogo: src/art/chibi.js + src/art/poses.js) =====
+// Desenho procedural dos atletas superdeformed (cabeção, corpo pequeno,
+// contorno grosso estilo adesivo). Personagem sempre desenhado virado para a direita;
+// o espelhamento é feito no plano 3D.
+
+const OUT = '#221433';
+const TAU = Math.PI * 2;
+
+const V = (x, y) => ({ x, y });
+const lerp = (a, b, k) => V(a.x + (b.x - a.x) * k, a.y + (b.y - a.y) * k);
+const from = (p, a, L) => V(p.x + Math.sin(a) * L, p.y + Math.cos(a) * L);
+
+function skeleton(q) {
+  const P = V(q.rootX, -54 + q.rootY);
+  const tu = V(Math.sin(q.torso), -Math.cos(q.torso));
+  const N = V(P.x + tu.x * 40, P.y + tu.y * 40);
+  const leg = (dx, L) => {
+    const hip = V(P.x + dx, P.y + 4);
+    const knee = from(hip, L.hip, 25);
+    const shin = L.hip - L.knee;
+    const ank = from(knee, shin, 24);
+    const toe = V(ank.x + Math.cos(shin) * 11, ank.y - Math.sin(shin) * 11);
+    return { hip, knee, ank, toe };
+  };
+  const arm = (dx, A) => {
+    const sh = V(P.x + tu.x * 32 + dx, P.y + tu.y * 32);
+    const el = from(sh, A.sh, 17);
+    const ha = from(el, A.sh + A.el, 16);
+    return { sh, el, ha };
+  };
+  const ha = q.torso + q.neck;
+  const H = V(N.x + Math.sin(ha) * 40, N.y - Math.cos(ha) * 40);
+  const sk = {
+    P, N, H, headAng: ha + q.bodyRot,
+    legF: leg(5, q.legF), legB: leg(-5, q.legB),
+    armF: arm(4, q.armF), armB: arm(-4, q.armB),
+  };
+  // gira o corpo todo em torno do centro do corpo (acima da pélvis), para caber no quadro
+  if (q.bodyRot) {
+    const c = Math.cos(q.bodyRot), s = Math.sin(q.bodyRot);
+    const C = V(P.x, P.y - 36);
+    const rot = p => { const dx = p.x - C.x, dy = p.y - C.y; p.x = C.x + dx * c - dy * s; p.y = C.y + dx * s + dy * c; };
+    [P, N, H].forEach(rot);
+    for (const l of [sk.legF, sk.legB]) Object.values(l).forEach(rot);
+    for (const a of [sk.armF, sk.armB]) Object.values(a).forEach(rot);
+  }
+  return sk;
+}
+
+function stroke(ctx, pts, w, color, outline = 7) {
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  ctx.beginPath();
+  ctx.moveTo(pts[0].x, pts[0].y);
+  for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
+  if (outline) {
+    ctx.strokeStyle = OUT;
+    ctx.lineWidth = w + outline;
+    ctx.stroke();
+  }
+  ctx.strokeStyle = color;
+  ctx.lineWidth = w;
+  ctx.stroke();
+}
+
+function dot(ctx, p, r, color, outline = 3.5) {
+  ctx.beginPath();
+  ctx.arc(p.x, p.y, r, 0, TAU);
+  ctx.fillStyle = color;
+  ctx.fill();
+  if (outline) { ctx.strokeStyle = OUT; ctx.lineWidth = outline; ctx.stroke(); }
+}
+
+function ellipse(ctx, x, y, rx, ry, rot, fill, outline = 0) {
+  ctx.beginPath();
+  ctx.ellipse(x, y, rx, ry, rot, 0, TAU);
+  if (fill) { ctx.fillStyle = fill; ctx.fill(); }
+  if (outline) { ctx.strokeStyle = OUT; ctx.lineWidth = outline; ctx.stroke(); }
+}
+
+function shadeColor(hex, k) {
+  const n = parseInt(hex.slice(1), 16);
+  const f = c => Math.max(0, Math.min(255, Math.round(c * k)));
+  return `rgb(${f(n >> 16)},${f((n >> 8) & 255)},${f(n & 255)})`;
+}
+
+// bermuda: 'faixa' (faixa lateral) · 'lisa' · 'florida' (estampada) · 'sunga'
+function drawLeg(ctx, L, skin, shorts, accent, style = 'faixa') {
+  stroke(ctx, [L.hip, L.knee, L.ank], 15, skin);
+  stroke(ctx, [L.ank, L.toe], 11, skin);
+  const top = lerp(L.hip, L.knee, style === 'sunga' ? 0.2 : 0.62);
+  stroke(ctx, [L.hip, top], style === 'sunga' ? 19 : 22, shorts);
+  if (style === 'faixa') stroke(ctx, [lerp(L.hip, L.knee, 0.52), top], 22, accent, 0);
+  if (style === 'florida') for (const k of [0.18, 0.42]) dot(ctx, lerp(L.hip, L.knee, k), 3, accent, 0);
+}
+
+// sleeve: cor da manga (camiseta) · wrist: acessório de pulso
+function drawArm(ctx, A, skin, sleeve, wrist, wristColor) {
+  stroke(ctx, [A.sh, A.el, A.ha], 12, skin);
+  dot(ctx, A.ha, 7.5, skin);
+  if (sleeve) stroke(ctx, [A.sh, lerp(A.sh, A.el, 0.55)], 17, sleeve);
+  if (wrist === 'munhequeira') stroke(ctx, [lerp(A.el, A.ha, 0.62), lerp(A.el, A.ha, 0.9)], 15, wristColor, 4);
+  else if (wrist === 'relogio') { dot(ctx, lerp(A.el, A.ha, 0.72), 6, '#1d1a2b', 2.5); dot(ctx, lerp(A.el, A.ha, 0.72), 2.5, '#9be7ff', 0); }
+  else if (wrist === 'pulseiras') {
+    stroke(ctx, [lerp(A.el, A.ha, 0.6), lerp(A.el, A.ha, 0.66)], 14, '#ffd21a', 2);
+    stroke(ctx, [lerp(A.el, A.ha, 0.72), lerp(A.el, A.ha, 0.78)], 14, wristColor, 2);
+    stroke(ctx, [lerp(A.el, A.ha, 0.84), lerp(A.el, A.ha, 0.9)], 14, '#1fbf6a', 2);
+  }
+}
+
+// blusa: 'regata' · 'camiseta' · 'cropped' · 'listrada'
+function drawTorso(ctx, sk, ch) {
+  const { P, N } = sk;
+  const d = V(N.x - P.x, N.y - P.y);
+  const len = Math.hypot(d.x, d.y) || 1;
+  const u = V(d.x / len, d.y / len);
+  const n = V(-u.y, u.x);
+  const top = ch.topStyle || 'regata';
+  const across = (k, w, color) => { const m = lerp(P, N, k); stroke(ctx, [V(m.x - n.x * 17, m.y - n.y * 17), V(m.x + n.x * 17, m.y + n.y * 17)], w, color, 0); };
+  if (top === 'cropped') {
+    stroke(ctx, [lerp(P, N, 0.05), lerp(P, N, 0.92)], 40, ch.skin);
+    stroke(ctx, [lerp(P, N, 0.5), lerp(P, N, 0.92)], 40, ch.top);
+  } else {
+    stroke(ctx, [lerp(P, N, 0.05), lerp(P, N, 0.92)], 40, ch.top);
+  }
+  if (top === 'regata') across(0.5, 6, ch.topAccent);
+  if (top === 'listrada') { across(0.32, 5, ch.topAccent); across(0.52, 5, ch.topAccent); across(0.72, 5, ch.topAccent); }
+  if (top === 'camiseta') { const c = lerp(P, N, 0.9); ctx.strokeStyle = ch.topAccent; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(c.x + 4, c.y - 2, 7, 0.3, Math.PI - 0.3); ctx.stroke(); }
+  // shorts
+  const sunga = ch.shortsStyle === 'sunga';
+  stroke(ctx, [V(P.x - u.x * 3, P.y - u.y * 3), V(P.x + u.x * (sunga ? 5 : 10), P.y + u.y * (sunga ? 5 : 10))], sunga ? 40 : 43, ch.shorts);
+  if (ch.shortsStyle === 'florida') for (const [a, b] of [[-10, 2], [6, 6], [14, -2]]) dot(ctx, V(P.x + n.x * a + u.x * b, P.y + n.y * a + u.y * b), 3, ch.shortsAccent, 0);
+  if (ch.extra === 'tooth') {
+    const c = lerp(P, N, 0.86);
+    ctx.strokeStyle = OUT; ctx.lineWidth = 2.5;
+    ctx.beginPath(); ctx.arc(c.x + 2, c.y - 2, 12, 0.2, Math.PI - 0.2); ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(c.x - 2, c.y + 9); ctx.lineTo(c.x + 8, c.y + 9); ctx.lineTo(c.x + 3, c.y + 20); ctx.closePath();
+    ctx.fillStyle = '#fffbea'; ctx.fill(); ctx.lineWidth = 2.5; ctx.stroke();
+  }
+}
+
+// ---------------- cabeça ----------------
+const R = 46;
+
+function bumpy(ctx, cx, cy, r, n, color, lw = 6, bump = 0.32) {
+  const pts = [];
+  for (let i = 0; i < n; i++) {
+    const a = (i / n) * TAU;
+    pts.push(V(cx + Math.cos(a) * r, cy + Math.sin(a) * r));
+  }
+  const draw = extra => {
+    ctx.beginPath();
+    ctx.arc(cx, cy, r + extra, 0, TAU);
+    for (const p of pts) { ctx.moveTo(p.x + r * bump + extra, p.y); ctx.arc(p.x, p.y, r * bump + extra, 0, TAU); }
+    ctx.fill();
+  };
+  ctx.fillStyle = OUT; draw(lw / 2);
+  ctx.fillStyle = color; draw(0);
+}
+
+function star(ctx, x, y, r, rot, fill) {
+  ctx.beginPath();
+  for (let i = 0; i < 10; i++) {
+    const rr = i % 2 ? r * 0.45 : r;
+    const a = rot + (i / 10) * TAU - Math.PI / 2;
+    ctx.lineTo(x + Math.cos(a) * rr, y + Math.sin(a) * rr);
+  }
+  ctx.closePath();
+  ctx.fillStyle = fill; ctx.fill();
+  ctx.strokeStyle = OUT; ctx.lineWidth = 3.5; ctx.stroke();
+}
+
+function hairBack(ctx, ch, time) {
+  const sway = Math.sin(time * 5) * 4;
+  switch (ch.hairStyle) {
+    case 'ponytail': {
+      ctx.beginPath();
+      ctx.moveTo(-18, -40);
+      ctx.quadraticCurveTo(-66, -66 + sway, -88, -22 + sway);
+      ctx.quadraticCurveTo(-76, -26 + sway, -84, 4 + sway);
+      ctx.quadraticCurveTo(-62, -12 + sway * 0.5, -30, -10);
+      ctx.closePath();
+      ctx.fillStyle = ch.hair; ctx.fill();
+      ctx.strokeStyle = OUT; ctx.lineWidth = 6; ctx.stroke();
+      ctx.strokeStyle = ch.hairHi; ctx.lineWidth = 4;
+      ctx.beginPath(); ctx.moveTo(-40, -44); ctx.quadraticCurveTo(-64, -54 + sway, -76, -26 + sway); ctx.stroke();
+      dot(ctx, V(-4, -4), R + 5, ch.hair, 6);
+      dot(ctx, V(-24, -40), 8, '#ff5fa2');
+      break;
+    }
+    case 'puff':
+      bumpy(ctx, -18, -48, 34, 10, ch.hair);
+      dot(ctx, V(-2, -4), R + 4, ch.hair, 6);
+      ctx.strokeStyle = ch.hairHi; ctx.lineWidth = 4;
+      ctx.beginPath(); ctx.arc(-24, -56, 18, 3.6, 4.6); ctx.stroke();
+      break;
+    case 'mohawk':
+    case 'buzz':
+      ctx.beginPath(); ctx.arc(-2, -4, R + 3, Math.PI * 0.95, Math.PI * 2.05); ctx.closePath();
+      ctx.fillStyle = shadeColor(ch.hair, ch.hairStyle === 'buzz' ? 0.75 : 0.55); ctx.fill();
+      ctx.strokeStyle = OUT; ctx.lineWidth = 6; ctx.stroke();
+      break;
+    case 'curly':
+      // cabelo crespo curto: coroa de cachos
+      dot(ctx, V(-3, -6), R + 4, ch.hair, 6);
+      for (let i = 0; i <= 9; i++) {
+        const a = Math.PI * 0.9 + (i / 9) * Math.PI * 1.2;
+        dot(ctx, V(Math.cos(a) * (R + 2) - 3, Math.sin(a) * (R + 2) - 8), 12, ch.hair, 4);
+      }
+      break;
+    case 'long': {
+      // cabelão liso caindo até os ombros, balançando
+      const sway = Math.sin(time * 4) * 3;
+      ctx.beginPath();
+      ctx.moveTo(-40, -30);
+      ctx.quadraticCurveTo(-62, 10, -48 + sway, 62);
+      ctx.lineTo(-22 + sway, 58);
+      ctx.quadraticCurveTo(-18, 20, -6, 10);
+      ctx.lineTo(10, -40);
+      ctx.closePath();
+      ctx.fillStyle = ch.hair; ctx.fill();
+      ctx.strokeStyle = OUT; ctx.lineWidth = 6; ctx.stroke();
+      ctx.strokeStyle = ch.hairHi; ctx.lineWidth = 4;
+      ctx.beginPath(); ctx.moveTo(-44, -10); ctx.quadraticCurveTo(-52, 20, -42 + sway, 52); ctx.stroke();
+      dot(ctx, V(-3, -5), R + 4, ch.hair, 6);
+      break;
+    }
+    case 'bucket': {
+      ctx.beginPath();
+      for (let i = 0; i <= 12; i++) {
+        const a = Math.PI * 0.45 + (i / 12) * Math.PI * 0.95;
+        const r = i % 2 ? R + 2 : R + 12;
+        ctx.lineTo(Math.cos(a) * r - 4, Math.sin(a) * r - 6);
+      }
+      ctx.closePath();
+      ctx.fillStyle = ch.hair; ctx.fill();
+      ctx.strokeStyle = OUT; ctx.lineWidth = 6; ctx.stroke();
+      break;
+    }
+  }
+}
+
+function hairFront(ctx, ch) {
+  switch (ch.hairStyle) {
+    case 'ponytail': {
+      const a0 = Math.PI * 1.02, a1 = Math.PI * 1.9, N = 9;
+      ctx.beginPath();
+      for (let i = 0; i <= N; i++) { const a = a0 + (a1 - a0) * i / N; ctx.lineTo(Math.cos(a) * (R + 5), Math.sin(a) * (R + 5) - 2); }
+      for (let i = N; i >= 0; i--) {
+        const a = a0 + (a1 - a0) * i / N;
+        const r = i % 2 ? R * 0.78 : R * 0.5;
+        ctx.lineTo(Math.cos(a) * r, Math.sin(a) * r - 2);
+      }
+      ctx.closePath();
+      ctx.fillStyle = ch.hair; ctx.fill();
+      ctx.strokeStyle = OUT; ctx.lineWidth = 5; ctx.stroke();
+      ctx.strokeStyle = ch.hairHi; ctx.lineWidth = 4;
+      ctx.beginPath(); ctx.arc(0, -2, R - 1, Math.PI * 1.2, Math.PI * 1.42); ctx.stroke();
+      // headband
+      ctx.strokeStyle = OUT; ctx.lineWidth = 12;
+      ctx.beginPath(); ctx.arc(0, -2, R * 0.86, Math.PI * 1.08, Math.PI * 1.62); ctx.stroke();
+      ctx.strokeStyle = '#ff5fa2'; ctx.lineWidth = 7; ctx.stroke();
+      break;
+    }
+    case 'puff':
+      for (let i = 0; i <= 8; i++) {
+        const a = Math.PI * 1.05 + (i / 8) * Math.PI * 0.8;
+        dot(ctx, V(Math.cos(a) * R * 0.86, Math.sin(a) * R * 0.86 - 3), 10, ch.hair, 3);
+      }
+      ctx.strokeStyle = OUT; ctx.lineWidth = 14;
+      ctx.beginPath(); ctx.arc(0, -2, R * 0.8, Math.PI * 1.12, Math.PI * 1.85); ctx.stroke();
+      ctx.strokeStyle = ch.band; ctx.lineWidth = 9; ctx.stroke();
+      ctx.fillStyle = ch.band;
+      ctx.beginPath(); ctx.moveTo(-36, -20); ctx.lineTo(-58, -30); ctx.lineTo(-52, -10); ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = OUT; ctx.lineWidth = 3; ctx.stroke();
+      break;
+    case 'mohawk': {
+      // barbatana de tubarão
+      ctx.beginPath();
+      ctx.moveTo(16, -40);
+      ctx.quadraticCurveTo(12, -94, -30, -110);
+      ctx.quadraticCurveTo(-22, -68, -38, -26);
+      ctx.closePath();
+      ctx.fillStyle = ch.hair; ctx.fill();
+      ctx.strokeStyle = OUT; ctx.lineWidth = 6; ctx.stroke();
+      ctx.strokeStyle = ch.hairHi; ctx.lineWidth = 5;
+      ctx.beginPath(); ctx.moveTo(8, -46); ctx.quadraticCurveTo(4, -86, -24, -102); ctx.stroke();
+      ctx.fillStyle = shadeColor(ch.hair, 0.55);
+      for (let i = 0; i < 6; i++) ctx.fillRect(18 + i * 4, -34 + (i % 2) * 3, 2.2, 2.2);
+      break;
+    }
+    case 'curly':
+      for (let i = 0; i <= 6; i++) {
+        const a = Math.PI * 1.15 + (i / 6) * Math.PI * 0.7;
+        dot(ctx, V(Math.cos(a) * R * 0.8, Math.sin(a) * R * 0.8 - 4), 9, ch.hair, 3);
+      }
+      break;
+    case 'long':
+      // franja de lado + faixa na testa
+      ctx.beginPath();
+      ctx.moveTo(-R - 2, -6);
+      ctx.quadraticCurveTo(-30, -58, 24, -44);
+      ctx.quadraticCurveTo(10, -30, 30, -18);
+      ctx.quadraticCurveTo(-4, -30, -20, -16);
+      ctx.quadraticCurveTo(-30, -10, -R + 4, 6);
+      ctx.closePath();
+      ctx.fillStyle = ch.hair; ctx.fill();
+      ctx.strokeStyle = OUT; ctx.lineWidth = 5; ctx.stroke();
+      ctx.strokeStyle = OUT; ctx.lineWidth = 11;
+      ctx.beginPath(); ctx.arc(0, -2, R * 0.9, Math.PI * 1.1, Math.PI * 1.75); ctx.stroke();
+      ctx.strokeStyle = ch.band; ctx.lineWidth = 6; ctx.stroke();
+      break;
+    case 'bucket': {
+      // tufos sob o chapéu
+      ctx.fillStyle = ch.hair;
+      ctx.beginPath(); ctx.moveTo(8, -22); ctx.lineTo(20, -2); ctx.lineTo(24, -22); ctx.lineTo(36, -4); ctx.lineTo(38, -22); ctx.closePath();
+      ctx.fill(); ctx.strokeStyle = OUT; ctx.lineWidth = 4; ctx.stroke();
+      hatBucket(ctx, ch.hat);
+      break;
+    }
+    case 'buzz':
+      // raspado: só pontinhos de cabelo na testa
+      ctx.fillStyle = shadeColor(ch.hair, 0.8);
+      for (let i = 0; i < 10; i++) ctx.fillRect(-20 + i * 5, -34 + (i % 2) * 4, 2.4, 2.4);
+      break;
+  }
+}
+
+// ---------- chapéus ----------
+function hatBucket(ctx, color) {
+  ctx.beginPath();
+  ctx.moveTo(-40, -22);
+  ctx.quadraticCurveTo(-44, -66, -4, -70);
+  ctx.quadraticCurveTo(38, -66, 38, -22);
+  ctx.closePath();
+  ctx.fillStyle = color; ctx.fill();
+  ctx.strokeStyle = OUT; ctx.lineWidth = 6; ctx.stroke();
+  ctx.fillStyle = '#ffffff';
+  for (const [x, y] of [[-24, -40], [-2, -54], [18, -38], [-10, -30], [4, -34], [-26, -56]]) {
+    ctx.beginPath(); ctx.arc(x, y, 4.5, 0, TAU); ctx.fill();
+  }
+  ellipse(ctx, 2, -21, 60, 11, 0.04, color, 6);
+  ellipse(ctx, 2, -23, 48, 5, 0.04, 'rgba(0,0,0,0.12)');
+}
+
+function hatCap(ctx, color) {
+  // boné: copa arredondada + aba para a frente
+  ctx.beginPath();
+  ctx.moveTo(-R - 2, -14);
+  ctx.quadraticCurveTo(-R, -R - 12, 0, -R - 8);
+  ctx.quadraticCurveTo(R + 2, -R - 4, R + 2, -14);
+  ctx.closePath();
+  ctx.fillStyle = color; ctx.fill();
+  ctx.strokeStyle = OUT; ctx.lineWidth = 6; ctx.stroke();
+  ellipse(ctx, R + 14, -14, 26, 7, 0.08, shadeColor(color, 0.8), 5);
+  dot(ctx, V(-2, -R - 8), 5, shadeColor(color, 0.7), 3);
+  ctx.strokeStyle = 'rgba(0,0,0,0.18)'; ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.moveTo(-2, -R - 6); ctx.quadraticCurveTo(8, -34, 10, -16); ctx.stroke();
+}
+
+function hatVisor(ctx, color) {
+  // viseira: faixa na testa + aba
+  ctx.strokeStyle = OUT; ctx.lineWidth = 14;
+  ctx.beginPath(); ctx.arc(0, -2, R * 0.93, Math.PI * 1.05, Math.PI * 1.95); ctx.stroke();
+  ctx.strokeStyle = color; ctx.lineWidth = 8; ctx.stroke();
+  ellipse(ctx, R + 8, -26, 24, 6, 0.25, color, 5);
+}
+
+function drawHat(ctx, ch) {
+  if (ch.headwear === 'bucket') hatBucket(ctx, ch.hatColor);
+  else if (ch.headwear === 'cap') hatCap(ctx, ch.hatColor);
+  else if (ch.headwear === 'visor') hatVisor(ctx, ch.hatColor);
+}
+
+function drawFace(ctx, ch, face, time) {
+  const blink = ((time * 0.9 + ch.name.length) % 4) < 0.12;
+  const eyes = [[10, 8, 1], [33, 8, 0.82]];
+  if (face === 'happy') {
+    ctx.strokeStyle = OUT; ctx.lineWidth = 4.5; ctx.lineCap = 'round';
+    for (const [x, y, s] of eyes) { ctx.beginPath(); ctx.arc(x, y + 4, 8 * s, Math.PI * 1.1, Math.PI * 1.9); ctx.stroke(); }
+  } else if (face === 'dizzy') {
+    ctx.strokeStyle = OUT; ctx.lineWidth = 4; ctx.lineCap = 'round';
+    for (const [x, y, s] of eyes) {
+      const r = 7 * s;
+      ctx.beginPath(); ctx.moveTo(x - r, y - r); ctx.lineTo(x + r, y + r); ctx.moveTo(x + r, y - r); ctx.lineTo(x - r, y + r); ctx.stroke();
+    }
+  } else if (blink) {
+    ctx.strokeStyle = OUT; ctx.lineWidth = 4; ctx.lineCap = 'round';
+    for (const [x, y, s] of eyes) { ctx.beginPath(); ctx.moveTo(x - 7 * s, y + 3); ctx.lineTo(x + 7 * s, y + 3); ctx.stroke(); }
+  } else {
+    for (const [x, y, s] of eyes) {
+      const ry = face === 'sad' ? 9 : 12;
+      ellipse(ctx, x, y, 7.5 * s, ry, 0, OUT);
+      ellipse(ctx, x, y + ry * 0.35, 5.5 * s, ry * 0.5, 0, ch.eyes);
+      ellipse(ctx, x - 2 * s, y - ry * 0.4, 3 * s, 3.4, 0, '#ffffff');
+      ellipse(ctx, x + 2.5 * s, y + ry * 0.45, 1.5 * s, 1.5, 0, '#ffffff');
+    }
+  }
+  // sobrancelhas
+  ctx.strokeStyle = OUT; ctx.lineWidth = 4; ctx.lineCap = 'round';
+  const browTilt = face === 'focus' || face === 'shout' ? 0.35 : face === 'sad' ? -0.35 : 0;
+  eyes.forEach(([x, y, s], i) => {
+    const inner = y - 17 + browTilt * 5, outer = y - 17 - browTilt * 5;
+    ctx.beginPath();
+    ctx.moveTo(x - 7 * s, i === 0 ? outer : inner);
+    ctx.lineTo(x + 7 * s, i === 0 ? inner : outer);
+    ctx.stroke();
+  });
+  // bochechas
+  ctx.globalAlpha = 0.45;
+  ellipse(ctx, 2, 25, 8, 4.5, 0, '#ff7a9c');
+  ellipse(ctx, 38, 25, 6, 4, 0, '#ff7a9c');
+  ctx.globalAlpha = 1;
+  if (ch.extra === 'freckles') {
+    ctx.fillStyle = shadeColor(ch.skin, 0.72);
+    for (const [x, y] of [[-2, 20], [4, 23], [0, 26], [34, 21], [39, 24]]) { ctx.beginPath(); ctx.arc(x, y, 1.5, 0, TAU); ctx.fill(); }
+  }
+  // boca
+  const mx = 23, my = 28;
+  ctx.strokeStyle = OUT; ctx.lineWidth = 4;
+  if (face === 'shout' || face === 'happy') {
+    ctx.beginPath();
+    ctx.moveTo(mx - 8, my - 3);
+    ctx.quadraticCurveTo(mx, my - 5, mx + 8, my - 3);
+    ctx.quadraticCurveTo(mx + 6, my + 11, mx - 1, my + 11);
+    ctx.quadraticCurveTo(mx - 8, my + 9, mx - 8, my - 3);
+    ctx.fillStyle = '#7a1030'; ctx.fill(); ctx.stroke();
+    ellipse(ctx, mx, my + 7, 4, 2.5, 0, '#ff6f8e');
+  } else if (face === 'sad') {
+    ctx.beginPath(); ctx.arc(mx, my + 6, 6, Math.PI * 1.15, Math.PI * 1.85); ctx.stroke();
+  } else if (face === 'focus') {
+    ctx.beginPath(); ctx.moveTo(mx - 4, my); ctx.lineTo(mx + 5, my - 1); ctx.stroke();
+  } else if (face === 'dizzy') {
+    ctx.beginPath(); ctx.moveTo(mx - 7, my); ctx.quadraticCurveTo(mx - 3, my - 4, mx, my); ctx.quadraticCurveTo(mx + 3, my + 4, mx + 7, my); ctx.stroke();
+  } else {
+    ctx.beginPath(); ctx.arc(mx, my - 4, 7, Math.PI * 0.2, Math.PI * 0.85); ctx.stroke();
+  }
+}
+
+function drawHead(ctx, ch, sk, face, time) {
+  ctx.save();
+  ctx.translate(sk.H.x, sk.H.y);
+  ctx.rotate(sk.headAng);
+  hairBack(ctx, ch, time);
+  dot(ctx, V(0, 0), R, ch.skin, 6);
+  // sombra de cel-shading na nuca
+  ctx.save();
+  ctx.beginPath(); ctx.arc(0, 0, R - 3, 0, TAU); ctx.clip();
+  ctx.fillStyle = 'rgba(90,30,70,0.13)';
+  ctx.beginPath(); ctx.arc(-R * 0.75, R * 0.2, R * 0.85, 0, TAU); ctx.fill();
+  ctx.restore();
+  // orelha
+  ellipse(ctx, -15, 8, 7, 10, 0, ch.skin, 3.5);
+  if (ch.extra === 'hoop') { ctx.strokeStyle = '#ffd23f'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(-15, 24, 6, 0, TAU); ctx.stroke(); }
+  hairFront(ctx, ch);
+  drawFace(ctx, ch, face, time);
+  drawHat(ctx, ch);
+  if (ch.extra === 'mustache') {
+    // bigodão
+    ctx.beginPath();
+    ctx.moveTo(10, 21);
+    ctx.quadraticCurveTo(22, 14, 36, 21);
+    ctx.quadraticCurveTo(38, 27, 32, 26);
+    ctx.quadraticCurveTo(23, 21, 14, 26);
+    ctx.quadraticCurveTo(8, 27, 10, 21);
+    ctx.fillStyle = ch.hair; ctx.fill();
+    ctx.strokeStyle = OUT; ctx.lineWidth = 3; ctx.stroke();
+  }
+  if (ch.extra === 'shades' && face !== 'dizzy') {
+    // óculos escuros radicais
+    ctx.strokeStyle = OUT; ctx.lineWidth = 4;
+    ctx.beginPath(); ctx.moveTo(-12, 4); ctx.lineTo(44, 4); ctx.stroke();
+    for (const [x, w] of [[10, 12], [33, 10]]) {
+      ctx.beginPath(); ctx.ellipse(x, 8, w, 8, 0, 0, TAU);
+      ctx.fillStyle = '#1d1a2b'; ctx.fill(); ctx.stroke();
+      ctx.fillStyle = 'rgba(160,255,120,0.7)';
+      ctx.beginPath(); ctx.ellipse(x - w * 0.35, 5, w * 0.3, 2.2, -0.3, 0, TAU); ctx.fill();
+    }
+  }
+  if (ch.extra === 'starshades') {
+    ctx.strokeStyle = OUT; ctx.lineWidth = 4;
+    ctx.beginPath(); ctx.moveTo(-6, -36); ctx.lineTo(22, -34); ctx.stroke();
+    star(ctx, -8, -38, 11, -0.2, '#ff5fa2');
+    star(ctx, 22, -36, 10, 0.2, '#ff5fa2');
+  }
+  ctx.restore();
+}
+
+function drawChibi(ctx, ch, pose, time) {
+  const W = ctx.canvas.width;
+  ctx.clearRect(0, 0, W, W);
+  ctx.save();
+  ctx.translate(W / 2, W - 10);
+  ctx.scale(W / 256, W / 256);
+  const sk = skeleton(pose);
+  const shade = ch.skinShade;
+  const sleeve = ch.topStyle === 'camiseta';
+  const ss = ch.shortsStyle || 'faixa';
+  drawArm(ctx, sk.armB, shade, sleeve && shadeColor(ch.top, 0.75), null);
+  drawLeg(ctx, sk.legB, shade, shadeColor(ch.shorts, 0.75), shadeColor(ch.shortsAccent, 0.75), ss);
+  drawTorso(ctx, sk, ch);
+  // perna levantada (shark, bicicleta) vai por cima do cabeção
+  const legOnTop = pose.legF.hip > 1.6 || pose.legF.hip < -1.8 || Math.abs(pose.bodyRot) > 1.2;
+  if (!legOnTop) drawLeg(ctx, sk.legF, ch.skin, ch.shorts, ch.shortsAccent, ss);
+  drawHead(ctx, ch, sk, pose.face, time);
+  if (legOnTop) drawLeg(ctx, sk.legF, ch.skin, ch.shorts, ch.shortsAccent, ss);
+  drawArm(ctx, sk.armF, ch.skin, sleeve && ch.top, ch.wrist, ch.wristColor || ch.topAccent);
+  ctx.restore();
+}
+
+// Bola de futevôlei (amarela com gomos azul e verde).
+function drawBall(ctx) {
+  const W = ctx.canvas.width, r = W * 0.42, c = W / 2;
+  ctx.clearRect(0, 0, W, W);
+  ctx.save();
+  ctx.beginPath(); ctx.arc(c, c, r, 0, TAU); ctx.fillStyle = '#ffd21a'; ctx.fill();
+  ctx.clip();
+  ctx.lineWidth = r * 0.34;
+  ctx.strokeStyle = '#1f6fff';
+  ctx.beginPath(); ctx.arc(c - r * 1.1, c, r * 1.25, -0.9, 0.9); ctx.stroke();
+  ctx.strokeStyle = '#19c26b';
+  ctx.beginPath(); ctx.arc(c + r * 1.1, c, r * 1.25, Math.PI - 0.9, Math.PI + 0.9); ctx.stroke();
+  ctx.fillStyle = 'rgba(255,255,255,0.55)';
+  ctx.beginPath(); ctx.ellipse(c - r * 0.35, c - r * 0.4, r * 0.3, r * 0.18, -0.6, 0, TAU); ctx.fill();
+  ctx.restore();
+  ctx.beginPath(); ctx.arc(c, c, r, 0, TAU); ctx.strokeStyle = OUT; ctx.lineWidth = W * 0.06; ctx.stroke();
+}
+
+
+
+// Ângulos em radianos. Membros: 0 = apontando para baixo, + = para a frente.
+// torso/neck: + = inclina para a frente. bodyRot: + = gira para a frente (horário).
+const base = () => ({
+  rootX: 0, rootY: 0, bodyRot: 0, torso: 0.05, neck: 0,
+  legF: { hip: 0.12, knee: 0.18 }, legB: { hip: -0.12, knee: 0.18 },
+  armF: { sh: 0.35, el: 0.6 }, armB: { sh: -0.3, el: 0.6 },
+  face: 'smile',
+});
+
+const clamp01 = v => Math.max(0, Math.min(1, v));
+const easeOut = k => 1 - (1 - k) * (1 - k);
+
+function swingPose(p, anim, u) {
+  switch (anim) {
+    case 'kick':
+    case 'poke': {
+      const amp = anim === 'poke' ? 0.65 : 1;
+      if (u < 0.25) {
+        const k = u / 0.25;
+        p.legF.hip = -0.5 * k * amp; p.legF.knee = 0.3 + 0.9 * k;
+      } else if (u < 0.55) {
+        const k = easeOut((u - 0.25) / 0.3);
+        p.legF.hip = (-0.5 + 1.9 * k) * amp; p.legF.knee = 1.2 * (1 - k);
+        p.face = 'shout';
+      } else {
+        const k = (u - 0.55) / 0.45;
+        p.legF.hip = 1.4 * amp * (1 - k) + 0.3 * k; p.legF.knee = 0.3 * k;
+      }
+      p.torso = -0.25 * Math.sin(Math.PI * u) * amp;
+      p.armF = { sh: 1.3, el: 0.4 }; p.armB = { sh: -1.1, el: 0.4 };
+      p.legB = { hip: -0.15, knee: 0.35 };
+      p.rootY = 3;
+      break;
+    }
+    case 'chest': {
+      const k = Math.sin(Math.PI * u);
+      p.torso = -0.55 * k; p.neck = 0.35 * k;
+      p.armF = { sh: -0.9, el: 0.6 }; p.armB = { sh: -1.2, el: 0.6 };
+      p.legF = { hip: 0.45, knee: 0.7 }; p.legB = { hip: -0.1, knee: 0.6 };
+      p.rootY = 7 * k;
+      if (u > 0.2 && u < 0.6) p.face = 'shout';
+      break;
+    }
+    case 'shoulder': {
+      const k = Math.sin(Math.PI * u);
+      p.torso = 0.35 * k; p.bodyRot = -0.2 * k;
+      p.armF = { sh: -0.2, el: 0.2 }; p.armB = { sh: -1.3, el: 0.5 };
+      p.legF = { hip: 0.35, knee: 0.5 }; p.legB = { hip: -0.3, knee: 0.4 };
+      p.rootY = 5 * k;
+      if (u > 0.2 && u < 0.6) p.face = 'shout';
+      break;
+    }
+    case 'header': {
+      p.neck = u < 0.3 ? -0.5 * (u / 0.3) : -0.5 + 1.1 * clamp01((u - 0.3) / 0.2);
+      p.torso = p.neck * 0.45;
+      p.armF = { sh: 1.4, el: 0.3 }; p.armB = { sh: -1.4, el: 0.3 };
+      p.legF = { hip: 0.6, knee: 1.2 }; p.legB = { hip: 0.1, knee: 1.1 };
+      if (u > 0.25) p.face = 'shout';
+      break;
+    }
+    case 'shark': {
+      const up = clamp01(u / 0.3);
+      const stomp = clamp01((u - 0.4) / 0.25);
+      p.legF = { hip: up * 2.35 - stomp * 0.7, knee: 0.05 };
+      p.legB = { hip: -0.4, knee: 0.9 };
+      p.torso = -0.8 * up;
+      p.bodyRot = -0.35 * up;
+      p.armF = { sh: 1.7, el: 0.2 }; p.armB = { sh: -1.7, el: 0.2 };
+      p.face = 'shout';
+      break;
+    }
+    case 'bicicleta': {
+      const r = clamp01(u / 0.45);
+      p.bodyRot = -2.7 * r;
+      const swap = u > 0.35;
+      p.legF = { hip: swap ? 2.9 : 0.4, knee: swap ? 0.05 : 0.8 };
+      p.legB = { hip: swap ? 0.3 : 2.2, knee: swap ? 0.7 : 0.2 };
+      p.armF = { sh: 2.0, el: 0.2 }; p.armB = { sh: -2.0, el: 0.2 };
+      p.face = 'shout';
+      break;
+    }
+    case 'sarrada': {
+      // quadril para a frente, tronco para trás, braços para cima
+      const k = Math.sin(Math.PI * clamp01(u / 0.6));
+      p.rootX = 12 * k; p.torso = -0.55 * k; p.neck = 0.3 * k;
+      p.legF = { hip: 0.5 * k, knee: 0.9 * k }; p.legB = { hip: -0.5 * k, knee: 0.8 * k };
+      p.armF = { sh: 2.7 * k, el: 0.3 }; p.armB = { sh: -2.7 * k, el: 0.3 };
+      p.face = 'shout';
+      break;
+    }
+    case 'escorpiao': {
+      // corpo mergulha para a frente e o calcanhar vem por cima da cabeça
+      const r = clamp01(u / 0.4);
+      p.bodyRot = 0.95 * r;
+      p.legF = { hip: -2.5 * r, knee: 1.1 * r };
+      p.legB = { hip: -1.2 * r, knee: 0.9 * r };
+      p.armF = { sh: 1.3, el: 0.2 }; p.armB = { sh: 1.0, el: 0.2 };
+      p.face = 'shout';
+      break;
+    }
+    case 'meia': {
+      const r = clamp01(u / 0.4);
+      p.bodyRot = -1.4 * r;
+      p.legF = { hip: 0.4 + 2.0 * r, knee: 0.1 };
+      p.legB = { hip: -0.2, knee: 0.6 };
+      p.armF = { sh: 1.9, el: 0.2 }; p.armB = { sh: -1.9, el: 0.2 };
+      p.face = 'shout';
+      break;
+    }
+  }
+  return p;
+}
+
+// Postura de preparação ("telegrafia"): cada golpe tem uma silhueta própria,
+// para que o adversário consiga ler o que vem. k = intensidade 0..1.
+function windupPose(p, anim, k) {
+  switch (anim) {
+    case 'kick': // chute: perna armada lá atrás, braços abertos
+      p.legF = { hip: -0.8 * k, knee: 1.35 * k }; p.legB = { hip: 0.1, knee: 0.45 * k };
+      p.torso = -0.22 * k; p.armF = { sh: 1.3 * k, el: 0.4 }; p.armB = { sh: -1.4 * k, el: 0.4 };
+      p.rootY = 4 * k;
+      break;
+    case 'poke': // toque curto: perna levantada de leve, corpo solto
+      p.legF = { hip: 0.6 * k, knee: 1.15 * k }; p.legB = { hip: -0.1, knee: 0.35 * k };
+      p.torso = 0.12 * k; p.armF = { sh: 0.7 * k, el: 0.9 }; p.armB = { sh: -0.7 * k, el: 0.9 };
+      p.rootY = 2 * k;
+      break;
+    case 'chest': // domínio de peito: peito estufado, braços para trás
+      p.torso = -0.48 * k; p.neck = 0.28 * k;
+      p.armF = { sh: -1.2 * k, el: 0.3 }; p.armB = { sh: -1.6 * k, el: 0.3 };
+      p.legF = { hip: 0.4 * k, knee: 0.75 * k }; p.legB = { hip: -0.15, knee: 0.65 * k };
+      p.rootY = 7 * k;
+      break;
+    case 'shoulder': // ombro: tronco torcido, ombro da frente baixo
+      p.torso = 0.32 * k; p.bodyRot = -0.3 * k;
+      p.armF = { sh: -0.4 * k, el: 0.2 }; p.armB = { sh: -1.6 * k, el: 0.5 };
+      p.legF = { hip: 0.35 * k, knee: 0.55 * k }; p.legB = { hip: -0.3 * k, knee: 0.5 * k };
+      p.rootY = 5 * k;
+      break;
+    case 'header': // cabeçada: cabeça puxada para trás, joelhos flexionados
+      p.neck = -0.65 * k; p.torso = -0.2 * k;
+      p.armF = { sh: 1.6 * k, el: 0.3 }; p.armB = { sh: -1.6 * k, el: 0.3 };
+      p.legF = { hip: 0.5 * k, knee: 1.05 * k }; p.legB = { hip: 0.05, knee: 0.95 * k };
+      p.rootY = 8 * k;
+      break;
+    case 'shark': // shark: joelho da frente armado bem alto, sola pronta
+      p.legF = { hip: 1.75 * k, knee: 1.75 * k }; p.legB = { hip: -0.3 * k, knee: 0.8 * k };
+      p.torso = -0.45 * k; p.bodyRot = -0.15 * k;
+      p.armF = { sh: 2.2 * k, el: 0.3 }; p.armB = { sh: -2.2 * k, el: 0.3 };
+      break;
+    case 'bicicleta': // bicicleta: corpo tombando para trás, pernas encolhidas
+      p.bodyRot = -0.75 * k;
+      p.legF = { hip: 1.2 * k, knee: 1.5 * k }; p.legB = { hip: 1.7 * k, knee: 1.2 * k };
+      p.armF = { sh: 2.4 * k, el: 0.3 }; p.armB = { sh: -2.4 * k, el: 0.3 };
+      break;
+    case 'sarrada': // sarrada: quadril recolhido, pronto para empurrar
+      p.rootX = -6 * k; p.torso = 0.3 * k;
+      p.legF = { hip: 0.4 * k, knee: 0.9 * k }; p.legB = { hip: -0.4 * k, knee: 0.9 * k };
+      p.armF = { sh: 1.2 * k, el: 1.0 }; p.armB = { sh: -1.2 * k, el: 1.0 };
+      p.rootY = 8 * k;
+      break;
+    case 'escorpiao': // escorpião: corpo inclinado para a frente, calcanhar já subindo
+      p.bodyRot = 0.35 * k;
+      p.legF = { hip: -1.0 * k, knee: 1.2 * k }; p.legB = { hip: 0.2, knee: 0.8 * k };
+      p.armF = { sh: 1.5 * k, el: 0.3 }; p.armB = { sh: -1.5 * k, el: 0.3 };
+      break;
+    case 'meia': // meia-bicicleta: corpo de lado, perna armada
+      p.bodyRot = -0.45 * k;
+      p.legF = { hip: 1.3 * k, knee: 1.25 * k }; p.legB = { hip: -0.2, knee: 0.7 * k };
+      p.armF = { sh: 2.0 * k, el: 0.3 }; p.armB = { sh: -2.0 * k, el: 0.3 };
+      break;
+  }
+  p.face = 'focus';
+  return p;
+}
+
+function runLegs(p, pl) {
+  const ph = pl.runPhase;
+  p.legF = { hip: 0.8 * Math.sin(ph), knee: 0.2 + 0.9 * Math.max(0, Math.sin(ph + 1.6)) };
+  p.legB = { hip: 0.8 * Math.sin(ph + Math.PI), knee: 0.2 + 0.9 * Math.max(0, Math.sin(ph + Math.PI + 1.6)) };
+  p.rootY = -3 * Math.abs(Math.cos(ph));
+}
+
+function poseFor(pl, time) {
+  const p = base();
+  const t = time + pl.idx * 0.7 + pl.team * 1.3;
+  const sw = pl.swing;
+
+  if (pl.state === 'down') {
+    const back = pl.downKind === 'back';
+    p.bodyRot = back ? -1.5 : 1.5;
+    p.rootY = 46;
+    p.legF = { hip: 0.2, knee: 0.3 }; p.legB = { hip: -0.2, knee: 0.5 };
+    p.armF = { sh: back ? 1.4 : 2.6, el: 0.4 }; p.armB = { sh: back ? -1.2 : 2.3, el: 0.4 };
+    p.face = 'dizzy';
+    return p;
+  }
+  if (pl.state === 'dive') {
+    // Carrinho: corpo deitado para trás, perna da frente esticada rente à areia,
+    // perna de trás dobrada, braço de trás apoiando no chão.
+    const r = -1.2;
+    p.bodyRot = r; p.rootY = 62;
+    p.torso = 0; p.neck = 0.55;
+    p.legF = { hip: Math.PI / 2 + r + 0.05, knee: 0 };
+    p.legB = { hip: 0.35 + r + 1.0, knee: 1.1 };
+    p.armB = { sh: -0.35 + r, el: 0.2 };
+    p.armF = { sh: 2.3 + r, el: 0.5 };
+    p.face = 'shout';
+    return p;
+  }
+  if (sw && sw.anim && sw.kind !== 'dive') {
+    swingPose(p, sw.anim, clamp01(sw.t / 0.5));
+    if (pl.state === 'air' && (sw.anim === 'kick' || sw.anim === 'poke')) p.legB = { hip: 0.5, knee: 1.3 };
+    return p;
+  }
+  if (pl.telegraph) {
+    const k = Math.min(1, 0.35 + (pl.holdT || 0) / 0.25);
+    windupPose(p, pl.telegraph, k);
+    // correndo até a bola: pernas continuam correndo, o tronco já mostra o golpe
+    const legMove = ['kick', 'poke', 'shark', 'meia', 'bicicleta', 'escorpiao', 'sarrada'].includes(pl.telegraph);
+    if (pl.state === 'ground' && pl.speed > 1.5 && !legMove) runLegs(p, pl);
+    if (k >= 1) p.rootX = Math.sin(t * 40) * 0.6; // tensão
+    return p;
+  }
+  if (pl.state === 'air') {
+    p.legF = { hip: 1.0, knee: 1.6 }; p.legB = { hip: 0.4, knee: 1.4 };
+    p.armF = { sh: 2.2, el: 0.3 }; p.armB = { sh: -2.2, el: 0.3 };
+    p.torso = 0.1;
+    p.face = pl.hold ? 'focus' : 'smile';
+    return p;
+  }
+  if (pl.mood === 'happy') {
+    p.rootY = -Math.abs(Math.sin(t * 6)) * 14;
+    p.armF = { sh: 2.8, el: 0.3 }; p.armB = { sh: -2.8, el: 0.3 };
+    p.legF = { hip: 0.3, knee: 0.6 }; p.legB = { hip: -0.3, knee: 0.6 };
+    p.face = 'happy';
+    return p;
+  }
+  if (pl.mood === 'sad') {
+    p.neck = 0.45; p.torso = 0.15;
+    p.armF = { sh: 0.05, el: 0.1 }; p.armB = { sh: -0.05, el: 0.1 };
+    p.face = 'sad';
+    return p;
+  }
+  if (pl.speed > 0.6) {
+    const ph = pl.runPhase;
+    const back = pl.vx * pl.facing < -0.5;
+    runLegs(p, pl);
+    p.armF = { sh: -0.8 * Math.sin(ph), el: 1.2 }; p.armB = { sh: 0.8 * Math.sin(ph), el: 1.2 };
+    p.torso = back ? -0.08 : 0.22;
+    return p;
+  }
+  p.rootY = Math.sin(t * 3) * 1.5;
+  p.armF.sh = 0.35 + Math.sin(t * 3) * 0.05;
+  p.armB.sh = -0.3 - Math.sin(t * 3) * 0.05;
+  return p;
+}
+
+
+// ---------------- dados ----------------
+const GIULIA = {
+  id: 'giulia', name: 'Giulia', special: 'bicicleta', color: '#9b5cff',
+  skin: '#f3c9a5', skinShade: '#d9a07c', eyes: '#5a2bb8',
+  hair: '#7a3cf0', hairHi: '#c09bff', hairStyle: 'ponytail',
+  top: '#9b5cff', topAccent: '#ffffff', shorts: '#2a1d45', shortsAccent: '#ff5fa2',
+  extra: 'starshades',
+};
+
+// posição física de cada ação (igual em todos os controles)
+const LABELS = {
+  ps: { A: '□', B: '○', C: '✕', D: '△', R: 'R1', L: 'L1', L2: 'L2', start: 'OPTIONS', move: 'direcional' },
+  xbox: { A: 'X', B: 'B', C: 'A', D: 'Y', R: 'RB', L: 'LB', L2: 'LT', start: 'MENU', move: 'analógico' },
+  kb: { A: 'J', B: 'K', C: 'L', D: 'U', R: 'I', L: 'T', L2: 'G', start: 'Esc', move: 'WASD' },
+};
+const PS_COL = { A: '#ff8fd0', B: '#ff5b6b', C: '#7aa7ff', D: '#3ddc97' };
+const XB_COL = { A: '#2d6ee0', B: '#e2231a', C: '#5dc21e', D: '#f5c400' };
+
+// kind: ground (segurar e soltar) · air (pular e bater no ar) · special · dive · move · jump · system
+// ball: pass · set · attack · block · lob · serve · none
+const COMMANDS = [
+  { group: 'Movimento', id: 'mover', name: 'Mover', kind: 'move', keys: ['move'], ball: 'none',
+    desc: 'Corre para qualquer lado da quadra, inclusive em profundidade.', tactic: 'Posicionar-se atrás da bola, com ela à frente do corpo, antes de cada toque.' },
+  { group: 'Movimento', id: 'pulo', name: 'Pulo', kind: 'jump', keys: ['C'], ball: 'none',
+    desc: 'Pula. No ar, os botões de toque viram os golpes aéreos.', tactic: 'Chegar na bola alta para cabecear ou dar o shark.' },
+  { group: 'Movimento', id: 'carrinho', name: 'Carrinho', kind: 'dive', keys: ['D'], ball: 'dig',
+    desc: 'Desliza com os pés na frente na direção do direcional (sem direção, vai na bola).', tactic: 'Salvar bola longe. Depois a atleta fica um instante no chão.' },
+
+  { group: '1º toque · domínio', touch: '1º toque', id: 'peito', name: 'Domínio de peito', kind: 'ground', anim: 'chest', keys: ['A'], ball: 'pass',
+    desc: 'Amortece a bola no peito e manda para a parceira.', tactic: 'O domínio certo para bola forte: aguenta pancada sem perder o controle.' },
+  { group: '1º toque · domínio', touch: '1º toque', id: 'pe', name: 'Domínio de pé', kind: 'ground', anim: 'poke', keys: ['B'], ball: 'pass', low: true,
+    desc: 'Toque de pé, mais preciso, para a parceira.', tactic: 'Ótimo com bola lenta; com bola forte sai torto.' },
+  { group: '1º toque · domínio', touch: '1º toque', id: 'cabeca', name: 'Cabeça', kind: 'air', anim: 'header', keys: ['C', 'A'], ball: 'pass',
+    desc: 'No ar, domina de cabeça.', tactic: 'Para a bola alta que passaria por cima.' },
+  { group: '1º toque · domínio', touch: '1º toque', id: 'bloqueio', name: 'Shark (bloqueio)', kind: 'air', anim: 'shark', keys: ['C', 'B'], ball: 'block',
+    desc: 'Colada na rede, devolve o ataque de cima para baixo.', tactic: 'Anula o ataque adversário. Longe da rede vira um toque ruim.' },
+
+  { group: '2º toque · levantamento', touch: '2º toque', id: 'ombro', name: 'Passe de ombro', kind: 'ground', anim: 'shoulder', keys: ['A'], ball: 'set',
+    desc: 'Levanta a bola alta perto da rede.', tactic: 'Dá tempo para a parceira chegar e atacar.' },
+  { group: '2º toque · levantamento', touch: '2º toque', id: 'nafita', name: 'Na fita', kind: 'ground', anim: 'poke', keys: ['B'], ball: 'setLow', low: true,
+    desc: 'Levantamento baixo, colado na rede.', tactic: 'Arma o Shark Attack, mas exige tempo certo.' },
+  { group: '2º toque · levantamento', touch: '2º toque', id: 'segunda', name: 'Ataque de segunda', kind: 'air', anim: 'header', keys: ['C', 'A'], ball: 'attack',
+    desc: 'Em vez de levantar, ataca direto no 2º toque.', tactic: 'Surpresa: pega a defesa ainda se armando.' },
+  { group: '2º toque · levantamento', touch: '2º toque', id: 'levcabeca', name: 'Levantada de cabeça', kind: 'air', anim: 'header', keys: ['C', 'B'], ball: 'set',
+    desc: 'Levanta de cabeça, no ar.', tactic: 'Para a bola que chega alta demais para o ombro.' },
+
+  { group: '3º toque · ataque', touch: '3º toque', id: 'chute', name: 'Chute colocado', kind: 'ground', anim: 'kick', keys: ['A'], ball: 'attack', low: true,
+    desc: 'Chute firme para o fundo da quadra adversária.', tactic: 'Colocação segura, de qualquer lugar da quadra.' },
+  { group: '3º toque · ataque', touch: '3º toque', id: 'pingo', name: 'Pingo', kind: 'ground', anim: 'poke', keys: ['B'], ball: 'lob', low: true,
+    desc: 'Bola curtinha que cai logo depois da rede.', tactic: 'Pune a defesa que ficou lá no fundo.' },
+  { group: '3º toque · ataque', touch: '3º toque', id: 'cabecada', name: 'Cabeçada', kind: 'air', anim: 'header', keys: ['C', 'A'], ball: 'attack',
+    desc: 'Cabeçada funda. Com o direcional na diagonal, vai para as quinas.', tactic: 'Ataque de fundo, bom para quem vem de trás.' },
+  { group: '3º toque · ataque', touch: '3º toque', id: 'shark', name: 'Shark Attack', kind: 'air', anim: 'shark', keys: ['C', 'B'], ball: 'spike',
+    desc: 'Sola por cima da rede, de cima para baixo.', tactic: 'O ataque mais forte. Só funciona colado na rede e com a bola acima da fita.' },
+
+  { group: 'Saque e especial', id: 'saqueforte', name: 'Saque forte', kind: 'ground', anim: 'kick', keys: ['A'], ball: 'serve', low: true, touch: 'Saque',
+    desc: 'Saque rápido e fundo.', tactic: 'Pressiona a recepção logo de cara.' },
+  { group: 'Saque e especial', id: 'viagem', name: 'Saque viagem', kind: 'ground', anim: 'kick', keys: ['B'], ball: 'serveHigh', low: true, touch: 'Saque',
+    desc: 'Saque altíssimo, difícil de ler.', tactic: 'A bola cai quase na vertical e confunde o tempo da recepção.' },
+  { group: 'Saque e especial', id: 'bicicleta', name: 'Bicicleta (especial)', kind: 'special', anim: 'bicicleta', keys: ['C', 'C'], ball: 'spike', touch: 'Barra cheia',
+    desc: 'O especial da Giulia: pula e, no ar, aperta o pulo de novo com a barra cheia.', tactic: 'Ponto de qualquer lugar, fundo e rápido. Depois ela cai na areia.' },
+
+  { group: 'Partida', id: 'formacao', name: 'Formação', kind: 'formation', keys: ['R'], ball: 'none',
+    desc: 'Troca quem fica na rede e quem cobre o fundo.', tactic: 'Colocar a atacante certa perto da rede.' },
+  { group: 'Partida', id: 'lenta', name: 'Câmera lenta (treino)', kind: 'slow', keys: ['L'], ball: 'none',
+    desc: 'Deixa o jogo a 50% para aprender os tempos. Só no modo treino.', tactic: 'Treinar o momento de soltar o botão.' },
+  { group: 'Partida', id: 'ajudas', name: 'Ajudas visuais', kind: 'assist', keys: ['L2'], ball: 'none',
+    desc: 'Liga ou desliga o arco da bola, o alvo no chão e o brilho da nota de cada toque.', tactic: 'Ler para onde a bola vai enquanto aprende.' },
+  { group: 'Partida', id: 'pausa', name: 'Pausa', kind: 'pause', keys: ['start'], ball: 'none',
+    desc: 'Abre a pausa, com configurações e a lista de comandos.', tactic: '' },
+];
+
+// ---------------- ícones ----------------
+function icon(dev, a, size = 24) {
+  const L = LABELS[dev][a];
+  if (dev === 'kb') return `<span class="cap">${L}</span>`;
+  if (!['A', 'B', 'C', 'D'].includes(a)) return `<span class="pill">${L}</span>`;
+  if (dev === 'xbox') {
+    return `<svg class="btn-ico" width="${size}" height="${size}" viewBox="0 0 24 24" aria-label="${L}"><circle cx="12" cy="12" r="11" fill="${XB_COL[a]}"/><text x="12" y="16.5" text-anchor="middle" font-family="Arial, sans-serif" font-weight="900" font-size="13" fill="${a === 'D' ? '#1d1a2b' : '#fff'}">${L}</text></svg>`;
+  }
+  const c = PS_COL[a];
+  const shape = { A: `<rect x="7" y="7" width="10" height="10" fill="none" stroke="${c}" stroke-width="2.2"/>`,
+    B: `<circle cx="12" cy="12" r="5.4" fill="none" stroke="${c}" stroke-width="2.2"/>`,
+    C: `<path d="M7.5 7.5 L16.5 16.5 M16.5 7.5 L7.5 16.5" stroke="${c}" stroke-width="2.4" stroke-linecap="round"/>`,
+    D: `<path d="M12 6.2 L17.6 16 L6.4 16 Z" fill="none" stroke="${c}" stroke-width="2.2" stroke-linejoin="round"/>` }[a];
+  return `<svg class="btn-ico" width="${size}" height="${size}" viewBox="0 0 24 24" aria-label="${L}"><circle cx="12" cy="12" r="11" fill="#1d1a2b"/>${shape}</svg>`;
+}
+const keysHTML = (dev, keys) => keys.map(k => icon(dev, k, 22)).join('<span class="plus">+</span>');
+
+// ---------------- controle desenhado ----------------
+function padSVG(dev) {
+  if (dev === 'kb') {
+    const k = (id, x, y, w, label) => `<g id="k-${id}"><rect x="${x}" y="${y}" width="${w}" height="40" rx="7" class="kbk"/><text x="${x + w / 2}" y="${y + 26}" text-anchor="middle" class="kbt">${label}</text></g>`;
+    return `<svg viewBox="0 0 520 250" role="img" aria-label="Teclado">
+      <style>.kbk{fill:var(--surface-2);stroke:var(--line);stroke-width:2}.kbt{font:900 16px Nunito,sans-serif;fill:var(--fg)}.on .kbk{fill:var(--hot);stroke:var(--hot)}.on .kbt{fill:#fff}</style>
+      ${k('start', 10, 10, 58, 'Esc')}
+      ${k('up', 104, 60, 44, 'W')}${k('left', 56, 106, 44, 'A')}${k('down', 104, 106, 44, 'S')}${k('right', 152, 106, 44, 'D')}
+      ${k('L', 214, 60, 44, 'T')}${k('L2', 238, 106, 44, 'G')}
+      ${k('D', 300, 60, 44, 'U')}${k('R', 348, 60, 44, 'I')}
+      ${k('A', 324, 106, 44, 'J')}${k('B', 372, 106, 44, 'K')}${k('C', 420, 106, 44, 'L')}
+      <text x="260" y="200" text-anchor="middle" style="font:800 13px Nunito,sans-serif;fill:var(--muted)">WASD move · J forte · K preciso · L pulo · U carrinho · I formação</text>
+      <text x="260" y="222" text-anchor="middle" style="font:800 13px Nunito,sans-serif;fill:var(--muted)">T câmera lenta · G ajudas visuais · Esc pausa</text>
+    </svg>`;
+  }
+  const L = LABELS[dev];
+  const face = (a, cx, cy) => {
+    const inner = dev === 'xbox'
+      ? `<text x="${cx}" y="${cy + 7}" text-anchor="middle" style="font:900 20px Arial,sans-serif;fill:${a === 'D' ? '#1d1a2b' : '#fff'}">${L[a]}</text>`
+      : { A: `<rect x="${cx - 8}" y="${cy - 8}" width="16" height="16" fill="none" stroke="${PS_COL.A}" stroke-width="3"/>`,
+        B: `<circle cx="${cx}" cy="${cy}" r="8.5" fill="none" stroke="${PS_COL.B}" stroke-width="3"/>`,
+        C: `<path d="M${cx - 7} ${cy - 7} L${cx + 7} ${cy + 7} M${cx + 7} ${cy - 7} L${cx - 7} ${cy + 7}" stroke="${PS_COL.C}" stroke-width="3.4" stroke-linecap="round"/>`,
+        D: `<path d="M${cx} ${cy - 9} L${cx + 9} ${cy + 7} L${cx - 9} ${cy + 7} Z" fill="none" stroke="${PS_COL.D}" stroke-width="3" stroke-linejoin="round"/>` }[a];
+    const fill = dev === 'xbox' ? XB_COL[a] : '#1d1a2b';
+    return `<g id="k-${a}" class="face"><circle cx="${cx}" cy="${cy}" r="21" fill="${fill}" class="fb"/>${inner}<circle cx="${cx}" cy="${cy}" r="25" class="ring"/></g>`;
+  };
+  const sh = (id, x, y, w, h, label) => `<g id="k-${id}" class="sh"><rect x="${x}" y="${y}" width="${w}" height="${h}" rx="12" class="shb"/><text x="${x + w / 2}" y="${y + h / 2 + 5}" text-anchor="middle" class="sht">${label}</text></g>`;
+  return `<svg viewBox="0 0 520 300" role="img" aria-label="Controle">
+    <style>
+      .body{fill:var(--pad)} .grip{fill:var(--pad-2)} .shb{fill:var(--pad-2)} .sht{font:900 13px Nunito,sans-serif;fill:var(--pad-fg)}
+      .ring{fill:none;stroke:transparent;stroke-width:4} .on .ring{stroke:var(--hot)} .on .fb{filter:brightness(1.5)}
+      .on .shb{fill:var(--hot)} .dp{fill:var(--pad-2)} .on .dp{fill:var(--hot)} .stick{fill:#141c2c;stroke:var(--pad-2);stroke-width:4}
+      .lbl{font:800 12px Nunito,sans-serif;fill:var(--muted)}
+    </style>
+    ${sh('L2', 70, 10, 92, 26, L.L2)}${sh('R2', 358, 10, 92, 26, dev === 'xbox' ? 'RT' : 'R2')}
+    ${sh('L', 62, 40, 108, 26, L.L)}${sh('R', 350, 40, 108, 26, L.R)}
+    <path class="body" d="M110 62 H410 C470 62 505 120 510 190 C515 250 480 290 440 285 C405 281 390 240 360 225 H160 C130 240 115 281 80 285 C40 290 5 250 10 190 C15 120 50 62 110 62 Z"/>
+    <g id="k-move">
+      <rect x="92" y="104" width="30" height="86" rx="6" class="dp"/><rect x="64" y="132" width="86" height="30" rx="6" class="dp"/>
+      <circle cx="195" cy="210" r="26" class="stick" id="stickL"/>
+    </g>
+    <circle cx="325" cy="210" r="26" class="stick"/>
+    ${sh('start', 290, 110, 50, 22, dev === 'xbox' ? '≡' : 'OPT')}
+    ${face('D', 408, 108)}${face('A', 368, 148)}${face('B', 448, 148)}${face('C', 408, 188)}
+    <text x="260" y="296" text-anchor="middle" class="lbl"></text>
+  </svg>`;
+}
+
+// ---------------- estado ----------------
+let dev = 'ps';
+let current = 3; // começa no domínio de peito
+let auto = !matchMedia('(prefers-reduced-motion: reduce)').matches;
+let t0 = performance.now();
+const LOOP = 2.6; // s
+
+try { const s = localStorage.getItem('rf-comandos-dev'); if (s && LABELS[s]) dev = s; } catch (e) { /* sem armazenamento */ }
+
+function renderDevices() {
+  document.querySelectorAll('.seg button').forEach(b => {
+    b.setAttribute('aria-pressed', String(b.dataset.dev === dev));
+    if (b.dataset.dev === 'ps') b.innerHTML = `${icon('ps', 'D', 18)}${icon('ps', 'C', 18)}`;
+    if (b.dataset.dev === 'xbox') b.innerHTML = `${icon('xbox', 'D', 18)}${icon('xbox', 'C', 18)}`;
+  });
+  document.querySelectorAll('.seg button')[0].setAttribute('aria-label', 'Controle estilo PlayStation');
+  document.querySelectorAll('.seg button')[1].setAttribute('aria-label', 'Controle estilo Xbox');
+  document.getElementById('pad').innerHTML = padSVG(dev);
+}
+
+function renderList() {
+  const groups = [...new Set(COMMANDS.map(c => c.group))];
+  document.getElementById('groups').innerHTML = groups.map(g => `
+    <div class="group"><h3>${g}</h3><div class="list">
+      ${COMMANDS.map((c, i) => c.group !== g ? '' : `<button type="button" class="cmd" id="cmd-${c.id}" data-i="${i}" aria-current="${i === current}"><span class="keys">${keysHTML(dev, c.keys)}</span>${c.name}</button>`).join('')}
+    </div></div>`).join('');
+}
+
+function stepsFor(c) {
+  const k = a => icon(dev, a, 20);
+  switch (c.kind) {
+    case 'ground': return [`Segure ${k(c.keys[0])} e aponte a direção`, `Solte ${k(c.keys[0])}: o golpe sai`];
+    case 'air': return [`${k('C')} para pular`, `No ar, ${k(c.keys[1])} (toque rápido)`];
+    case 'special': return [`${k('C')} para pular`, `No ar, ${k('C')} de novo com a barra cheia`];
+    case 'dive': return [`Aponte a direção com o ${LABELS[dev].move}`, `${k('D')}: carrinho`];
+    case 'move': return [`${LABELS[dev].move} para correr`];
+    case 'jump': return [`${k('C')} parada: pulo`];
+    default: return [`${k(c.keys[0])}`];
+  }
+}
+
+function renderInfo() {
+  const c = COMMANDS[current];
+  document.getElementById('i-name').textContent = c.name;
+  document.getElementById('i-touch').textContent = c.touch || c.group;
+  document.getElementById('i-keys').innerHTML = keysHTML(dev, c.keys);
+  document.getElementById('i-desc').textContent = c.desc;
+  document.getElementById('i-tactic').textContent = c.tactic || 'Disponível a qualquer momento da partida.';
+  document.getElementById('badge').textContent = c.touch || c.group;
+  document.getElementById('how').innerHTML = stepsFor(c).map((s, i) => `<div class="step" data-s="${i}"><span class="n">${i + 1}</span><span>${s}</span></div>`).join('');
+  document.querySelectorAll('.cmd').forEach(b => b.setAttribute('aria-current', String(+b.dataset.i === current)));
+}
+
+function select(i, keepAuto) {
+  current = (i + COMMANDS.length) % COMMANDS.length;
+  t0 = performance.now();
+  if (!keepAuto) { auto = false; syncAuto(); }
+  renderInfo();
+}
+function syncAuto() { document.getElementById('auto').textContent = auto ? 'Pausar demonstração' : 'Demonstração automática'; }
+
+document.querySelector('.seg').addEventListener('click', e => {
+  const b = e.target.closest('button[data-dev]');
+  if (!b) return;
+  dev = b.dataset.dev;
+  try { localStorage.setItem('rf-comandos-dev', dev); } catch (err) { /* ignora */ }
+  renderDevices(); renderList(); renderInfo();
+});
+document.getElementById('groups').addEventListener('click', e => {
+  const b = e.target.closest('.cmd');
+  if (b) select(+b.dataset.i);
+});
+document.getElementById('auto').addEventListener('click', () => { auto = !auto; syncAuto(); t0 = performance.now(); });
+
+// ---------------- palco ----------------
+const cv = document.getElementById('stage');
+const g = cv.getContext('2d');
+const sprite = document.createElement('canvas');
+sprite.width = sprite.height = 256;
+const sctx = sprite.getContext('2d');
+const ballC = document.createElement('canvas');
+ballC.width = ballC.height = 64;
+drawBall(ballC.getContext('2d'));
+
+const M = 80;          // px por metro
+const GROUND = 470;    // y do chão (px)
+const NET_X = 7.6;     // posição da rede (m)
+const HOME = 3.4;      // onde a Giulia fica (m)
+const px = x => x * M, py = y => GROUND - y * M;
+
+// linha do tempo de cada comando: pose, posição, botões acesos e bola
+function frameFor(c, t) {
+  const pl = { idx: 0, team: 0, state: 'ground', speed: 0, runPhase: 0, hold: null, holdT: 0, telegraph: null, swing: null, mood: null, facing: 1, vx: 0, downKind: 'front' };
+  let x = HOME, y = 0;
+  const on = new Set();
+  let step = -1;
+  let contact = null; // {t, h}
+  const jumpY = tt => Math.max(0, 5.4 * tt - 4.5 * tt * tt);
+  switch (c.kind) {
+    case 'ground': {
+      contact = { t: 1.0, h: c.low ? 0.55 : 1.35 };
+      if (t > 0.3 && t < 0.92) { pl.hold = c.keys[0]; pl.telegraph = c.anim; pl.holdT = t - 0.3; on.add(c.keys[0]); step = 0; }
+      if (t >= 0.92 && t < 1.42) { pl.swing = { anim: c.anim, t: t - 0.92, kind: 'hit' }; step = 1; }
+      break;
+    }
+    case 'air': case 'special': {
+      const tj = 0.35;
+      contact = { t: tj + 0.5, h: 2.6 };
+      if (t > tj) { const a = t - tj; y = jumpY(a); if (y > 0 || a < 0.1) pl.state = 'air'; }
+      if (t > tj - 0.05 && t < tj + 0.12) { on.add('C'); step = 0; }
+      const ts = tj + 0.36;
+      if (t > ts - 0.02 && t < ts + 0.14) { on.add(c.keys[1]); step = 1; }
+      if (t >= ts && t < ts + 0.5 && pl.state === 'air') { pl.swing = { anim: c.anim, t: t - ts, kind: c.kind === 'special' ? 'special' : 'hit' }; if (step < 0) step = 1; }
+      if (c.kind === 'special' && t > tj + 1.2 && t < 2.3) { pl.state = 'down'; pl.downKind = 'back'; y = 0; }
+      break;
+    }
+    case 'dive': {
+      contact = { t: 0.72, h: 0.35 };
+      if (t > 0.25 && t < 0.5) { on.add('move'); step = 0; }
+      if (t > 0.45 && t < 0.62) { on.add('D'); step = 1; }
+      if (t >= 0.5 && t < 0.92) { pl.state = 'dive'; x = HOME + (t - 0.5) * 6; }
+      else if (t >= 0.92 && t < 1.6) { pl.state = 'down'; pl.downKind = 'back'; x = HOME + 0.42 * 6; }
+      else if (t >= 1.6) x = HOME + 0.42 * 6 - Math.min(1, (t - 1.6) / 0.8) * 0.42 * 6;
+      break;
+    }
+    case 'move': {
+      on.add('move'); step = 0;
+      const k = Math.sin(t / LOOP * Math.PI * 2);
+      x = HOME + k * 1.6;
+      pl.speed = 5; pl.runPhase = t * 11;
+      pl.vx = Math.cos(t / LOOP * Math.PI * 2);
+      break;
+    }
+    case 'jump': {
+      if (t > 0.3 && t < 0.45) { on.add('C'); step = 0; }
+      if (t > 0.35) { y = jumpY(t - 0.35); if (y > 0) pl.state = 'air'; }
+      break;
+    }
+    case 'formation': {
+      if (t > 0.2 && t < 0.4) { on.add('R'); step = 0; }
+      const k = Math.min(1, Math.max(0, (t - 0.4) / 1.0));
+      x = HOME - 1.8 + k * 3.2; // do fundo para a rede
+      if (t > 0.4 && t < 1.4) { pl.speed = 5; pl.runPhase = t * 11; }
+      if (t >= 1.4) pl.mood = 'happy';
+      break;
+    }
+    case 'slow': case 'assist': case 'pause': {
+      if (t > 0.2 && t < 0.45) { on.add(c.keys[0]); step = 0; }
+      pl.mood = c.kind === 'pause' ? null : null;
+      break;
+    }
+  }
+  return { pl, x, y, on, step, contact };
+}
+
+// trajetória da bola (entra, toca, sai) em metros
+function ballAt(c, fr, t) {
+  if (!fr.contact || c.ball === 'none') return null;
+  const tc = fr.contact.t;
+  const cx = fr.x + 0.35, cy = fr.y + fr.contact.h;
+  const serve = c.ball === 'serve' || c.ball === 'serveHigh';
+  if (t < tc) {
+    if (serve) return { x: cx, y: Math.max(0.2, cy), shadow: true };
+    // vem do outro lado da rede, em arco
+    const k = Math.max(0, t / tc);
+    const sx = NET_X + 3.4, sy = 2.2;
+    const x = sx + (cx - sx) * k;
+    const yy = sy + (cy - sy) * k + Math.sin(k * Math.PI) * 2.2;
+    return { x, y: yy };
+  }
+  const u = t - tc;
+  const out = {
+    pass: [-2.6, 7.2], set: [1.2, 7.8], setLow: [1.8, 5.6], attack: [11, 3.2], spike: [15, -2.5],
+    block: [9, -1.5], lob: [4.2, 4.6], dig: [-1.8, 6.4], serve: [10, 5.2], serveHigh: [5.6, 10.5],
+  }[c.ball] || [0, 0];
+  const x = cx + out[0] * u;
+  const yy = cy + out[1] * u - 4.5 * u * u;
+  if (yy < 0.12) return null;
+  return { x, y: yy, trail: c.ball === 'spike' || c.ball === 'attack' || c.ball === 'serve' };
+}
+
+function drawStage(c, t, now) {
+  const W = cv.width, H = cv.height;
+  // céu e mar de Copacabana
+  const sky = g.createLinearGradient(0, 0, 0, H);
+  sky.addColorStop(0, '#3f9dff'); sky.addColorStop(0.5, '#bfe8ff'); sky.addColorStop(0.62, '#ffe9c4');
+  g.fillStyle = sky; g.fillRect(0, 0, W, H);
+  g.fillStyle = '#4f8f52';
+  g.beginPath(); g.moveTo(-20, 300); g.quadraticCurveTo(90, 170, 230, 300); g.fill(); // Leme
+  g.fillStyle = '#9a8f8c';
+  g.beginPath(); g.moveTo(150, 300); g.quadraticCurveTo(175, 190, 205, 300); g.fill(); // Pão de Açúcar
+  g.fillStyle = '#2fb9d8'; g.fillRect(0, 296, W, 60);
+  g.fillStyle = 'rgba(255,255,255,0.8)';
+  for (let i = 0; i < 9; i++) g.fillRect(((i * 137 + now * 0.02) % (W + 80)) - 40, 318 + (i % 3) * 10, 46, 3);
+  g.fillStyle = '#f3d9a4'; g.fillRect(0, 352, W, H - 352);
+  g.fillStyle = 'rgba(190,140,80,0.25)';
+  for (let i = 0; i < 60; i++) g.fillRect((i * 97) % W, 360 + (i * 53) % 170, 3, 2);
+  // fita da quadra
+  g.fillStyle = '#1d5cff'; g.fillRect(40, GROUND + 6, W - 80, 5);
+  // rede
+  g.fillStyle = '#ffd21a'; g.fillRect(px(NET_X) - 5, py(2.45), 10, 2.45 * M);
+  g.fillStyle = 'rgba(25,20,45,0.75)';
+  for (let yy = py(2.2); yy < py(1.2); yy += 9) g.fillRect(px(NET_X) - 3, yy, 6, 1.5);
+  g.fillStyle = '#fff'; g.fillRect(px(NET_X) - 6, py(2.2) - 3, 12, 5);
+
+  const fr = frameFor(c, t);
+  // sombra
+  g.fillStyle = 'rgba(60,30,20,0.28)';
+  g.beginPath(); g.ellipse(px(fr.x), GROUND + 4, 42 * Math.max(0.4, 1 - fr.y * 0.3), 9, 0, 0, Math.PI * 2); g.fill();
+  // ajudas visuais (exemplo): arco + alvo
+  if (c.kind === 'assist' && t > 0.45) {
+    g.strokeStyle = 'rgba(255,255,255,0.85)'; g.lineWidth = 4; g.setLineDash([10, 8]);
+    g.beginPath(); g.moveTo(px(HOME + 0.4), py(1.3)); g.quadraticCurveTo(px(6.8), py(5.2), px(10.8), py(0)); g.stroke(); g.setLineDash([]);
+    g.strokeStyle = '#ff4d6d'; g.lineWidth = 5; g.beginPath(); g.ellipse(px(10.8), GROUND + 4, 26, 7, 0, 0, Math.PI * 2); g.stroke();
+  }
+  // Giulia
+  drawChibi(sctx, GIULIA, poseFor(fr.pl, now / 1000), now / 1000);
+  const S = 2.5 * M; // tamanho do sprite
+  g.drawImage(sprite, px(fr.x) - S / 2, py(fr.y) - S + S * 10 / 256, S, S);
+  // bola
+  const b = ballAt(c, fr, t);
+  if (b) {
+    if (b.trail) for (let i = 1; i < 6; i++) {
+      const bb = ballAt(c, fr, t - i * 0.025);
+      if (bb) { g.fillStyle = `rgba(255,255,255,${0.35 - i * 0.05})`; g.beginPath(); g.arc(px(bb.x), py(bb.y), 16 - i, 0, Math.PI * 2); g.fill(); }
+    }
+    g.fillStyle = 'rgba(60,30,20,0.22)'; g.beginPath(); g.ellipse(px(b.x), GROUND + 4, 14, 4, 0, 0, Math.PI * 2); g.fill();
+    g.save(); g.translate(px(b.x), py(b.y)); g.rotate(t * 9); g.drawImage(ballC, -20, -20, 40, 40); g.restore();
+  }
+  // selos dos comandos de sistema
+  const tag = txt => { g.font = '900 30px "Lilita One", sans-serif'; const w = g.measureText(txt).width + 36; g.fillStyle = 'rgba(16,35,61,0.82)'; g.beginPath(); g.roundRect(W / 2 - w / 2, 40, w, 54, 14); g.fill(); g.fillStyle = '#ffd21a'; g.textAlign = 'center'; g.fillText(txt, W / 2, 78); g.textAlign = 'start'; };
+  if (c.kind === 'slow' && t > 0.45) tag('CÂMERA LENTA 50%');
+  if (c.kind === 'pause' && t > 0.45) { g.fillStyle = 'rgba(16,35,61,0.45)'; g.fillRect(0, 0, W, H); tag('PAUSA'); }
+  if (c.kind === 'formation' && t > 0.4) tag('Giulia na rede');
+  return fr;
+}
+
+// ---------------- laço ----------------
+let lastOn = '';
+let lastStep = -2;
+function loop(now) {
+  requestAnimationFrame(loop);
+  const c = COMMANDS[current];
+  const speed = c.kind === 'slow' ? 0.5 : 1;
+  let t = ((now - t0) / 1000) * speed;
+  if (t > LOOP) {
+    if (auto) { select(current + 1, true); t = 0; }
+    else { t0 = now; t = 0; }
+  }
+  const fr = drawStage(c, t, now);
+  // acende os botões do controle
+  const key = [...fr.on].join(',');
+  if (key !== lastOn) {
+    lastOn = key;
+    document.querySelectorAll('#pad [id^="k-"]').forEach(el => el.classList.toggle('on', fr.on.has(el.id.slice(2))
+      || (fr.on.has('move') && ['up', 'down', 'left', 'right'].includes(el.id.slice(2)) && (el.id === 'k-right' || el.id === 'k-left'))));
+  }
+  if (fr.step !== lastStep) {
+    lastStep = fr.step;
+    document.querySelectorAll('#how .step').forEach(el => el.classList.toggle('on', +el.dataset.s === fr.step));
+  }
+}
+
+// ---------------- manual de direcionamento ----------------
+// Valores de src/moves.js (AIM: grades de mira), src/grade.js e src/match.js.
+// Desenho: quadra vista de cima, você à esquerda (x < 0), rede em x = 0, z positivo = lado da
+// câmera lateral (baixo do desenho). Assim as setas de cada círculo são as mesmas do direcional
+// na câmera lateral: → = frente (para o lado do adversário), ↓ = para o lado da câmera.
+// grid: { side: 'opp' | 'own', mid, sx, sz, zc } — 3×3 círculos de raio 0,55 × o maior passo.
+// alt: grade do caso alternativo (3º toque) · only: distância máxima da rede em que funciona.
+const PARTNER = [-1.6, 1.0];
+// rx/rz: raios base na profundidade e na lateral (iguais = círculo, diferentes = elipse)
+const G = (side, mid, sx, sz, zc = 0) => ({ side, mid, sx, sz, zc, rx: 0.55 * sx, rz: 0.55 * sz });
+const GP = () => G('own', 1.6, 0.9, 0.9, 1.0); // em volta da parceira
+const MANUAL = [
+  { id: 'peito', name: 'Domínio de peito', keys: ['A'], group: '1º toque', pos: 'chão', from: [-4.5, -1.2], partner: true, grid: GP(),
+    errExtra: 'Bola forte soma até 0,03 m a cada m/s acima de 9 m/s (32 km/h).',
+    neutral: 'Na parceira, chegando na altura do peito dela (1,1 m).',
+    band: '0,75 a 2,0 m', reach: '1,35 m (1,69 m para os lados)',
+    traj: 'Passe alto: sobe a 4,4 m.', speed: '27 km/h · 1,8 s no ar',
+    grade: 'Ótimo com bola acima de 12 m/s (43 km/h); senão Bom. Nunca dá nota ruim.',
+    tip: 'O domínio para pancada: quanto mais forte a bola, melhor a nota.' },
+  { id: 'pe', name: 'Domínio de pé', keys: ['B'], group: '1º toque', pos: 'chão', from: [-4.5, -1.2], partner: true, grid: GP(),
+    errExtra: 'Bola forte soma até 0,13 m a cada m/s acima de 9 m/s: com bola de 15 m/s, até 0,8 m a mais (sai do círculo).',
+    neutral: 'Na parceira, na altura do peito dela.',
+    band: '0 a 1,15 m', reach: '1,35 m (1,69 m para os lados)',
+    traj: 'Passe médio: sobe a 3,6 m.', speed: '28 km/h · 1,7 s no ar',
+    grade: 'Ótimo abaixo de 9 m/s (32 km/h); Bom até 12; Ruim até 15; Pior acima (cai na areia).',
+    tip: 'O passe mais preciso do jogo, mas só para bola fraca.' },
+  { id: 'cabeca', name: 'Cabeça', keys: ['C', 'A'], group: '1º toque', pos: 'no ar', from: [-4.5, -1.2], partner: true, grid: GP(),
+    errExtra: 'Bola forte soma até 0,06 m a cada m/s acima de 9 m/s.',
+    neutral: 'Na parceira, na altura do peito dela.',
+    band: '1,1 a 2,9 m', reach: '1,35 m (1,69 m para os lados)',
+    traj: 'Passe alto: sobe a 4,0 m.', speed: '23 km/h · 1,6 s no ar',
+    grade: 'Ótimo com a bola a mais de 1,7 m dos pés e abaixo de 11 m/s; Ruim acima de 14 m/s; senão Bom.',
+    tip: 'Para a bola alta que passaria por cima do peito.' },
+  { id: 'sharkBlock', name: 'Shark (bloqueio)', keys: ['C', 'B'], group: '1º toque', pos: 'no ar', from: [-0.8, 0], only: 2.6,
+    grid: G('opp', 2.4, 1.25, 1.25), altDot: PARTNER,
+    neutral: 'Volta para o outro lado a 2,4 m da rede, na linha lateral em que a bola chegou (a grade acompanha a bola, até 2,6 m do centro).',
+    band: '1,2 a 3,1 m', reach: '1,35 m (1,69 m para os lados)',
+    traj: 'Bola descendo desde o contato. Não corrige a altura para passar a rede: pode ir na rede.', speed: '18 km/h · 0,65 s no ar',
+    grade: 'Ótimo a menos de 1,5 m da rede contra bola acima de 11 m/s; Bom até 2,2 m; Ruim até 2,6 m; Pior além (cai).',
+    warn: 'A mais de 2,6 m da rede vira um toque ruim para a parceira (ponto verde, erro ±1 m). Depois você fica 0,4 s no chão.',
+    tip: 'Devolve o ataque do adversário colado na rede.' },
+
+  { id: 'ombro', name: 'Passe de ombro', keys: ['A'], group: '2º toque', pos: 'chão', from: [-3.5, -1], partner: true, grid: G('own', 1.9, 0.85, 0.85, 1.0),
+    neutral: 'A 1,9 m da rede, na linha lateral da parceira, descendo até 1,4 m (altura de ataque).',
+    band: '0,8 a 2,0 m', reach: '1,35 m (1,69 m para os lados)',
+    traj: 'Levantamento alto: sobe a 4,6 m.', speed: '28 km/h · 1,9 s no ar',
+    grade: 'Ótimo com a bola chegando acima de 1,3 m; Bom acima de 0,95 m; Ruim abaixo.',
+    tip: 'O levantamento que mais dá tempo para a parceira chegar.' },
+  { id: 'naFita', name: 'Na fita', keys: ['B'], group: '2º toque', pos: 'chão', from: [-3, -1], partner: true, grid: G('own', 0.95, 0.45, 0.45, 1.0),
+    errExtra: 'Nunca fica a menos de 0,4 m da rede.',
+    neutral: 'A 0,95 m da rede, na linha da parceira, descendo até 1,8 m (altura de shark).',
+    band: '0 a 1,15 m', reach: '1,35 m (1,69 m para os lados)',
+    traj: 'Levantamento médio: sobe a 3,8 m.', speed: '28 km/h · 1,75 s no ar',
+    grade: 'Ótimo levantando a menos de 2,5 m da rede; Bom até 4 m; Ruim mais longe.',
+    tip: 'Arma o Shark Attack: a parceira pula e encontra a bola alta e colada na fita.' },
+  { id: 'ataqueSegunda', name: 'Ataque de segunda', keys: ['C', 'A'], group: '2º toque', pos: 'no ar', from: [-1.6, -0.5], grid: G('opp', 4.5, 2.4, 2.4),
+    neutral: 'No meio da quadra adversária: 4,5 m depois da rede, no centro.',
+    band: '1,0 a 2,9 m', reach: '1,35 m (1,69 m para os lados)',
+    traj: 'Sai quase reta e sobe só o necessário para passar 0,3 m acima da fita. Bola enganosa: a CPU demora mais para reagir.', speed: '24 km/h · 1,0 s no ar',
+    grade: 'Ótimo a menos de 2,5 m da rede com a bola acima de 2,4 m; Bom até 4,5 m; Ruim mais longe.',
+    tip: 'Surpresa no 2º toque, antes da defesa se armar.' },
+  { id: 'cabecaSet', name: 'Levantada de cabeça', keys: ['C', 'B'], group: '2º toque', pos: 'no ar', from: [-3.5, -1], partner: true, grid: G('own', 1.9, 0.85, 0.85, 1.0),
+    neutral: 'A 1,9 m da rede, na linha da parceira, descendo até 1,4 m.',
+    band: '1,0 a 2,9 m', reach: '1,35 m (1,69 m para os lados)',
+    traj: 'Levantamento alto: sobe a 4,2 m.', speed: '22 km/h · 1,6 s no ar',
+    grade: 'Bom com a bola acima de 1,6 m dos pés; Ruim abaixo. Não dá Ótimo.',
+    tip: 'Para a bola que chega alta demais para o ombro.' },
+
+  { id: 'chuteColocado', name: 'Chute colocado', keys: ['A'], group: '3º toque', pos: 'chão', from: [-5, -0.5], grid: G('opp', 6.0, 2.2, 2.2),
+    neutral: 'No fundo adversário: 6 m depois da rede, no centro.',
+    band: '0 a 1,45 m', reach: '1,35 m (1,69 m para os lados)',
+    traj: 'Sai firme para cima e passa a fita com pelo menos 0,3 m de folga.', speed: '36 km/h · 1,45 s no ar',
+    grade: 'Ótimo batendo a mais de 3,5 m da rede; Bom mais perto.',
+    tip: 'A colocação segura: funciona de qualquer lugar da quadra.' },
+  { id: 'pingo', name: 'Pingo', keys: ['B'], group: '3º toque', pos: 'chão', from: [-1.8, -0.5], grid: G('opp', 1.8, 0.8, 2.4),
+    neutral: 'Logo depois da rede: 1,8 m, no centro. As elipses formam uma faixa rente à rede, de lateral a lateral.',
+    band: '0 a 1,45 m', reach: '1,35 m (1,69 m para os lados)',
+    traj: 'Balão baixo: passa 0,55 m acima da fita e cai logo depois da rede, num ritmo 40% mais rápido que um balão normal.', speed: '35 km/h · cerca de 1 s no ar',
+    grade: 'Ótimo a menos de 3 m da rede; Bom até 6 m; Ruim mais longe (vira uma bola boba).',
+    tip: 'Pune a defesa que ficou lá no fundo, sem dar tempo de ela voltar.' },
+  { id: 'cabecada', name: 'Cabeçada', keys: ['C', 'A'], group: '3º toque', pos: 'no ar', from: [-3, -0.5], grid: G('opp', 7.9, 0.6, 2.5),
+    neutral: 'Funda: 7,9 m depois da rede, no centro. As elipses formam uma faixa colada na linha de fundo, até os cantos.',
+    band: '1,15 a 2,9 m', reach: '1,35 m (1,69 m para os lados)',
+    traj: 'Rápida e rasante, passa 0,3 m acima da fita.', speed: '42 km/h · 1,0 s no ar',
+    grade: 'Ótimo com a bola a mais de 1,4 m dos pés e batendo a mais de 3,5 m da rede; Ruim com a bola abaixo de 1,4 m; senão Bom.',
+    tip: 'Ataque de fundo. As diagonais para a frente (↗ ↘) vão para os cantos do fundo.' },
+  { id: 'sharkAttack', name: 'Shark Attack', keys: ['C', 'B'], group: '3º toque', pos: 'no ar', from: [-1, -0.5], only: 2.2, grid: G('opp', 3.2, 1.6, 1.6),
+    neutral: 'Bem inclinada: 3,2 m depois da rede, no centro.',
+    band: '1,3 a 3,2 m', reach: '1,35 m (1,69 m para os lados)',
+    traj: 'A sola desce sobre a bola: quanto mais perto da rede, mais vertical (de −3,6 a −6,1 m/s para baixo).', speed: '26 km/h a 2 m da rede, 40 km/h a 0,6 m · 0,4 s no ar',
+    grade: 'Ótimo a menos de 1,8 m da rede com a bola acima de 2,6 m; Bom até 2,2 m; Pior além.',
+    warn: 'Só passa a rede batendo a menos de 2,2 m dela e com a bola acima de 2,4 m (0,2 m acima da fita); fora disso vai na rede. Depois você rola na areia (0,55 s).',
+    tip: 'O ataque mais forte do jogo.' },
+
+  { id: 'carrinho', name: 'Carrinho', keys: ['D'], group: 'Defesa', pos: 'chão', from: [-5.5, -2], partner: true, grid: null, dot: PARTNER,
+    altLob: { x: 5.5, z: 2 },
+    errTxt: 'Na parceira: dentro de um círculo de 1,2 m de diâmetro, com a Precisão afastando do centro como nos outros golpes (Precisão 10 = em cima dela). No 3º toque não há mira.',
+    neutral: '1º e 2º toque: exatamente na parceira (sem mira). 3º toque (verde): balão para o outro lado, 5,5 m depois da rede.',
+    dirTxt: 'O direcional escolhe a direção do deslize (7,4 m/s por 0,42 s, uns 3 m), não o destino da bola. No 3º toque a lateral é sorteada, até 2 m para cada lado.',
+    band: '0 a 1,05 m', reach: '1,65 m (2,06 m para os lados)',
+    traj: 'Passe alto (sobe a 3,8 m); no 3º toque, balão a 4,5 m.', speed: '30 km/h · 1,8 s no ar',
+    grade: 'Bom; Ruim contra bola acima de 16 m/s (58 km/h).',
+    warn: 'Depois você fica 0,6 s no chão (menos com mais Agilidade).',
+    tip: 'Salvar a bola longe. Sem direção, desliza em direção à bola.' },
+
+  { id: 'saqueForte', name: 'Saque forte', keys: ['A'], group: 'Saque', pos: 'chão', from: [-9.15, 0], grid: G('opp', 6.9, 1.7, 1.7),
+    neutral: 'Fundo: 6,9 m depois da rede, no centro.',
+    band: 'A bola está na mão', reach: 'Antes de sacar, o direcional para os lados move você pela linha de fundo (até 4,2 m de cada lado).',
+    traj: 'Rápido e baixo, passa 0,5 m acima da fita.', speed: '45 km/h · 1,6 s no ar',
+    grade: 'O saque não recebe nota.',
+    tip: 'Pressiona a recepção logo de cara.' },
+  { id: 'saqueColocado', name: 'Saque viagem', keys: ['B'], group: 'Saque', pos: 'chão', from: [-9.15, 0], grid: G('opp', 4.6, 2.3, 2.3),
+    neutral: 'No meio da quadra: 4,6 m depois da rede, no centro.',
+    band: 'A bola está na mão', reach: 'Antes de sacar, o direcional para os lados move você pela linha de fundo.',
+    traj: 'Altíssimo: sobe a 7,5 m e cai quase na vertical.', speed: '45 km/h · 2,5 s no ar',
+    grade: 'O saque não recebe nota.',
+    tip: 'Confunde o tempo da recepção.' },
+
+  { id: 'bicicleta', name: 'Bicicleta', owner: 'Giulia', keys: ['C', 'C'], group: 'Especiais', pos: 'no ar', from: [-3, -0.5], grid: G('opp', 7.0, 1.9, 1.9),
+    neutral: 'Funda: 7 m depois da rede, no centro.',
+    band: '0,5 a 3,3 m', reach: '1,75 m (2,19 m para os lados)',
+    traj: 'Rasante e rápida, passa 0,15 m acima da fita. Enganosa.', speed: '47 km/h · 0,9 s no ar (a mais rápida do jogo)',
+    grade: 'Especial: sempre Bom.',
+    warn: 'Depois a Giulia cai na areia (0,85 s).',
+    tip: 'Ponto de qualquer lugar; as diagonais para a frente vão para os cantos do fundo.' },
+  { id: 'meiaBicicleta', name: 'Meia-bicicleta', owner: 'Zefa', keys: ['C', 'C'], group: 'Especiais', pos: 'no ar', from: [-3, -0.5], grid: G('opp', 5.0, 2.0, 2.0), curve: true,
+    neutral: '5 m depois da rede, no centro, fazendo curva no ar.',
+    band: '0,5 a 3,3 m', reach: '1,75 m (2,19 m para os lados)',
+    traj: 'Sai cruzada e curva no ar (6 m/s²) fechando para o lado do círculo escolhido; nos círculos do meio, curva para o lado oposto ao da bola. Enganosa.', speed: '30 km/h · 1,0 s no ar',
+    grade: 'Especial: sempre Bom.',
+    warn: 'Depois a Zefa cai na areia (0,5 s).',
+    tip: 'Abre a quadra na diagonal.' },
+  { id: 'sharkSupremo', name: 'Shark Attack Supremo', owner: 'Tubarão', keys: ['C', 'C'], group: 'Especiais', pos: 'no ar', from: [-4, -0.5], grid: G('opp', 3.4, 1.65, 1.65),
+    neutral: '3,4 m depois da rede, no centro.',
+    band: '0,5 a 3,4 m', reach: '1,75 m (2,19 m para os lados)',
+    traj: 'Desce como o Shark Attack, mas sempre passa a rede (0,1 m de folga): funciona até do meio da quadra.', speed: '28 km/h · 1,0 s no ar',
+    grade: 'Especial: sempre Bom.',
+    warn: 'Depois o Tubarão rola na areia (0,6 s).',
+    tip: 'O shark sem a restrição de distância da rede.' },
+  { id: 'pingoPipoca', name: 'Pingo Envenenado', owner: 'Pipoca', keys: ['C', 'C'], group: 'Especiais', pos: 'no ar', from: [-3, -0.5], grid: G('opp', 1.7, 1.0, 1.0), ghost: [7, 0],
+    neutral: 'Morre a 1,7 m da rede, no centro.',
+    band: '0,5 a 3,3 m', reach: '1,75 m (2,19 m para os lados)',
+    traj: 'Sai com cara de ataque de fundo e freia no ar (7 m/s² contra o avanço): parece que vai para o fundo (tracejado) e cai logo depois da rede. Enganosa.', speed: '30 km/h · 1,1 s no ar',
+    grade: 'Especial: sempre Bom.',
+    tip: 'Tira a defesa do lugar.' },
+  { id: 'sarrada', name: 'Sarrada', owner: 'Dráuzio', keys: ['C', 'C'], group: 'Especiais', pos: 'no ar · defesa', from: [-5, -1], partner: true, grid: GP(), alt: G('opp', 6.0, 2.15, 2.15),
+    neutral: '1º e 2º toque: na parceira. 3º toque (verde): balão a 6 m da rede.',
+    band: '0,1 a 2,8 m (a maior do jogo)', reach: '2,55 m (3,19 m para os lados), o maior do jogo',
+    traj: 'Passe alto (4,4 m); no 3º toque, balão a 5 m.', speed: '29 km/h · 1,8 s no ar',
+    grade: 'Especial: sempre Bom.',
+    tip: 'Defende qualquer bola que chegue perto, até as de desespero.' },
+  { id: 'escorpiao', name: 'Escorpião', owner: 'Varella', keys: ['C', 'C'], group: 'Especiais', pos: 'no ar · defesa', from: [-4, -1], partner: true, grid: GP(), alt: G('opp', 7.0, 1.5, 1.5),
+    neutral: '1º e 2º toque: na parceira. 3º toque (verde): ataque de fundo a 7 m da rede.',
+    band: '0,5 a 3,4 m', reach: '2,15 m (2,69 m para os lados), e o Varella avança 4,5 m/s ao ativar',
+    traj: 'Passe alto (4,6 m); no 3º toque, ataque rasante e enganoso.', speed: '39 km/h no ataque · 1,1 s no ar',
+    grade: 'Especial: sempre Bom.',
+    warn: 'Depois o Varella cai na areia (0,5 s).',
+    tip: 'Pega bola que já tinha passado e ainda pode virar ataque.' },
+];
+
+const FILTERS = ['Todos', '1º toque', '2º toque', '3º toque', 'Defesa', 'Saque', 'Especiais'];
+let manualFilter = 'Todos';
+const num = n => (Math.round(n * 100) / 100).toLocaleString('pt-BR', { maximumFractionDigits: 2 });
+
+// Subáreas (igual a subarea() em src/moves.js): o círculo do centro é 60% maior que o raio
+// base; os outros 8 são 40% maiores, crescendo em direção ao centro (a borda de fora fica).
+const CENTER_GROW = 1.6, SIDE_GROW = 1.4;
+function subarea(g, f, l) {
+  if (!f && !l) return { df: 0, dl: 0, rx: CENTER_GROW * g.rx, rz: CENTER_GROW * g.rz };
+  const n = Math.hypot(f, l), g1 = SIDE_GROW - 1;
+  return { df: f * g.sx - g1 * g.rx * f / n, dl: l * g.sz - g1 * g.rz * l / n, rx: SIDE_GROW * g.rx, rz: SIDE_GROW * g.rz };
+}
+const isEllipse = g => Math.abs(g.sx - g.sz) > 1e-6;
+// tamanho de uma subárea em texto: "1,2 m" (círculo) ou "0,8 × 4 m" (elipse: profundidade × lateral)
+const sizeTxt = (g, k) => isEllipse(g) ? `${num(k * g.rx * 2)} × ${num(k * g.rz * 2)} m` : `${num(k * g.rx * 2)} m`;
+// centros dos 9 círculos: [x no desenho, z, f, l, raio]. "Frente" (f = +1) é sempre para a
+// direita do desenho: no ataque, mais fundo; no passe para a parceira, mais perto da rede.
+function cells(g) {
+  const out = [];
+  for (const f of [-1, 0, 1]) for (const l of [-1, 0, 1]) {
+    const s = subarea(g, f, l);
+    const x = g.side === 'opp' ? g.mid + s.df : -(g.mid - s.df);
+    out.push([x, g.zc + s.dl, f, l, s.rx, s.rz]);
+  }
+  return out;
+}
+// Precisão 10 = no centro; cada ponto a menos afasta 1/9 do raio (Precisão 1 = na borda)
+const missOf = p => (10 - p) / 9;
+function errText(m) {
+  if (m.errTxt) return m.errTxt;
+  const g = m.grid;
+  // elipse: o desvio vai até o raio de cada eixo; mostra profundidade × lateral
+  const d = (k, p) => isEllipse(g) ? `${num(k * g.rx * missOf(p))} × ${num(k * g.rz * missOf(p))} m` : `${num(k * g.rx * missOf(p))} m`;
+  const at = p => d(CENTER_GROW, p), side = p => d(SIDE_GROW, p);
+  return `Precisão 10: no centro exato da subárea. Precisão 7: até ${at(7)} do centro (${side(7)} nas outras). Precisão 5: até ${at(5)} (${side(5)}). Precisão 1: até a borda, ${at(1)} (${side(1)}).${isEllipse(g) ? ' Na elipse, os valores são profundidade × lateral.' : ''}${m.errExtra ? ' ' + m.errExtra : ''}`;
+}
+const ARROW = { '-1,-1': '↖', '0,-1': '↑', '1,-1': '↗', '-1,0': '←', '0,0': '', '1,0': '→', '-1,1': '↙', '0,1': '↓', '1,1': '↘' };
+
+function dirText(m) {
+  if (m.dirTxt) return m.dirTxt;
+  const g = m.grid;
+  const front = g.side === 'opp' ? g.mid + g.sx : g.mid - g.sx, back = g.side === 'opp' ? g.mid - g.sx : g.mid + g.sx;
+  const ref = m.partner && g.side === 'own' ? (g.mid === 1.6 ? 'da parceira' : 'da linha da parceira') : 'do centro';
+  const sh = subarea(g, 1, 0), dg = subarea(g, 1, 1);
+  const fr = g.side === 'opp' ? g.mid + sh.df : g.mid - sh.df, bk = g.side === 'opp' ? g.mid - sh.df : g.mid + sh.df;
+  const shape = isEllipse(g) ? 'Elipses (profundidade × lateral): a do centro' : 'Círculos: o do centro';
+  return `${shape} com ${sizeTxt(g, CENTER_GROW)}; os outros 8 com ${sizeTxt(g, SIDE_GROW)}. Frente (→): ${num(fr)} m da rede${g.side === 'opp' ? ', mais funda' : ', mais perto dela'}; trás (←): ${num(bk)} m. Lados (↑ ↓): ${num(subarea(g, 0, 1).dl)} m para cada lado ${ref}. Diagonais: ${num(Math.abs(dg.df))} m na frente/trás e ${num(Math.abs(dg.dl))} m para o lado.`;
+}
+
+// quadra vista de cima: 18 px por metro
+const CS = 18, CM = 10;
+const cx = x => CM + (x + 9) * CS, cz = z => CM + (z + 4.5) * CS;
+function gridSVG(g, kind) {
+  if (!g) return '';
+  // o do centro por último, por cima dos outros
+  const list = cells(g);
+  list.push(list.splice(4, 1)[0]);
+  return list.map(([x, z, f, l, rx, rz]) => {
+    const center = !f && !l;
+    return `<ellipse cx="${cx(x)}" cy="${cz(z)}" rx="${rx * CS}" ry="${rz * CS}" class="sub ${kind}${center ? ' mid' : ''}"/>` +
+      (center ? `<circle cx="${cx(x)}" cy="${cz(z)}" r="4.5" class="dt ${kind}"/>`
+        : `<text x="${cx(x)}" y="${cz(z) + 4}" text-anchor="middle" class="ar ${kind}">${ARROW[f + ',' + l]}</text>`);
+  }).join('');
+}
+function courtSVG(m) {
+  const W = 18 * CS + CM * 2, H = 9 * CS + CM * 2;
+  const [fx, fz] = m.from;
+  const target = m.grid ? cells(m.grid)[4] : m.dot;
+  let path = '';
+  if (target) {
+    const [tx, tz] = target;
+    const bend = m.curve ? `Q ${cx((fx + tx) / 2)} ${cz(-3.4)} ` : 'L ';
+    path = `<path d="M ${cx(fx)} ${cz(fz)} ${bend}${cx(tx)} ${cz(tz)}" class="fl"/>`;
+  }
+  if (m.ghost) path += `<path d="M ${cx(fx)} ${cz(fz)} L ${cx(m.ghost[0])} ${cz(m.ghost[1])}" class="gh"/>`;
+  const only = m.only ? `<rect x="${cx(-m.only)}" y="${cz(-4.5)}" width="${m.only * CS}" height="${9 * CS}" fill="url(#hatch)"/>
+    <text x="${cx(-m.only) - 3}" y="${cz(-4.5) + 11}" text-anchor="end" class="lb">até ${num(m.only)} m</text>` : '';
+  const lobAlt = m.altLob ? `<line x1="${cx(m.altLob.x)}" y1="${cz(-m.altLob.z)}" x2="${cx(m.altLob.x)}" y2="${cz(m.altLob.z)}" class="rng alt"/><circle cx="${cx(m.altLob.x)}" cy="${cz(0)}" r="4.5" class="dt alt"/>` : '';
+  const dot = !m.grid && m.dot ? `<circle cx="${cx(m.dot[0])}" cy="${cz(m.dot[1])}" r="4.5" class="dt"/>` : '';
+  const altDot = m.altDot ? `<circle cx="${cx(m.altDot[0])}" cy="${cz(m.altDot[1])}" r="4.5" class="dt alt"/>` : '';
+  return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Quadra vista de cima com as 9 subáreas de ${m.name}">
+    <defs><pattern id="hatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="3" height="6" fill="var(--sun)" opacity="0.55"/></pattern></defs>
+    <style>
+      .sd{fill:var(--sand)} .ln{fill:none;stroke:var(--sand-line);stroke-width:2}
+      .nt{stroke:var(--net);stroke-width:4;stroke-linecap:round}
+      .sub{fill:var(--zone);fill-opacity:.16;stroke:var(--zone);stroke-width:1.5}
+      .sub.mid{fill-opacity:.34;stroke-width:2.2}
+      .sub.alt{fill:var(--zone-2);stroke:var(--zone-2)}
+      .ar{font:900 11px Nunito,sans-serif;fill:var(--zone)} .ar.alt{fill:var(--zone-2)}
+      .dt{fill:var(--zone);stroke:var(--surface);stroke-width:2} .dt.alt{fill:var(--zone-2)}
+      .rng{stroke:var(--zone);stroke-width:3;stroke-linecap:round;stroke-dasharray:2 5} .rng.alt{stroke:var(--zone-2)}
+      .me{fill:var(--fg);stroke:var(--surface);stroke-width:2.5} .pa{fill:none;stroke:var(--fg);stroke-width:2.5}
+      .fl{fill:none;stroke:var(--fg);stroke-width:1.5;stroke-dasharray:2 4;opacity:.7} .gh{fill:none;stroke:var(--muted);stroke-width:1.5;stroke-dasharray:6 5}
+      .lb{font:800 10px Nunito,sans-serif;fill:var(--muted)}
+    </style>
+    <rect x="${CM - 6}" y="${CM - 6}" width="${W - (CM - 6) * 2}" height="${H - (CM - 6) * 2}" rx="8" class="sd"/>
+    ${only}
+    <rect x="${cx(-9)}" y="${cz(-4.5)}" width="${18 * CS}" height="${9 * CS}" class="ln"/>
+    <text x="${cx(-8.7)}" y="${cz(4.5) - 5}" class="lb">VOCÊ</text>
+    <text x="${cx(8.7)}" y="${cz(4.5) - 5}" text-anchor="end" class="lb">ADVERSÁRIO</text>
+    ${gridSVG(m.alt, 'alt')}${gridSVG(m.grid, '')}${lobAlt}
+    ${path}
+    <line x1="${cx(0)}" y1="${cz(-4.5) - 4}" x2="${cx(0)}" y2="${cz(4.5) + 4}" class="nt"/>
+    ${m.partner ? `<circle cx="${cx(PARTNER[0])}" cy="${cz(PARTNER[1])}" r="6" class="pa"/>` : ''}
+    <circle cx="${cx(fx)}" cy="${cz(fz)}" r="6.5" class="me"/>
+    ${dot}${altDot}
+  </svg>`;
+}
+
+function renderManual() {
+  document.getElementById('filters').innerHTML = FILTERS.map(f =>
+    `<button type="button" id="mf-${f.replace(/\W+/g, '')}" data-f="${f}" aria-pressed="${f === manualFilter}">${f}</button>`).join('');
+  const list = MANUAL.filter(m => manualFilter === 'Todos' || m.group === manualFilter);
+  document.getElementById('cards').innerHTML = list.map(m => `
+    <article class="card" id="golpe-${m.id}">
+      <header>
+        <h3>${m.name}</h3>
+        <span class="keys">${keysHTML(dev, m.keys)}</span>
+      </header>
+      <div class="tags"><span>${m.group}</span><span>${m.pos}</span>${m.owner ? `<span class="sp">${m.owner}</span>` : ''}</div>
+      <div class="court">${courtSVG(m)}</div>
+      <dl class="facts">
+        <dt>Destino</dt><dd>${m.neutral}</dd>
+        <dt>Direcional</dt><dd>${dirText(m)}</dd>
+        <dt>Contato</dt><dd>${m.band.startsWith('A bola') ? m.band + '.' : `Bola a ${m.band} dos pés.`}</dd>
+        <dt>Alcance</dt><dd>${m.reach}</dd>
+        <dt>Precisão</dt><dd>${errText(m)}</dd>
+        <dt>Trajetória</dt><dd>${m.traj}</dd>
+        <dt>Força</dt><dd>${m.speed}</dd>
+        <dt>Nota</dt><dd>${m.grade}</dd>
+        ${m.warn ? `<dt>Atenção</dt><dd class="warn">${m.warn}</dd>` : ''}
+        <dt>Uso</dt><dd>${m.tip}</dd>
+      </dl>
+    </article>`).join('');
+}
+document.getElementById('filters').addEventListener('click', e => {
+  const b = e.target.closest('button[data-f]');
+  if (!b) return;
+  manualFilter = b.dataset.f;
+  renderManual();
+});
+document.querySelector('.seg').addEventListener('click', e => { if (e.target.closest('button[data-dev]')) renderManual(); });
+
+renderDevices();
+renderList();
+renderInfo();
+renderManual();
+syncAuto();
+requestAnimationFrame(loop);
+</script>

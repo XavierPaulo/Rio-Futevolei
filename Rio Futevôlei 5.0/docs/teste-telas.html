@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Teste de telas 5.0</title>
+<link rel="stylesheet" href="editores.css">
+<style>
+.sizes { display: flex; flex-wrap: wrap; gap: 8px; }
+table { width: 100%; border-collapse: collapse; font-size: 14px; background: var(--surface); border-radius: 12px; overflow: hidden; }
+th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { background: var(--surface-2); }
+td.ok { color: var(--ok); font-weight: 900; }
+td.bad { color: var(--warn); font-weight: 900; }
+td.warn { color: #b7791f; font-weight: 900; }
+.frame { position: fixed; left: -5000px; top: 0; border: 0; }
+.summary { font: 900 16px var(--body); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <a class="back" href="index.html">← Editores</a>
+      <h1>Teste de <span>telas</span></h1>
+      <p class="kicker">Abre o jogo em 3 tamanhos de tela, passa por todas as telas e confere: nada pode rolar, nada pode sair da tela e nenhum texto pode ficar menor que 14 px. Rode sempre que mudar alguma tela.</p>
+    </div>
+    <div class="tools"><button id="run" class="primary" type="button">▶ Rodar o teste</button></div>
+  </header>
+  <div class="sizes" id="sizes"></div>
+  <p class="summary" id="summary">Aperte "Rodar o teste" (leva cerca de 1 minuto).</p>
+  <table><thead><tr><th>Tamanho</th><th>Tela</th><th>Rolagem / fora da tela</th><th>Texto &lt; 14 px</th></tr></thead><tbody id="rows"></tbody></table>
+</div>
+<script>
+// tamanhos: celular deitado, notebook e TV (Full HD)
+const SIZES = [['Celular deitado', 812, 375], ['Notebook', 1366, 768], ['TV', 1920, 1080]];
+document.getElementById('sizes').innerHTML = SIZES.map(([n, w, h]) => `<span class="card">${n} · ${w}×${h}</span>`).join('');
+const wait = ms => new Promise(r => setTimeout(r, ms));
+
+// o que conta como problema, olhando de dentro do jogo
+function audit(win) {
+  const doc = win.document, W = win.innerWidth, H = win.innerHeight, bad = [], small = [];
+  for (const el of doc.querySelectorAll('body *')) {
+    const cs = win.getComputedStyle(el);
+    if (cs.display === 'none' || cs.visibility === 'hidden' || el.closest('[hidden]')) continue;
+    if (el.offsetParent === null && cs.position !== 'fixed') continue;
+    if (el.tagName === 'CANVAS') continue;
+    if ((cs.overflowY === 'auto' || cs.overflowY === 'scroll') && el.scrollHeight > el.clientHeight + 2) bad.push('rola: ' + (el.className || el.tagName));
+    const r = el.getBoundingClientRect();
+    if (r.width > 0 && r.height > 0 && (r.bottom > H + 2 || r.right > W + 2 || r.top < -2 || r.left < -2)) {
+      let p = el, clipped = false;
+      while ((p = p.parentElement)) { const pc = win.getComputedStyle(p); if (pc.overflow === 'hidden' || pc.overflowY === 'hidden') { const pr = p.getBoundingClientRect(); if (pr.bottom <= H + 2 && pr.right <= W + 2 && pr.top >= -2 && pr.left >= -2) { clipped = true; break; } } }
+      if (!clipped) bad.push('fora: ' + (typeof el.className === 'string' ? el.className : el.tagName));
+    }
+    // texto próprio do elemento: tamanho de verdade na tela (fonte × encolhimento)
+    const hasText = [...el.childNodes].some(n => n.nodeType === 3 && n.textContent.trim());
+    if (hasText && r.height > 0 && el.offsetHeight > 0) {
+      const k = r.height / el.offsetHeight, px = parseFloat(cs.fontSize) * (isFinite(k) && k > 0 ? k : 1);
+      if (px < 13.5) small.push(`${(typeof el.className === 'string' && el.className) || el.tagName} (${px.toFixed(1)} px)`);
+    }
+  }
+  return { bad: [...new Set(bad)], small: [...new Set(small)] };
+}
+
+// todas as telas, uma por vez
+async function walk(win, report) {
+  const rf = win.__rf, h = rf.hud, S = (await win.eval("import('/src/ui/settings.js')")).settings;
+  const shot = async name => { await wait(120); report(name, audit(win)); };
+  // 5.0: tela Jogadores (abre antes do menu): 4 jogadores de teste — teclado dividido e 2 controles
+  { const inp = await win.eval("import('/src/input.js')"); await shot('Jogadores (vazia)');
+    inp.seats[1] = { kind: 'kb', half: 1 }; inp.seats[2] = { kind: 'kb', half: 2 }; inp.seats[3] = { kind: 'pad', index: 90, id: 'Xbox Controller' }; inp.seats[4] = { kind: 'pad', index: 91, id: 'Wireless Controller' };
+    await shot('Jogadores (4)'); const go = win.document.querySelector('.join [data-go]'); if (go) go.click(); await wait(150); }
+  // 5.0 (menus enxutos): Jogar › Exibição (Partida) › Mais opções › Consumíveis; Atletas
+  const menus = [[], ['play'], ['play', 'exh'], ['play', 'exh', 'exh-more'], ['play', 'exh', 'exh-more', 'items'],
+    ['settings'], ['settings', 'set-controls'], ['settings', 'set-controls', 'set-ctrlmode'], ['settings', 'set-controls', 'set-padstyle'], ['settings', 'set-controls', 'set-aim'], ['settings', 'set-visual'], ['settings', 'set-help'], ['athletes'], ['athletes', 'visual-cast'], ['athletes', 'visual-ideias'],
+    ['play', 'story'], ['play', 'story', 'story-new'], ['athletes', 'creators']];
+  for (const path of menus) { h.open('title'); for (const id of path) h.activate(id); await shot('Menu ' + (path.join(' › ') || 'principal')); }
+  // solo = 1 jogador reconhecido; versus = 2 (lados na seleção). Especiais: como se cada um tivesse apertado Y
+  const inpT = await win.eval("import('/src/input.js')"), seatsAll = { ...inpT.seats };
+  const perAth = S.cpuPerAthlete; S.cpuPerAthlete = true; // telas com a etapa de níveis (a mais cheia)
+  for (const [mode, size, teams] of [['solo', 2, [['tito', 'dada'], ['rosa', 'pePato']]], ['versus', 3, [['tito', 'dada', 'arcano'], ['rosa', 'pePato', 'carneiro']]]]) {
+    for (const n of [2, 3, 4]) inpT.seats[n] = mode === 'solo' || n > 2 ? null : seatsAll[n];
+    S.teamSize = size; h.open('title'); h.activate('play'); h.activate('exh'); h.activate('go'); await wait(300);
+    if (mode === 'versus') { const b = win.document.querySelector('[data-sgo]'); if (b) b.click(); await wait(150); }
+    await shot(`Seleção ${mode} ${size}×${size}`);
+    const s = rf.select; s.teams = teams; s.wantSp = { 1: true, 2: true, 3: true, 4: true }; s.afterPicks(); s.render(0); s.render(0.1);
+    await shot(`Especiais e níveis ${mode} ${size}×${size}`);
+    s.close && s.close();
+  }
+  // 5.0: 3 ou 4 jogadores — lados e especiais com 4 painéis
+  Object.assign(inpT.seats, seatsAll);
+  S.teamSize = 2; h.open('title'); h.activate('play'); h.activate('exh'); h.activate('go'); await wait(300);
+  await shot('Seleção multi › lados');
+  { const s = rf.select, b = win.document.querySelector('[data-sgo]'); if (b) b.click(); await wait(150); await shot('Seleção multi 2×2');
+    s.teams = [['tito', 'dada'], ['rosa', 'pePato']]; s.wantSp = { 1: true, 2: true, 3: true, 4: true }; s.afterPicks(); s.render(0); s.render(0.1); await shot('Especiais e níveis multi (4 painéis)'); s.close && s.close(); }
+  S.teamSize = 2;
+  S.cpuPerAthlete = perAth;
+  h.open('title'); h.activate('athletes'); h.activate('creators'); h.activate('edit:'); await wait(200);
+  const cr = win.document.querySelector('.creator');
+  for (let i = 0; i < 8; i++) { await shot('Criar Jogador etapa ' + (i + 1)); const nx = cr.querySelector('.cr-next'); if (!nx || /Pronto/.test(nx.textContent)) break; nx.click(); /* nunca aperta o Pronto! (salvaria um atleta) */ await wait(60); }
+  for (let i = 0; i < 4 && cr.classList.contains('show'); i++) { const b = cr.querySelector('.cr-back'); if (!b) break; b.click(); await wait(60); } // volta as etapas e cancela
+  // 5.0: Modo Campeonato (o salvo do jogador é guardado e devolvido no fim)
+  const campKey = 'rio-futevolei.camp', campSaved = win.localStorage.getItem(campKey);
+  h.open('title'); h.activate('play'); h.activate('camp'); await shot('Campeonato');
+  h.activate('camp-new'); await shot('Campeonato › novo');
+  h.activate('camp-more'); await shot('Campeonato › novo › mais opções'); h.back();
+  h.activate('camp-rules'); await shot('Campeonato › regras'); h.back();
+  h.activate('camp-trophies'); await shot('Campeonato › troféus'); h.back();
+  h.activate('camp-ath-go');
+  if (h.screen === 'camp-confirm') { await shot('Campeonato › confirmar'); h.activate('camp-start'); }
+  await wait(150); await shot('Campeonato › seleção normal'); rf.select.close();
+  // chave: campeonato de teste, com a dupla do jogador vencendo e o resto simulado a cada chave
+  h.actions.campNew({ diff: 'medio', levelMode: 'escada', duplas: [{ ids: ['tito', 'dada'], players: [1] }] });
+  await shot('Campeonato › chave 1');
+  h.activate('camp-watch'); await shot('Campeonato › assistir'); h.back();
+  for (let k = 2; k <= 4; k++) {
+    const c = JSON.parse(win.localStorage.getItem(campKey));
+    for (const m of c.cur.matches) if (m.winner === null && (c.cur.teams[m.a].human || c.cur.teams[m.b].human)) { m.winner = c.cur.teams[m.a].human ? m.a : m.b; m.sets = m.phase === 'final' ? [[18, 12], [18, 15]] : [[18, 11]]; if (m.winner === m.b) m.sets = m.sets.map(x => [x[1], x[0]]); }
+    win.localStorage.setItem(campKey, JSON.stringify(c));
+    h.actions.campAdvance(); await wait(900); await shot(k < 4 ? 'Campeonato › chave ' + k : 'Campeonato › chave completa');
+  }
+  if (campSaved === null) win.localStorage.removeItem(campKey); else win.localStorage.setItem(campKey, campSaved);
+  const tossWas = S.exhToss; S.exhToss = 'completo'; // a Exibição sorteia sozinha; aqui, o cara ou coroa completo
+  h.actions.start('solo', [['tito', 'dada'], ['rosa', 'pePato']], {}, 'exh', {});
+  S.exhToss = tossWas;
+  for (let i = 0; i < 40 && h.screen !== 'toss'; i++) await wait(100); // o sorteio abre no 1º quadro da partida
+  // 5.0: cara ou coroa antes da partida
+  await shot('Cara ou coroa');
+  h.activate('toss-cara'); await shot('Cara ou coroa › resultado');
+  // segue o sorteio até o fim (lado, sacar ou receber, Começar!)
+  for (let i = 0; i < 6 && rf.hud.tossSt; i++) {
+    const it = h.items().map(i => i.id), pick = ['toss-lado', 'toss-cpu', 'toss-dir', 'toss-sv-sacar', 'toss-start'].find(x => it.includes(x));
+    if (!pick) break;
+    h.activate(pick); if (rf.hud.tossSt) await shot('Cara ou coroa › ' + h.screen.replace('toss-', ''));
+  }
+  await shot('Partida');
+  h.open('pause'); await shot('Pausa'); h.activate('controls'); await shot('Comandos'); h.close(); h.actions.resume();
+  h.techPause(rf.match, [0]); await shot('Pausa técnica'); h.close(); h.actions.resume();
+}
+
+const rowsEl = document.getElementById('rows');
+document.getElementById('run').onclick = async () => {
+  rowsEl.innerHTML = ''; let problems = 0, total = 0;
+  for (const [name, w, hgt] of SIZES) {
+    const f = document.createElement('iframe'); f.className = 'frame'; f.style.width = w + 'px'; f.style.height = hgt + 'px'; f.src = '../';
+    document.body.append(f);
+    await new Promise(r => f.onload = r); await wait(4000);
+    try {
+      await walk(f.contentWindow, (screen, res) => {
+        total++;
+        if (res.bad.length || res.small.length) problems++;
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td>${name}</td><td>${screen}</td><td class="${res.bad.length ? 'bad' : 'ok'}">${res.bad.length ? res.bad.slice(0, 4).join('<br>') : 'ok'}</td><td class="${res.small.length ? 'warn' : 'ok'}">${res.small.length ? res.small.slice(0, 4).join('<br>') : 'ok'}</td>`;
+        rowsEl.append(tr);
+        document.getElementById('summary').textContent = `${total} telas conferidas · ${problems} com problema`;
+      });
+    } catch (e) { const tr = document.createElement('tr'); tr.innerHTML = `<td>${name}</td><td colspan="3" class="bad">erro: ${e.message}</td>`; rowsEl.append(tr); problems++; }
+    f.remove();
+  }
+  document.getElementById('summary').textContent = `${total} telas conferidas · ${problems ? problems + ' com problema' : 'nenhum problema'}`;
+};
+</script>
+</body>
+</html>

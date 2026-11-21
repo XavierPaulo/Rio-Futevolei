@@ -1,0 +1,2178 @@
+<title>Editor de Golpes 4.0</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Nunito:wght@600;800;900&display=swap" rel="stylesheet">
+<style>
+/* Layout: lista de golpes à esquerda; à direita a quadra vista de cima (arrasta o centro), a
+   trajetória vista de lado e os campos do golpe. Empilha no celular. */
+:root {
+  --bg: #e9f3ef; --surface: #ffffff; --surface-2: #d8ebe5; --fg: #10233d; --muted: #4e6378; --line: #bcd7cf;
+  --sand: #f4dfae; --sand-line: #1d5cff; --net: #10233d; --zone: #ff5a3c; --zone-2: #1d5cff;
+  --ok: #139a55; --warn: #d6361f; --sun: #ffcf2e;
+  --display: 'Lilita One', 'Arial Rounded MT Bold', system-ui, sans-serif;
+  --body: 'Nunito', 'Segoe UI', system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0d1a27; --surface: #142638; --surface-2: #1c3349; --fg: #eaf2fb; --muted: #9db2c9; --line: #284865;
+  --sand: #3b3424; --sand-line: #6f9bff; --net: #eaf2fb; --zone: #ff7a5e; --zone-2: #7ea8ff;
+  --ok: #3fcf83; --warn: #ff7a66; --sun: #ffd84d; color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --bg: #0d1a27; --surface: #142638; --surface-2: #1c3349; --fg: #eaf2fb; --muted: #9db2c9; --line: #284865;
+  --sand: #3b3424; --sand-line: #6f9bff; --net: #eaf2fb; --zone: #ff7a5e; --zone-2: #7ea8ff;
+  --ok: #3fcf83; --warn: #ff7a66; --sun: #ffd84d; color-scheme: dark; }
+
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--fg); font-family: var(--body); font-size: 15px; line-height: 1.45; }
+.wrap { max-width: 1240px; margin: 0 auto; padding-inline: 16px; padding-block: 18px 40px; display: flex; flex-direction: column; gap: 14px; }
+header { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 10px; }
+h1 { font-family: var(--display); font-weight: 400; font-size: clamp(28px, 4.5vw, 42px); line-height: 1; margin: 0; text-wrap: balance; }
+h1 span { color: var(--zone); }
+.kicker { margin: 4px 0 0; color: var(--muted); font-weight: 800; max-width: 70ch; }
+.status { display: inline-flex; align-items: center; gap: 8px; font-weight: 900; font-size: 13px; color: var(--muted); }
+.status i { width: 10px; height: 10px; border-radius: 50%; background: var(--muted); }
+.status.saved i { background: var(--ok); } .status.saving i { background: var(--sun); } .status.error i, .status.offline i { background: var(--warn); }
+.tools { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+button { font: 800 14px var(--body); color: var(--fg); background: var(--surface); border: 2px solid var(--line); border-radius: 10px; padding: 6px 12px; cursor: pointer; }
+button:hover { border-color: var(--muted); }
+button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px solid var(--sun); outline-offset: 2px; }
+button[aria-pressed="true"] { border-color: var(--zone); background: var(--surface-2); }
+
+.main { display: grid; grid-template-columns: minmax(200px, 250px) minmax(0, 1fr); gap: 14px; align-items: start; }
+nav.list { background: var(--surface); border-radius: 16px; padding: 10px; display: flex; flex-direction: column; gap: 10px; position: sticky; top: env(safe-area-inset-top, 0px); max-height: calc(100vh - 20px); overflow: auto; }
+nav h3 { margin: 4px 6px 2px; font: 900 11px var(--body); letter-spacing: 1.2px; text-transform: uppercase; color: var(--muted); }
+nav button { display: flex; width: 100%; justify-content: space-between; align-items: center; gap: 6px; text-align: left; border-width: 2px; padding: 5px 9px; }
+nav button small { color: var(--muted); font-weight: 800; font-size: 11px; white-space: nowrap; }
+nav button[aria-current="true"] { border-color: var(--zone); background: var(--surface-2); }
+
+.editor { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.card { background: var(--surface); border-radius: 16px; padding: 14px 16px; min-width: 0; }
+.card h2 { font-family: var(--display); font-weight: 400; font-size: 26px; margin: 0; line-height: 1.1; }
+.card h4 { margin: 0 0 8px; font: 900 11px var(--body); letter-spacing: 1.2px; text-transform: uppercase; color: var(--muted); }
+.title-row { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px; }
+.tags { display: flex; flex-wrap: wrap; gap: 5px; }
+.tags span { font: 900 11px var(--body); letter-spacing: 0.6px; text-transform: uppercase; background: var(--surface-2); color: var(--muted); padding: 2px 8px; border-radius: 999px; }
+.views { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 14px; }
+.court svg { display: block; width: 100%; height: auto; max-width: 100%; touch-action: none; user-select: none; }
+.side canvas { display: block; width: 100%; height: auto; max-width: 100%; aspect-ratio: 16 / 9; }
+.hint { color: var(--muted); font-size: 13px; margin: 6px 0 0; }
+.warn { color: var(--warn); font-weight: 900; }
+.fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 14px; }
+.row { display: grid; grid-template-columns: minmax(110px, 40%) minmax(0, 1fr); gap: 8px; align-items: center; margin: 6px 0; }
+.row label { font-weight: 800; font-size: 14px; }
+.row label small { display: block; color: var(--muted); font-weight: 700; font-size: 11px; }
+.ctl { display: flex; gap: 8px; align-items: center; min-width: 0; }
+.ctl input[type="range"] { flex: 1; min-width: 0; accent-color: var(--zone); }
+.ctl input[type="number"] { width: 78px; font: 800 14px var(--body); color: var(--fg); background: var(--bg); border: 2px solid var(--line); border-radius: 8px; padding: 4px 6px; font-variant-numeric: tabular-nums; }
+select { font: 800 14px var(--body); color: var(--fg); background: var(--bg); border: 2px solid var(--line); border-radius: 8px; padding: 5px 6px; max-width: 100%; }
+.seg { display: flex; flex-wrap: wrap; gap: 4px; }
+.seg button { padding: 4px 9px; font-size: 13px; }
+.models { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px; }
+.models button { display: flex; flex-direction: column; align-items: stretch; gap: 4px; padding: 6px; text-align: left; }
+.models button span { font-size: 12px; line-height: 1.2; }
+.models svg { width: 100%; height: 34px; }
+.stats { display: flex; flex-wrap: wrap; gap: 6px 16px; font-weight: 800; font-size: 13px; color: var(--muted); margin-top: 8px; font-variant-numeric: tabular-nums; }
+.stats b { color: var(--fg); }
+.empty { text-align: center; padding: 40px 16px; color: var(--muted); font-weight: 800; }
+.fn-card { grid-column: 1 / -1; }
+.fn-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr); gap: 14px; align-items: center; }
+.fn-grid canvas { display: block; width: 100%; height: auto; max-width: 100%; }
+@media (max-width: 860px) { .fn-grid { grid-template-columns: 1fr; } }
+/* visualizador: atleta com hitbox e a trajetória real da bola, vista de lado */
+.col { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.viewer canvas { display: block; width: 100%; height: auto; max-width: 100%; aspect-ratio: 2 / 1; background: var(--bg); border-radius: 12px; }
+.viewer-bar { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; margin-bottom: 8px; }
+.viewer-bar .seg button { padding: 4px 10px; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12px; font-weight: 800; color: var(--muted); margin-top: 8px; }
+.legend i { display: inline-block; width: 14px; height: 10px; border-radius: 3px; margin-right: 5px; vertical-align: -1px; }
+textarea { width: 100%; min-height: 160px; font: 12px ui-monospace, Consolas, monospace; color: var(--fg); background: var(--bg); border: 2px solid var(--line); border-radius: 10px; padding: 8px; }
+.sync { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; border: 2px solid var(--line); }
+.sync.pending { border-color: var(--sun); }
+.sync.done { border-color: var(--ok); }
+.sync .hint { margin: 2px 0 0; }
+.card h4.sub-h { margin: 14px 0 4px; }
+button.primary { background: var(--zone); border-color: var(--zone); color: #fff; font-size: 15px; padding: 8px 16px; }
+button.primary:disabled { background: var(--surface-2); border-color: var(--line); color: var(--muted); cursor: default; }
+nav button .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--sun); display: inline-block; margin-left: 6px; vertical-align: 1px; }
+button:disabled { opacity: .45; cursor: default; }
+/* abas */
+.tabs { display: flex; flex-wrap: wrap; gap: 6px; border-bottom: 2px solid var(--line); }
+.tabs button { white-space: nowrap; border: 2px solid transparent; border-bottom: none; border-radius: 10px 10px 0 0; padding: 8px 16px; background: transparent; font-size: 15px; margin-bottom: -2px; }
+.tabs button[aria-selected="true"] { background: var(--surface); border-color: var(--line); color: var(--fg); }
+/* árvore de decisão */
+.ia { display: flex; flex-direction: column; gap: 14px; }
+.ia-cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr)); gap: 14px; align-items: start; }
+.tree { display: flex; flex-direction: column; gap: 0; }
+.tree .root { font: 900 13px var(--body); background: var(--zone); color: #fff; border-radius: 10px; padding: 6px 12px; align-self: flex-start; }
+.node { position: relative; margin-left: 14px; padding: 10px 0 0 18px; border-left: 2px solid var(--line); }
+.node::before { content: ''; position: absolute; left: 0; top: 26px; width: 14px; border-top: 2px solid var(--line); }
+.node.last { border-left-color: transparent; }
+.node.last::after { content: ''; position: absolute; left: -2px; top: 0; height: 26px; border-left: 2px solid var(--line); }
+.rule { background: var(--bg); border: 2px solid var(--line); border-radius: 12px; padding: 8px 10px; display: flex; flex-direction: column; gap: 6px; }
+.rule .rhead { display: flex; justify-content: space-between; align-items: center; gap: 6px; font: 900 11px var(--body); letter-spacing: .8px; text-transform: uppercase; color: var(--muted); }
+.rule .rhead .btns { display: flex; gap: 4px; }
+.rule .rhead button { padding: 1px 7px; font-size: 12px; }
+.cond, .then { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; font-size: 13px; font-weight: 800; }
+.cond select, .then select, .fallback select { font-size: 13px; padding: 3px 4px; }
+.cond input, .then input { width: 66px; font: 800 13px var(--body); color: var(--fg); background: var(--surface); border: 2px solid var(--line); border-radius: 8px; padding: 2px 5px; }
+.then { border-top: 1px dashed var(--line); padding-top: 6px; color: var(--zone); }
+.kw { font: 900 11px var(--body); letter-spacing: .6px; color: var(--muted); text-transform: uppercase; }
+.fallback { background: var(--surface-2); border-radius: 12px; padding: 8px 10px; display: flex; align-items: center; gap: 6px; font-weight: 800; font-size: 13px; flex-wrap: wrap; }
+.add { margin: 10px 0 0 32px; align-self: flex-start; font-size: 13px; }
+/* mapa dos golpes */
+.map-scroll { overflow-x: auto; max-width: 100%; }
+.map-scroll svg { display: block; min-width: 900px; width: 100%; height: auto; }
+.mtable { border-collapse: collapse; width: 100%; min-width: 900px; font-size: 13px; }
+.mtable th, .mtable td { border-bottom: 1px solid var(--line); padding: 5px 7px; text-align: left; vertical-align: top; }
+.mtable th { font: 900 11px var(--body); letter-spacing: .6px; text-transform: uppercase; color: var(--muted); }
+.mtable td small { color: var(--muted); }
+.mtable.tl-names { min-width: 0; table-layout: fixed; }
+.mtable.tl-names th:first-child { width: 48px; }
+.tl-scroll { overflow-x: auto; max-width: 100%; }
+.tl-scroll .mtable.tl-names { min-width: 520px; }
+.tsp-edit { grid-column: 1 / -1; }
+.tsp-views { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)); gap: 14px; margin-bottom: 8px; }
+.tsp-side { display: block; width: 100%; aspect-ratio: 16 / 9; touch-action: none; cursor: grab; border-radius: 10px; background: var(--bg); }
+.tsp-edit .ctl button + button { margin-left: 6px; }
+.tlp { display: block; width: 100%; height: auto; margin: 4px 0 10px; }
+.tlp-lb { font: 900 11px Nunito, sans-serif; fill: var(--fg); paint-order: stroke; stroke: var(--surface); stroke-width: 3px; }
+.tl-txt { width: 100%; min-width: 0; font: 800 13px var(--body); color: var(--fg); background: var(--bg); border: 2px solid var(--line); border-radius: 8px; padding: 4px 6px; }
+.tag-own { color: var(--ok); font-weight: 900; } .tag-opp { color: var(--warn); font-weight: 900; }
+.g-otimo { color: #1a9e57; font-weight: 900; } .g-bom { color: var(--fg); font-weight: 800; } .g-ruim { color: #d98a00; font-weight: 900; } .g-pior { color: var(--warn); font-weight: 900; }
+.sim-bar { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; margin: 8px 0; font-weight: 800; font-size: 14px; }
+.sim-bar input { width: 64px; font: 800 14px var(--body); color: var(--fg); background: var(--bg); border: 2px solid var(--line); border-radius: 8px; padding: 3px 6px; margin-left: 4px; }
+.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; margin: 10px 0; }
+.kpi { background: var(--bg); border-radius: 12px; padding: 10px 12px; }
+.kpi b { display: block; font: 900 22px var(--body); font-variant-numeric: tabular-nums; }
+.kpi span { color: var(--muted); font-size: 12px; font-weight: 800; }
+.heat td { text-align: center; font-variant-numeric: tabular-nums; }
+.heat td:first-child, .heat th:first-child { text-align: left; }
+@media (max-width: 860px) { .main, .views { grid-template-columns: 1fr; } nav.list { position: static; max-height: none; } }
+</style>
+
+<div class="wrap">
+  <header>
+    <div>
+      <a href="index.html" style="display:inline-block;margin-bottom:6px;font-weight:900;font-size:13px;color:var(--muted);text-decoration:none">← Editores</a>
+      <h1><span>RIO</span> FUTEVÔLEI 4.0 · Editor de golpes</h1>
+      <p class="kicker">Golpes (destino, precisão, trajetória, hitbox) e a árvore de decisão da CPU. Aberto pelo servidor do jogo, o botão "Aplicar no jogo" grava o código e o jogo aberto muda na hora.</p>
+    </div>
+    <div class="tools">
+      <span class="status" id="status"><i></i><span>Conectando…</span></span>
+      <button type="button" id="undo" title="Desfazer (Ctrl+Z)" disabled>↶ Desfazer</button>
+      <button type="button" id="redo" title="Refazer (Ctrl+Y)" disabled>↷ Refazer</button>
+      <button type="button" id="export">Copiar JSON</button>
+    </div>
+  </header>
+
+  <div class="card sync" id="sync" hidden>
+    <div><b id="sync-title"></b><p class="hint" id="sync-text"></p></div>
+    <button type="button" id="sync-copy" class="primary">Aplicar no jogo</button>
+  </div>
+
+  <div class="tabs" role="tablist" aria-label="Seções do editor">
+    <button type="button" role="tab" id="tab-golpes" data-tab="golpes" aria-selected="true">Golpes</button>
+    <button type="button" role="tab" id="tab-ia" data-tab="ia" aria-selected="false">IA da CPU</button>
+    <button type="button" role="tab" id="tab-mapa" data-tab="mapa" aria-selected="false">Mapa dos golpes</button>
+    <button type="button" role="tab" id="tab-tilt" data-tab="tilt" aria-selected="false">Golpes do jogo</button>
+  </div>
+
+  <section id="pane-tilt" class="ia" hidden aria-labelledby="tab-tilt">
+    <div class="card">
+      <h4>Golpes do Modo Tilt</h4>
+      <p class="hint">Em qualquer toque: □ (X no Xbox) e ○ (B no Xbox), no chão e no ar. Segurando o botão a hitbox aparece; a bola entrando nela para o tempo e a seta aponta para onde a bola vai (○ no ar vai direto para o parceiro, sem pausa). Dois toques rápidos com a barra cheia: □□ = especial de ataque, ○○ = especial de defesa, escolhidos na seleção de atletas entre os desta lista. Grava em src/data/tilt.js.</p>
+    </div>
+    <div class="ia-cols" id="tilt-edit"></div>
+  </section>
+
+  <section id="pane-mapa" class="ia" hidden aria-labelledby="tab-mapa">
+    <div class="card">
+      <h4>Grafo de decisão do jogador</h4>
+      <p class="hint">Da bola chegando ao golpe: em cada toque, a posição (chão ou ar) e o botão escolhem o golpe; a seta mostra para onde a bola vai com os valores atuais do editor (verde = fica no nosso campo, para o próximo toque; vermelho = passa a rede). Feito a partir dos dados, então muda quando você edita um golpe.</p>
+      <div class="map-scroll" id="map-graph"></div>
+      <div class="legend" aria-hidden="true">
+        <span><i style="background: var(--ok)"></i>fica no nosso campo (próximo toque)</span>
+        <span><i style="background: var(--warn)"></i>passa a rede (campo adversário)</span>
+        <span><i style="background: var(--sun)"></i>especial (✕✕ no ar, barra cheia)</span>
+      </div>
+    </div>
+    <div class="card">
+      <h4>DER · diagrama de entidade e relacionamento</h4>
+      <p class="hint">As entidades do sistema de golpes e como se relacionam (1 = um, N = vários, 0..1 = opcional). Abaixo, as 21 instâncias de Golpe com os relacionamentos de cada uma.</p>
+      <div class="map-scroll" id="map-der"></div>
+    </div>
+    <div class="card">
+      <h4>Os 21 golpes e suas interações</h4>
+      <div class="map-scroll" id="map-table"></div>
+    </div>
+    <div class="card">
+      <h4>Notas entre os toques (Ótimo · Bom · Ruim · Pior)</h4>
+      <p class="hint">A nota de um toque depende do que o toque anterior entregou (velocidade, altura e distância da rede da bola que chega); e o efeito da nota passa para o próximo toque do time (3.0). O grafo mostra, para cada toque, o que leva cada golpe do toque seguinte ao Ótimo; a tabela traz as regras de cada golpe (src/grade.js).</p>
+      <div class="map-scroll" id="map-grades"></div>
+      <div class="map-scroll" id="map-grade-rules"></div>
+    </div>
+    <div class="card">
+      <h4>Medição · partidas simuladas</h4>
+      <p class="hint">A CPU joga contra ela mesma com os valores atuais do editor (golpes, física, hitbox e árvore da IA), mesmo antes de aplicar. Mostra a duração das partidas e dos ralis, como os pontos terminam e, de verdade, como a nota de um toque se relaciona com a do seguinte. Só funciona no editor aberto pelo servidor do jogo.</p>
+      <div class="sim-bar">
+        <label>Partidas <input type="number" id="sim-n" value="10" min="1" max="60"></label>
+        <label>Nível do time 1 <input type="number" id="sim-a" value="8" min="1" max="12"></label>
+        <label>Nível do time 2 <input type="number" id="sim-b" value="8" min="1" max="12"></label>
+        <button type="button" id="sim-run" class="primary">Simular</button>
+        <span class="hint" id="sim-status"></span>
+      </div>
+      <div id="sim-out"></div>
+    </div>
+  </section>
+
+  <section id="pane-ia" class="ia" hidden aria-labelledby="tab-ia">
+    <div class="card">
+      <h4>Árvore de decisão da CPU</h4>
+      <p class="hint">Em cada toque, a CPU passa pelas regras de cima para baixo: a primeira cujas condições batem (todas) e que passa no sorteio da chance decide o golpe; se nenhuma decidir, vale o golpe padrão. Golpes de ar só valem se a bola passar alta o bastante para pular nela. A <b>esperteza</b> do nível da CPU é a chance de ela seguir esta árvore (nível 12 quase sempre); quando não segue, escolhe um golpe possível ao acaso. Os especiais têm regra própria (barra cheia).</p>
+    </div>
+    <div class="ia-cols" id="ia-tree"></div>
+  </section>
+
+  <div class="main" id="pane-golpes">
+    <nav class="list" id="list" aria-label="Golpes"></nav>
+    <div class="col">
+      <div class="editor" id="editor"><div class="card empty">Carregando os golpes…</div></div>
+      <section class="card viewer" id="viewer" aria-labelledby="viewer-t">
+        <div class="title-row"><h4 id="viewer-t">Hitbox e trajetória real (vista de lado, desenho do jogo)</h4></div>
+        <div class="viewer-bar">
+          <div class="seg" role="group" aria-label="Estilo">
+            <button type="button" id="vs-cartoon" data-vstyle="cartoon" aria-pressed="false">Cartoon</button>
+            <button type="button" id="vs-pincel" data-vstyle="pincel" aria-pressed="true">Pincel</button>
+          </div>
+          <label for="v-char"><select id="v-char" aria-label="Atleta"></select></label>
+          <div class="seg" role="group" aria-label="Velocidade">
+            <button type="button" id="vsp-1" data-vspeed="1" aria-pressed="true">100%</button>
+            <button type="button" id="vsp-05" data-vspeed="0.5" aria-pressed="false">50%</button>
+            <button type="button" id="vsp-025" data-vspeed="0.25" aria-pressed="false">25%</button>
+          </div>
+          <button type="button" id="v-play">Pausar</button>
+        </div>
+        <canvas id="viewer-canvas" width="1200" height="600" aria-label="Atleta executando o golpe, com a hitbox e a trajetória da bola"></canvas>
+        <div class="legend" aria-hidden="true">
+          <span><i style="background: rgba(57,255,136,.35); outline: 2px solid #39ff88"></i>hitbox (altura da bola × alcance frente/trás)</span>
+          <span><i style="background: var(--zone)"></i>trajetória real (simulação do jogo)</span>
+          <span><i style="background: var(--warn)"></i>depois de bater na rede</span>
+        </div>
+        <p class="hint" id="viewer-note">Carregando o desenho dos atletas…</p>
+      </section>
+    </div>
+  </div>
+  <div class="card" id="export-box" hidden>
+    <h4>JSON de todos os golpes</h4>
+    <textarea id="export-text" readonly></textarea>
+  </div>
+</div>
+
+<script>
+// ---------- regras do jogo 3.0 (iguais a src/moves.js e src/engine/trajectory.js) ----------
+const PRECISION = {
+  perfeita: { name: 'Perfeita', size: 2.4 }, alta: { name: 'Alta', size: 3.23 }, mediaAlta: { name: 'Média alta', size: 4.06 },
+  media: { name: 'Média', size: 4.89 }, mediaBaixa: { name: 'Média baixa', size: 5.72 }, baixa: { name: 'Baixa', size: 6.56 }, espirrada: { name: 'Espirrada', size: 9 },
+};
+const CENTER_GROW = 1.6, SIDE_GROW = 1.4, SPAN = 3.1, NET_H = 2.2, BALL_R = 0.14;
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const clamp01 = v => clamp(v, 0, 1);
+const smooth = t => t * t * (3 - 2 * t);
+const rise = (u, ua, y0, H, s) => y0 + (H - y0) * s(clamp01(u / ua));
+const fall = (u, ua, H, y1, s) => H - (H - y1) * s(clamp01((u - ua) / (1 - ua)));
+// Parâmetros das funções de cada modelo (iguais a src/data/trajectories.js; os salvos no editor
+// substituem estes). Valem para todos os golpes que usam o modelo.
+const PARAM_INFO = {
+  gravity: { label: 'Gravidade', hint: 'm/s² · 9,8 = real', min: 4, max: 15, step: 0.1 },
+  drag: { label: 'Arrasto do ar', hint: '1/s · 0 = sem ar; maior = perde velocidade e cai mais em pé', min: 0, max: 1.5, step: 0.01 },
+  spin: { label: 'Efeito vertical', hint: 'm/s² · + mergulha (topspin) · − sustenta (backspin)', min: -5, max: 10, step: 0.1 },
+  wobble: { label: 'Oscilação lateral', hint: 'm · bola sem rotação', min: 0, max: 1.5, step: 0.01 },
+  freq: { label: 'Oscilações por segundo', hint: 'Hz', min: 0.3, max: 4, step: 0.05 },
+};
+// iguais a src/data/trajectories.js (os salvos no editor substituem estes)
+const MODEL_DEFAULTS = {
+  mundo: { gravity: 9 },
+  balistica: { drag: 0 },
+  arrasto: { drag: 0.35 },
+  topspin: { drag: 0.25, spin: 4 },
+  backspin: { drag: 0.2, spin: -2.5 },
+  cravada: { drag: 0.15, spin: 0 },
+  balao: { drag: 0.5 },
+  largadinha: { drag: 0.45, spin: 0 },
+  sidespin: { drag: 0.25 },
+  flutuante: { drag: 0.3, wobble: 0.35, freq: 1.6 },
+};
+const MP = JSON.parse(JSON.stringify(MODEL_DEFAULTS));
+const MODELS = {
+  balistica: { name: 'Parábola balística', hint: 'só gravidade, sem efeito' },
+  arrasto: { name: 'Parábola com arrasto', hint: 'o ar freia: pico adiante, queda mais em pé' },
+  topspin: { name: 'Efeito para baixo (topspin)', hint: 'sai forte e mergulha' },
+  backspin: { name: 'Efeito para trás (backspin)', hint: 'curva mais longa e achatada' },
+  cravada: { name: 'Cravada', hint: 'sai para baixo e acelera' },
+  balao: { name: 'Balão / lob alto', hint: 'sobe muito e cai quase na vertical' },
+  largadinha: { name: 'Largadinha', hint: 'curta, pico logo depois do contato' },
+  sidespin: { name: 'Efeito lateral (sidespin)', hint: 'faz curva para o lado' },
+  flutuante: { name: 'Saque flutuante', hint: 'sem rotação, balança de lado' },
+};
+// nomes da primeira versão dos modelos → modelos físicos
+const LEGACY = { simetrica: 'balistica', impulso: 'topspin', assimetrica: 'arrasto', plato: 'backspin', linear: 'cravada', suave: 'largadinha' };
+const modelOf = id => (MODELS[id] ? id : LEGACY[id] || 'balistica');
+// velocidade da bola do golpe (traj.pace), igual a PACE em src/engine/trajectory.js
+const PACE = { rapida: { name: 'Rápida', rate: 1.3 }, normal: { name: 'Normal', rate: 1 }, lenta: { name: 'Lenta', rate: 0.7 } };
+// Física: o próprio motor do jogo (src/engine/trajectory.js), carregado pelo módulo do
+// visualizador. Até ele chegar, as curvas mostram "carregando".
+let TRAJ = null;
+const NET_CLEAR = NET_H + BALL_R + 0.12; // o jogo sobe a bola o mínimo para passar a fita
+function syncTraj() { if (TRAJ) for (const id of Object.keys(MP)) if (TRAJ.MODEL_PARAMS[id]) Object.assign(TRAJ.MODEL_PARAMS[id], MP[id]); }
+// caminho da bola (amostras x, y no tempo) do contato p0 até o destino "to"
+function physPath(traj, p0, to, n = 140) {
+  if (!TRAJ) return null;
+  syncTraj();
+  const sc = TRAJ.solve({ ...traj, model: modelOf(traj.model), to, y1: 0.15 }, p0, 1, { netClear: NET_CLEAR });
+  const pts = [];
+  for (let i = 0; i <= n; i++) pts.push(TRAJ.pointAt(sc, i / n));
+  return { sc, pts, netY: TRAJ.netCrossY(sc) };
+}
+// Tamanho da área inteira (igual a areaOf em src/moves.js): w = horizontal (ao longo da quadra,
+// esquerda–direita na tela), h = vertical (ao longo da rede, cima–baixo). Círculo: w = h = diâmetro.
+function areaOf(aim) {
+  if (aim.w > 0 && aim.h > 0) return aim.shape === 'circulo' ? { w: aim.w, h: aim.w } : { w: aim.w, h: aim.h };
+  const size = (PRECISION[aim.precision] || PRECISION.media).size, ratio = Math.max(1, aim.ratio || 1);
+  return { w: aim.shape === 'vertical' ? size / ratio : size, h: aim.shape === 'horizontal' ? size / ratio : size };
+}
+const r2 = v => Math.round(v * 100) / 100;
+// nível com nome cujo tamanho é o maior lado da área (ou 'personalizada')
+const levelOf = aim => Object.keys(PRECISION).find(k => Math.abs(PRECISION[k].size - Math.max(aim.w, aim.h)) < 0.006) || 'personalizada';
+const levelName = aim => (PRECISION[aim.precision] || { name: 'Personalizada' }).name;
+// medidas em texto: "⌀ 4,89 m" ou "5,72 × 3,81 m" (horizontal × vertical)
+const sizeLabel = aim => (aim.shape === 'circulo' ? `⌀ ${fmt(aim.w)} m` : `${fmt(aim.w)} × ${fmt(aim.h)} m`);
+// destino no formato de medidas (converte dados antigos: nível + elipse vertical/horizontal + proporção)
+function normAim(aim) {
+  if (!aim) return aim;
+  if (!(aim.w > 0 && aim.h > 0)) {
+    const a = areaOf(aim);
+    aim.w = r2(a.w); aim.h = r2(a.h);
+  }
+  aim.shape = aim.shape === 'circulo' || (aim.shape !== 'elipse' && aim.shape !== 'vertical' && aim.shape !== 'horizontal') ? 'circulo' : 'elipse';
+  if (aim.shape === 'circulo') aim.h = aim.w;
+  delete aim.ratio;
+  aim.precision = levelOf(aim);
+  return aim;
+}
+function gridOf(aim) {
+  const { w, h } = areaOf(aim);
+  const sx = w / SPAN, sz = h / SPAN;
+  return { sx, sz, rx: 0.55 * sx, rz: 0.55 * sz };
+}
+// sem mira: a área do círculo central dobra (raio × √2), igual a NOAIM_GROW em src/moves.js
+const NOAIM_GROW = Math.SQRT2;
+function subarea(g, f, l, noAim = false) {
+  const cg = CENTER_GROW * (noAim ? NOAIM_GROW : 1);
+  if (!f && !l) return { df: 0, dl: 0, rx: cg * g.rx, rz: cg * g.rz };
+  const n = Math.hypot(f, l), g1 = SIDE_GROW - 1;
+  return { df: f * g.sx - g1 * g.rx * f / n, dl: l * g.sz - g1 * g.rz * l / n, rx: SIDE_GROW * g.rx, rz: SIDE_GROW * g.rz };
+}
+// jogador sempre do lado esquerdo (x < 0) no editor: "em direção à rede" = x crescente
+// 3.0 (igual a gridCenter em src/moves.js): nos passes (ficam no nosso campo) a linha vai em
+// direção ao parceiro, até "dist". No editor o parceiro é um exemplo, na posição da formação:
+// quem bate perto da rede passa para o do fundo, quem bate no fundo passa para o da rede.
+const mateFor = (px, pz) => (px > -3.4 ? { x: -6.1, z: 1.4 } : { x: -2.3, z: -1.2 });
+function gridCenter(aim, px, pz) {
+  if (aim.ownCourt) {
+    const m = mateFor(px, pz), dx = m.x - px, dz = m.z - pz, d = Math.hypot(dx, dz);
+    if (d > 0.3) { const k = Math.min(aim.dist, d) / d; return { x: px + dx * k, z: pz + dz * k }; }
+  }
+  return { x: px + aim.dist, z: pz };
+}
+function cells(aim, px, pz) {
+  const g = gridOf(aim), out = [], c = gridCenter(aim, px, pz);
+  for (const f of [-1, 0, 1]) for (const l of [-1, 0, 1]) {
+    const s = subarea(g, f, l, aim.noAim);
+    let x = clamp(c.x + s.df, -9.6, 9.6);
+    if (aim.ownCourt && x > -0.45) x = -0.45;
+    out.push({ f, l, x, z: clamp(c.z + s.dl, -4.4, 4.4), rx: s.rx, rz: s.rz });
+  }
+  return out;
+}
+
+// ---------- golpes (nome, grupo, botões e um exemplo de onde o jogador está) ----------
+// key: id do documento; alt: edita o destino do 3º toque daquele golpe
+const META = [
+  { key: 'peito', name: 'Domínio de peito', group: '1º toque', btn: '□ · X · J', pos: 'chão', from: [-4.5, -1.2], y: 1.3, anim: 'chest', air: 0 },
+  { key: 'pe', name: 'Domínio de pé', group: '1º toque', btn: '○ · B · K', pos: 'chão', from: [-4.5, -1.2], y: 0.5, anim: 'poke', air: 0 },
+  { key: 'cabeca', name: 'Cabeça', group: '1º toque', btn: '✕+□ · A+X · L+J', pos: 'no ar', from: [-4.5, -1.2], y: 2.0, anim: 'header', air: 1 },
+  { key: 'sharkBlock', name: 'Shark (bloqueio)', group: '1º toque', btn: '✕+○ · A+B · L+K', pos: 'no ar', from: [-0.8, 0], y: 2.6, anim: 'shark', air: 1 },
+  { key: 'ombro', name: 'Passe de ombro', group: '2º toque', btn: '□ · X · J', pos: 'chão', from: [-3.5, -1], y: 1.2, anim: 'shoulder', air: 0 },
+  { key: 'naFita', name: 'Na fita', group: '2º toque', btn: '○ · B · K', pos: 'chão', from: [-3, -1], y: 0.5, anim: 'poke', air: 0 },
+  { key: 'ataqueSegunda', name: 'Ataque de segunda', group: '2º toque', btn: '✕+□ · A+X · L+J', pos: 'no ar', from: [-1.6, -0.5], y: 2.5, anim: 'header', air: 1 },
+  { key: 'cabecaSet', name: 'Levantada de cabeça', group: '2º toque', btn: '✕+○ · A+B · L+K', pos: 'no ar', from: [-3.5, -1], y: 2.2, anim: 'header', air: 1 },
+  { key: 'chuteColocado', name: 'Chute colocado', group: '3º toque', btn: '□ · X · J', pos: 'chão', from: [-5, -0.5], y: 0.6, anim: 'kick', air: 0 },
+  { key: 'pingo', name: 'Pingo', group: '3º toque', btn: '○ · B · K', pos: 'chão', from: [-1.8, -0.5], y: 0.5, anim: 'poke', air: 0 },
+  { key: 'cabecada', name: 'Cabeçada', group: '3º toque', btn: '✕+□ · A+X · L+J', pos: 'no ar', from: [-3, -0.5], y: 2.4, anim: 'header', air: 1 },
+  { key: 'sharkAttack', name: 'Shark Attack', group: '3º toque', btn: '✕+○ · A+B · L+K', pos: 'no ar', from: [-1, -0.5], y: 2.9, anim: 'shark', air: 1 },
+  { key: 'carrinho', name: 'Carrinho', group: 'Defesa', btn: '△ · Y · U', pos: 'chão', from: [-5.5, -2], y: 0.3, anim: 'slide', air: 0 },
+  { key: 'carrinho', alt: true, name: 'Carrinho (3º toque)', group: 'Defesa', btn: '△ · Y · U', pos: 'chão', from: [-5.5, -2], y: 0.3, anim: 'slide', air: 0 },
+  { key: 'saqueForte', name: 'Saque forte', group: 'Saque', btn: '□ · X · J', pos: 'chão', from: [-9.15, 0], y: 0.3, anim: 'kick', air: 0 },
+  { key: 'saqueColocado', name: 'Saque viagem', group: 'Saque', btn: '○ · B · K', pos: 'chão', from: [-9.15, 0], y: 0.3, anim: 'kick', air: 0 },
+  { key: 'bicicleta', name: 'Bicicleta (Giulia)', group: 'Especiais', btn: '✕+✕ · A+A · L+L', pos: 'no ar', from: [-3, -0.5], y: 2.4, anim: 'bicicleta', air: 1 },
+  { key: 'meiaBicicleta', name: 'Meia-bicicleta (Zefa)', group: 'Especiais', btn: '✕+✕ · A+A · L+L', pos: 'no ar', from: [-3, -0.5], y: 2.4, anim: 'meia', air: 1 },
+  { key: 'sharkSupremo', name: 'Shark Supremo (Tubarão)', group: 'Especiais', btn: '✕+✕ · A+A · L+L', pos: 'no ar', from: [-4, -0.5], y: 2.8, anim: 'shark', air: 1 },
+  { key: 'pingoPipoca', name: 'Pingo Envenenado (Pipoca)', group: 'Especiais', btn: '✕+✕ · A+A · L+L', pos: 'no ar', from: [-3, -0.5], y: 2.2, anim: 'poke', air: 1 },
+  { key: 'sarrada', name: 'Sarrada (Dráuzio)', group: 'Especiais', btn: '✕+✕ · A+A · L+L', pos: 'no ar', from: [-5, -1], y: 1.0, anim: 'sarrada', air: 1 },
+  { key: 'sarrada', alt: true, name: 'Sarrada (3º toque)', group: 'Especiais', btn: '✕+✕ · A+A · L+L', pos: 'no ar', from: [-5, -1], y: 1.0, anim: 'sarrada', air: 1 },
+  { key: 'escorpiao', name: 'Escorpião (Varella)', group: 'Especiais', btn: '✕+✕ · A+A · L+L', pos: 'no ar', from: [-4, -1], y: 2.0, anim: 'escorpiao', air: 1 },
+  { key: 'escorpiao', alt: true, name: 'Escorpião (3º toque)', group: 'Especiais', btn: '✕+✕ · A+A · L+L', pos: 'no ar', from: [-4, -1], y: 2.0, anim: 'escorpiao', air: 1 },
+];
+const entryId = m => m.key + (m.alt ? ':alt' : '');
+
+// ---------- estado ----------
+const defs = {};          // id do golpe → definição (como em src/data/moves.js)
+const example = {};       // posição de exemplo do jogador por entrada (só no editor)
+let current = 'peito';
+let db = null, canWrite = true;
+const timers = {};        // gravações pendentes por golpe (uma por pausa)
+try { const s = localStorage.getItem('rf2-editor-current'); if (s) current = s; } catch (e) { /* sem armazenamento */ }
+const metaOf = id => META.find(m => entryId(m) === id) || META[0];
+// a parte editada da definição: a principal ou a do 3º toque
+const partOf = (m, def) => (m.alt ? (def.alt = def.alt || { aim: { dist: 10, precision: 'media', shape: 'circulo', w: 4.89, h: 4.89 }, traj: { model: 'balistica', apex: 4 } }) : def);
+
+function setStatus(kind, text) {
+  const el = document.getElementById('status');
+  el.className = 'status ' + kind;
+  el.querySelector('span').textContent = text;
+}
+
+// ---------- lista ----------
+function renderList() {
+  const groups = [...new Set(META.map(m => m.group))];
+  document.getElementById('list').innerHTML = groups.map(g => `<h3>${g}</h3>` + META.filter(m => m.group === g).map(m => {
+    const d = defs[m.key];
+    const part = d && (m.alt ? d.alt : d);
+    const tag = part ? (MODELS[part.traj && part.traj.model] || {}).name || '' : '';
+    return `<button type="button" id="mv-${entryId(m).replace(':', '-')}" data-id="${entryId(m)}" aria-current="${entryId(m) === current}"><span>${m.name}${(LOCAL ? dirty.has(m.key) : pending[m.key]) ? '<i class="dot" title="Ainda não aplicado no jogo"></i>' : ''}</span><small>${part ? sizeLabel(normAim(part.aim)) : '—'}</small></button>`;
+  }).join('')).join('');
+}
+
+// ---------- quadra vista de cima ----------
+const CS = 28, CM = 14;
+const X = x => CM + (x + 9) * CS, Z = z => CM + (z + 4.5) * CS;
+const W = 18 * CS + CM * 2, Hh = 9 * CS + CM * 2;
+function courtSVG(m, part, pos) {
+  const aim = part.aim;
+  const cs = cells(aim, pos[0], pos[1]);
+  const center = cs[4];
+  const list = [...cs.slice(0, 4), ...cs.slice(5), center];
+  const arrows = { '-1,-1': '↖', '0,-1': '↑', '1,-1': '↗', '-1,0': '←', '1,0': '→', '-1,1': '↙', '0,1': '↓', '1,1': '↘' };
+  const subs = list.map(c => {
+    const mid = !c.f && !c.l;
+    const show = !aim.noAim || mid;
+    if (!show) return '';
+    return `<ellipse cx="${X(c.x)}" cy="${Z(c.z)}" rx="${c.rx * CS}" ry="${c.rz * CS}" class="sub${mid ? ' mid' : ''}"/>` +
+      (mid ? '' : `<text x="${X(c.x)}" y="${Z(c.z) + 4}" text-anchor="middle" class="ar">${arrows[c.f + ',' + c.l]}</text>`);
+  }).join('');
+  // contorno da área inteira com as medidas: diâmetro (círculo) ou horizontal × vertical (elipse)
+  const { w, h } = areaOf(aim);
+  const ax = X(center.x), az = Z(center.z), hw = w / 2 * CS, hh = h / 2 * CS;
+  const dims = aim.shape === 'circulo'
+    ? `<line x1="${ax - hw}" y1="${az}" x2="${ax + hw}" y2="${az}" class="dim" marker-start="url(#tk)" marker-end="url(#tk)"/>
+       <text x="${ax + hw * 0.5}" y="${az - 7}" text-anchor="middle" class="dimt">⌀ ${fmt(w)} m</text>`
+    : `<line x1="${ax - hw}" y1="${az + hh + 9}" x2="${ax + hw}" y2="${az + hh + 9}" class="dim" marker-start="url(#tk)" marker-end="url(#tk)"/>
+       <text x="${ax}" y="${az + hh + 22}" text-anchor="middle" class="dimt">horizontal ${fmt(w)} m</text>
+       <line x1="${ax + hw + 9}" y1="${az - hh}" x2="${ax + hw + 9}" y2="${az + hh}" class="dim" marker-start="url(#tk)" marker-end="url(#tk)"/>
+       <text x="${ax + hw + 14}" y="${az + 4}" class="dimt">vertical ${fmt(h)} m</text>`;
+  const area = `<ellipse cx="${ax}" cy="${az}" rx="${hw}" ry="${hh}" class="area"/>${dims}`;
+  return `<svg viewBox="0 0 ${W} ${Hh}" role="img" aria-label="Quadra vista de cima: destino de ${m.name}" id="court-svg">
+    <defs><marker id="tk" viewBox="0 0 2 10" refX="1" refY="5" markerWidth="2" markerHeight="10" orient="auto"><rect width="2" height="10" fill="var(--fg)"/></marker></defs>
+    <style>
+      .area{fill:none;stroke:var(--fg);stroke-width:1.4;stroke-dasharray:5 4;opacity:.55;pointer-events:none}
+      .hb{fill:rgba(57,255,136,.18);stroke:#1fbf6a;stroke-width:1.6;pointer-events:none}
+      .mate{fill:none;stroke:var(--fg);stroke-width:2.5;stroke-dasharray:3 3;pointer-events:none}
+      .dim{stroke:var(--fg);stroke-width:1.3;opacity:.8;pointer-events:none}
+      .dimt{font:900 11px Nunito,sans-serif;fill:var(--fg);paint-order:stroke;stroke:var(--surface);stroke-width:3px;pointer-events:none}
+      .sd{fill:var(--sand)} .ln{fill:none;stroke:var(--sand-line);stroke-width:2.5}
+      .nt{stroke:var(--net);stroke-width:5;stroke-linecap:round}
+      .sub{fill:var(--zone);fill-opacity:.14;stroke:var(--zone);stroke-width:1.5}
+      .sub.mid{fill-opacity:.42;stroke-width:2.5}
+      .ar{font:900 12px Nunito,sans-serif;fill:var(--zone);pointer-events:none}
+      .line{stroke:var(--fg);stroke-width:1.6;stroke-dasharray:3 5;opacity:.65}
+      .me{fill:var(--fg);stroke:var(--surface);stroke-width:3;cursor:grab}
+      .grab{fill:var(--zone);stroke:var(--surface);stroke-width:3;cursor:ew-resize}
+      .lb{font:800 11px Nunito,sans-serif;fill:var(--muted)}
+      .dist{font:900 12px Nunito,sans-serif;fill:var(--fg)}
+    </style>
+    <rect x="4" y="4" width="${W - 8}" height="${Hh - 8}" rx="10" class="sd"/>
+    <rect x="${X(-9)}" y="${Z(-4.5)}" width="${18 * CS}" height="${9 * CS}" class="ln"/>
+    <text x="${X(-8.8)}" y="${Z(4.5) - 6}" class="lb">VOCÊ</text>
+    <text x="${X(8.8)}" y="${Z(4.5) - 6}" text-anchor="end" class="lb">ADVERSÁRIO</text>
+    ${subs}
+    ${area}
+    ${aim.ownCourt ? (() => { const mt = mateFor(pos[0], pos[1]); return `<line x1="${X(pos[0])}" y1="${Z(pos[1])}" x2="${X(center.x)}" y2="${Z(center.z)}" class="line"/>
+      <circle cx="${X(mt.x)}" cy="${Z(mt.z)}" r="8" class="mate"><title>Parceiro (exemplo): o passe vai na direção dele</title></circle>
+      <text x="${X(mt.x)}" y="${Z(mt.z) - 12}" text-anchor="middle" class="lb">PARCEIRO</text>`; })()
+      : `<line x1="${X(pos[0])}" y1="${Z(pos[1])}" x2="${X(Math.max(center.x, pos[0] + aim.dist))}" y2="${Z(pos[1])}" class="line"/>`}
+    <line x1="${X(0)}" y1="${Z(-4.5) - 6}" x2="${X(0)}" y2="${Z(4.5) + 6}" class="nt"/>
+    <text x="${(X(pos[0]) + X(center.x)) / 2}" y="${Z(pos[1]) - 8}" text-anchor="middle" class="dist">${fmt(aim.dist)} m</text>
+    <ellipse cx="${X(pos[0] + 0.35)}" cy="${Z(pos[1])}" rx="${(m.alt ? (defs[m.key].reach || 1.35) : (part.reach || 1.35)) * CS}" ry="${HB.side * CS}" class="hb"><title>Hitbox vista de cima: alcance × largura</title></ellipse>
+    <circle cx="${X(pos[0])}" cy="${Z(pos[1])}" r="9" class="me" data-drag="player"><title>Jogador (exemplo): arraste</title></circle>
+    <circle cx="${X(center.x)}" cy="${Z(center.z)}" r="9" class="grab" data-drag="center"><title>Centro: arraste para mudar a distância</title></circle>
+  </svg>`;
+}
+const fmt = (n, d = 2) => (Math.round(n * 10 ** d) / 10 ** d).toLocaleString('pt-BR', { maximumFractionDigits: d });
+
+// ---------- trajetória vista de lado ----------
+function drawSide(canvas, part, pos, y0) {
+  const r = canvas.getBoundingClientRect();
+  const dpr = Math.min(2, devicePixelRatio || 1);
+  canvas.width = Math.max(300, r.width * dpr); canvas.height = canvas.width * 9 / 16;
+  const g = canvas.getContext('2d');
+  const css = getComputedStyle(document.documentElement);
+  const col = n => css.getPropertyValue(n).trim();
+  const w = canvas.width, h = canvas.height, pad = 30 * dpr;
+  const cx = cells(part.aim, pos[0], pos[1])[4].x;
+  const x0 = Math.min(pos[0], -1) - 0.5, x1 = Math.max(cx, 1) + 0.8;
+  const top = Math.max(5, (part.traj.apex || 0) + 1, y0 + 1);
+  const PX = x => pad + (x - x0) / (x1 - x0) * (w - pad * 2), PY = y => h - pad - y / top * (h - pad * 2);
+  g.clearRect(0, 0, w, h);
+  g.fillStyle = col('--sand'); g.fillRect(0, PY(0), w, h - PY(0));
+  // rede
+  g.strokeStyle = col('--net'); g.lineWidth = 4 * dpr; g.beginPath(); g.moveTo(PX(0), PY(0)); g.lineTo(PX(0), PY(NET_H)); g.stroke();
+  g.font = `800 ${11 * dpr}px Nunito, sans-serif`; g.fillStyle = col('--muted'); g.fillText('rede 2,2 m', PX(0) + 6 * dpr, PY(NET_H) + 4 * dpr);
+  // escala de altura
+  g.strokeStyle = col('--line'); g.lineWidth = 1 * dpr;
+  for (let y = 1; y < top; y++) { g.beginPath(); g.moveTo(pad, PY(y)); g.lineTo(w - pad, PY(y)); g.stroke(); g.fillText(`${y} m`, 4 * dpr, PY(y) + 4 * dpr); }
+  // curva da física do jogo (vermelha depois de bater na rede)
+  const ph = physPath(part.traj, { x: pos[0], y: y0, z: 0 }, { x: cx, z: 0 });
+  if (!ph) { g.fillStyle = col('--muted'); g.fillText('carregando a física do jogo…', pad, pad); return null; }
+  const netHit = ph.netY != null && ph.netY < NET_H + BALL_R;
+  let maxY = 0, hit = false, prev = null;
+  for (const p of ph.pts) {
+    maxY = Math.max(maxY, p.y);
+    if (prev && netHit && (prev.x < 0) !== (p.x < 0)) hit = true;
+    if (prev) {
+      g.strokeStyle = hit ? col('--warn') : col('--zone'); g.lineWidth = 3 * dpr;
+      g.beginPath(); g.moveTo(PX(prev.x), PY(prev.y)); g.lineTo(PX(p.x), PY(p.y)); g.stroke();
+    }
+    prev = p;
+  }
+  g.fillStyle = col('--fg'); g.beginPath(); g.arc(PX(pos[0]), PY(y0), 6 * dpr, 0, 7); g.fill();
+  g.fillStyle = col('--zone'); g.beginPath(); g.arc(PX(cx), PY(0.15), 5 * dpr, 0, 7); g.fill();
+  return { netHit, maxY, len: Math.abs(cx - pos[0]), sc: ph.sc };
+}
+
+// trajetória de exemplo de cada modelo (contato a 0,8 m, destino a 10 m, pico 3,2 m;
+// cravada: sai de 2,8 m a 3 m/s para baixo e cai a 5 m)
+function exampleOf(id, n = 60) {
+  if (!TRAJ) return null;
+  syncTraj();
+  const crav = id === 'cravada';
+  const sc = TRAJ.solve({ model: id, apex: 3.2, launch: 3, bend: id === 'sidespin' ? 1.5 : 0, to: { x: crav ? 5 : 10, z: 0 }, y1: 0.15 }, { x: 0, y: crav ? 2.8 : 0.8, z: 0 });
+  const pts = [];
+  for (let i = 0; i <= n; i++) pts.push(TRAJ.pointAt(sc, i / n));
+  return { sc, pts };
+}
+// mini ícone de cada modelo (altura × distância, escala fixa: dá para comparar)
+function modelIcon(id) {
+  const ex = exampleOf(id, 30);
+  if (!ex) return `<svg viewBox="0 0 140 34" aria-hidden="true"></svg>`;
+  const pts = ex.pts.map(p => `${(4 + p.x / 10 * 132).toFixed(1)},${(32 - p.y / 4.2 * 28).toFixed(1)}`);
+  return `<svg viewBox="0 0 140 34" aria-hidden="true"><polyline points="${pts.join(' ')}" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg>`;
+}
+
+// ---------- editor ----------
+const num = (id, label, hint, v, min, max, step) => `<div class="row"><label for="${id}">${label}${hint ? `<small>${hint}</small>` : ''}</label><div class="ctl">
+  <input type="range" id="${id}-r" data-f="${id}" min="${min}" max="${max}" step="${step}" value="${v}" ${canWrite ? '' : 'disabled'}>
+  <input type="number" id="${id}" data-f="${id}" min="${min}" max="${max}" step="${step}" value="${v}" ${canWrite ? '' : 'disabled'}></div></div>`;
+function renderEditor() {
+  const m = metaOf(current);
+  const def = defs[m.key];
+  const box = document.getElementById('editor');
+  if (!def) { box.innerHTML = `<div class="card empty">${Object.keys(defs).length ? 'Golpe sem dados salvos.' : 'Os golpes ainda não foram carregados neste editor. Assim que os valores do jogo forem gravados aqui, eles aparecem nesta área.'}</div>`; return; }
+  const part = partOf(m, def);
+  const pos = example[current] || (example[current] = [...m.from]);
+  const y0 = example[current + ':y'] ?? m.y;
+  const aim = normAim(part.aim), traj = part.traj;
+  const model = modelOf(traj.model);
+  const ell = aim.shape !== 'circulo';
+  box.innerHTML = `
+    <div class="card">
+      <div class="title-row"><h2>${m.name}</h2><div class="tags"><span>${m.group}</span><span>${m.pos}</span><span>${m.btn}</span></div></div>
+    </div>
+    <div class="views">
+      <div class="card court"><h4>Destino (quadra vista de cima)</h4>${courtSVG(m, part, pos)}
+        <p class="hint">Arraste o ponto vermelho para mudar a distância (ele anda só sobre a linha reta). O ponto escuro é um exemplo de onde o jogador bate; arrastá-lo não muda o golpe.</p></div>
+      <div class="card side"><h4>Trajetória (vista de lado)</h4><canvas id="side" aria-label="Trajetória da bola vista de lado"></canvas>
+        <p class="hint" id="side-note"></p><div class="stats" id="side-stats"></div></div>
+    </div>
+    <div class="fields">
+      <div class="card"><h4>Destino</h4>
+        ${num('dist', 'Distância', 'do jogador ao centro, em m', aim.dist, 0.3, 20, 0.05)}
+        <h4 class="sub-h">Precisão · tamanho da área inteira</h4>
+        <div class="row"><label>Formato<small>da área e das subáreas</small></label><div class="seg" role="group" aria-label="Formato">
+          ${[['circulo', 'Círculo'], ['elipse', 'Elipse']].map(([v, t]) => `<button type="button" id="shape-${v}" data-shape="${v}" aria-pressed="${aim.shape === v}" ${canWrite ? '' : 'disabled'}>${t}</button>`).join('')}</div></div>
+        ${ell
+          ? num('aw', 'Horizontal', 'em m · ao longo da quadra (esquerda–direita na tela)', aim.w, 0.5, 18, 0.05) +
+            num('ah', 'Vertical', 'em m · ao longo da rede (cima–baixo na tela)', aim.h, 0.5, 9, 0.05)
+          : num('diam', 'Diâmetro', 'em m', aim.w, 0.5, 9, 0.05)}
+        <div class="row"><label for="precision">Atalho de nível<small>preenche as medidas (na elipse, o maior lado, mantendo a proporção)</small></label><div class="ctl"><select id="precision" data-f="precision" ${canWrite ? '' : 'disabled'}>
+          ${Object.entries(PRECISION).map(([k, p]) => `<option value="${k}" ${k === aim.precision ? 'selected' : ''}>${p.name} · ${fmt(p.size)} m</option>`).join('')}
+          <option value="personalizada" ${aim.precision === 'personalizada' ? 'selected' : ''} disabled>Personalizada · ${sizeLabel(aim)}</option></select></div></div>
+        <div class="row"><label for="noAim">Sem mira<small>o direcional não escolhe subárea; o círculo central fica com o dobro da área</small></label><div class="ctl"><input type="checkbox" id="noAim" data-f="noAim" ${aim.noAim ? 'checked' : ''} ${canWrite ? '' : 'disabled'}></div></div>
+        <div class="row"><label for="ownCourt">Fica no nosso campo<small>para a 0,45 m da rede</small></label><div class="ctl"><input type="checkbox" id="ownCourt" data-f="ownCourt" ${aim.ownCourt ? 'checked' : ''} ${canWrite ? '' : 'disabled'}></div></div>
+      </div>
+      <div class="card"><h4>Trajetória</h4>
+        <div class="models" role="group" aria-label="Modelo de trajetória">${Object.entries(MODELS).map(([k, md]) => `<button type="button" id="model-${k}" data-model="${k}" aria-pressed="${model === k}" ${canWrite ? '' : 'disabled'}>${modelIcon(k)}<span><b>${md.name}</b><br>${md.hint}</span></button>`).join('')}</div>
+        ${model === 'cravada'
+          ? num('launch', 'Velocidade para baixo', 'm/s na saída, com Força 5', traj.launch ?? 3, 0, 15, 0.1)
+          : num('apex', 'Altura máxima', 'em m, com Força 5 (Força maior = mais baixo e rápido)', traj.apex ?? 3, 0.3, 10, 0.05)}
+        ${num('bend', 'Curva lateral', 'em m (0 = reta)', traj.bend || 0, 0, 4, 0.1)}
+        <div class="row"><label>Velocidade da bola<small>mesmo caminho, mais rápido ou mais devagar</small></label><div class="seg" role="group" aria-label="Velocidade da bola">
+          ${Object.entries(PACE).map(([k, p]) => `<button type="button" id="pace-${k}" data-pace="${k}" aria-pressed="${(traj.pace || 'normal') === k}" ${canWrite ? '' : 'disabled'}>${p.name} · ${Math.round(p.rate * 100)}%</button>`).join('')}</div></div>
+        <p class="hint">O tempo no ar sai da física (gravidade, arrasto e altura máxima) e da velocidade da bola.</p>
+      </div>
+      ${m.alt ? '' : `<div class="card"><h4>Contato e alcance</h4>
+        ${def.band ? num('lo', 'Altura mínima da bola', 'm dos pés', def.band[0], 0, 4, 0.05) + num('hi', 'Altura máxima da bola', 'm dos pés', def.band[1], 0, 4, 0.05) : '<p class="hint">No saque a bola está na mão.</p>'}
+        ${def.reach ? num('reach', 'Alcance', 'm, para a frente e para trás · deste golpe', def.reach, 0.5, 4, 0.05) : ''}
+        ${num('hbSide', 'Largura da hitbox', 'm, para cada lado · vale para todos os golpes, jogadores e CPU', HB.side, 0.3, 4, 0.05)}
+        ${def.hardErr != null ? num('hardErr', 'Erro com bola forte', 'm por m/s acima de 9 m/s', def.hardErr, 0, 0.3, 0.01) : ''}
+        ${num('y0', 'Altura do contato (exemplo)', 'só para a vista de lado', y0, 0.1, 3.5, 0.05)}
+      </div>`}
+      ${fnCardHTML(model)}
+    </div>`;
+  drawAll();
+  drawFn(model);
+}
+
+// ---------- função do modelo de trajetória ("gravidade") ----------
+// Os parâmetros valem para todos os golpes que usam o modelo.
+function usersOf(model) {
+  return META.filter(m => { const d = defs[m.key]; const p = d && (m.alt ? d.alt : d); return p && p.traj && modelOf(p.traj.model) === model; }).map(m => m.name);
+}
+const mpRow = (owner, k, v) => {
+  const info = PARAM_INFO[k];
+  return `<div class="row"><label for="mp-${k}">${info.label}<small>${info.hint}</small></label><div class="ctl">
+      <input type="range" id="mp-${k}-r" data-mp="${k}" data-mpm="${owner}" min="${info.min}" max="${info.max}" step="${info.step}" value="${v}" ${canWrite ? '' : 'disabled'}>
+      <input type="number" id="mp-${k}" data-mp="${k}" data-mpm="${owner}" min="${info.min}" max="${info.max}" step="${info.step}" value="${v}" ${canWrite ? '' : 'disabled'}></div></div>`;
+};
+function fnCardHTML(model) {
+  const p = MP[model] || {};
+  const rows = Object.keys(p).map(k => mpRow(model, k, p[k])).join('');
+  const users = usersOf(model);
+  return `<div class="card fn-card"><h4>Física · ${MODELS[model].name}</h4>
+    <div class="fn-grid">
+      <div>${mpRow('mundo', 'gravity', MP.mundo.gravity)}
+        <p class="hint">A gravidade vale para todas as bolas do jogo.</p>
+        ${rows}
+        <p class="hint">Os parâmetros acima valem para todos os golpes com este modelo${users.length ? `: ${users.join(', ')}` : ''}.</p>
+        <button type="button" id="mp-reset" data-mp-reset="${model}" ${canWrite ? '' : 'disabled'}>Voltar ao padrão</button>
+      </div>
+      <div><canvas id="fn-graph" aria-label="Gráfico da trajetória de exemplo do modelo"></canvas><div class="stats" id="fn-stats"></div></div>
+    </div></div>`;
+}
+// gráfico: trajetória de exemplo do modelo (altura × distância, em m) contra a parábola sem ar;
+// nos modelos com desvio lateral, a curva de baixo mostra o desvio para o lado
+function drawFn(model) {
+  const cv = document.getElementById('fn-graph');
+  if (!cv) return;
+  const r = cv.getBoundingClientRect(), dpr = Math.min(2, devicePixelRatio || 1);
+  cv.width = Math.max(300, r.width * dpr); cv.height = cv.width * 0.5;
+  const g = cv.getContext('2d'), css = getComputedStyle(document.documentElement), col = n => css.getPropertyValue(n).trim();
+  const w = cv.width, h = cv.height, pad = 34 * dpr, top = 4.4;
+  const PX = x => pad + x / 10 * (w - pad * 1.5), PY = y => h - pad - y / top * (h - pad * 1.6);
+  g.clearRect(0, 0, w, h);
+  g.font = `800 ${11 * dpr}px Nunito, sans-serif`; g.fillStyle = col('--muted'); g.strokeStyle = col('--line'); g.lineWidth = dpr;
+  for (let x = 0; x <= 10; x += 2.5) { g.beginPath(); g.moveTo(PX(x), PY(0)); g.lineTo(PX(x), PY(top)); g.stroke(); g.fillText(`${fmt(x, 1)} m`, PX(x) - 10 * dpr, h - pad + 16 * dpr); }
+  for (let y = 1; y < top; y++) { g.beginPath(); g.moveTo(PX(0), PY(y)); g.lineTo(PX(10), PY(y)); g.stroke(); g.fillText(`${y} m`, 2 * dpr, PY(y) + 4 * dpr); }
+  const ex = exampleOf(model, 160);
+  if (!ex) { g.fillText('carregando a física do jogo…', pad, pad); return; }
+  // referência: parábola sem ar, mesmo pico
+  if (model !== 'balistica' && model !== 'cravada') {
+    const keep = { ...MP.balistica }; MP.balistica = { drag: 0 };
+    const ref = exampleOf('balistica', 80); MP.balistica = keep; syncTraj();
+    g.strokeStyle = col('--muted'); g.lineWidth = 2 * dpr; g.setLineDash([5 * dpr, 5 * dpr]); g.beginPath();
+    ref.pts.forEach((p, i) => (i ? g.lineTo(PX(p.x), PY(p.y)) : g.moveTo(PX(p.x), PY(p.y))));
+    g.stroke(); g.setLineDash([]);
+    g.fillText('sem ar', PX(ref.pts[40].x) - 16 * dpr, PY(ref.pts[40].y) - 7 * dpr);
+  }
+  // desvio lateral (sidespin / flutuante), visto de cima, em escala ½, perto do chão
+  const side = ex.pts.some(p => Math.abs(p.z) > 0.02);
+  if (side) {
+    const zy = z => PY(1.1 + Math.abs(z) * 0.5 * (model === 'sidespin' ? 1 : Math.sign(z)));
+    g.strokeStyle = col('--zone-2'); g.lineWidth = 2.5 * dpr; g.beginPath();
+    ex.pts.forEach((p, i) => (i ? g.lineTo(PX(p.x), zy(p.z)) : g.moveTo(PX(p.x), zy(p.z))));
+    g.stroke();
+    g.fillStyle = col('--zone-2'); g.textAlign = 'center';
+    g.fillText(`desvio para o lado, visto de cima (máx. ${fmt(Math.max(...ex.pts.map(p => Math.abs(p.z))), 2)} m)`, PX(5), PY(1.1) + 16 * dpr);
+    g.textAlign = 'left';
+  }
+  g.strokeStyle = col('--zone'); g.lineWidth = 4 * dpr; g.lineJoin = 'round'; g.beginPath();
+  ex.pts.forEach((p, i) => (i ? g.lineTo(PX(p.x), PY(p.y)) : g.moveTo(PX(p.x), PY(p.y))));
+  g.stroke();
+  const sc = ex.sc;
+  const v0 = Math.hypot(sc.vx0, sc.vy0, sc.vz0) * 3.6;
+  const vEnd = (() => { const a = TRAJ.pointAt(sc, 0.99), b = TRAJ.pointAt(sc, 1); return Math.hypot(b.x - a.x, b.y - a.y, b.z - a.z) / (sc.T * 0.01) * 3.6; })();
+  document.getElementById('fn-stats').innerHTML = `<span>Exemplo: tempo no ar <b>${fmt(sc.T, 2)} s</b></span><span>Saída <b>${fmt(v0, 0)} km/h</b></span><span>Chegada <b>${fmt(vEnd, 0)} km/h</b></span>`;
+}
+function setParam(model, k, v) {
+  if (!canWrite) return;
+  remember('mp:' + model + ':' + k);
+  MP[model][k] = v;
+  queueModelSave(model);
+}
+// Hitbox universal (src/data/hitbox.js): largura para os lados, igual para todos os golpes
+const HB = { side: 1.69 };
+function queueHitboxSave() {
+  if (LOCAL) { markDirty('hitbox'); return; }
+  clearTimeout(timers.hitbox);
+  setStatus('saving', 'Salvando…');
+  timers.hitbox = setTimeout(async () => {
+    timers.hitbox = null;
+    if (!db) { setStatus('offline', 'Sem salvar (só nesta tela)'); return; }
+    try { await db.doc('settings/hitbox').set({ ...HB }); await markPending('hitbox'); setStatus('saved', 'Salvo'); }
+    catch (e) { setStatus('error', 'Não salvou — tente de novo'); }
+  }, 600);
+}
+function queueModelSave(model) {
+  if (LOCAL) { markDirty('m-' + model); return; }
+  const t = 'm:' + model;
+  clearTimeout(timers[t]);
+  setStatus('saving', 'Salvando…');
+  timers[t] = setTimeout(async () => {
+    timers[t] = null;
+    if (!db) { setStatus('offline', 'Sem salvar (só nesta tela)'); return; }
+    try { await db.doc('models/' + model).set({ ...MP[model] }); await markPending('m-' + model); setStatus('saved', 'Salvo'); }
+    catch (e) { setStatus('error', 'Não salvou — tente de novo'); }
+  }, 600);
+}
+function drawAll() {
+  const m = metaOf(current), def = defs[m.key];
+  if (!def) return;
+  const part = m.alt ? def.alt : def;
+  const pos = example[current];
+  const y0 = example[current + ':y'] ?? m.y;
+  const r = drawSide(document.getElementById('side'), part, pos, y0);
+  if (!r) return;
+  const sc = r.sc, model = modelOf(part.traj.model);
+  const rate = sc.rate || 1, flight = sc.T / rate; // tempo de voo real, com a velocidade do golpe
+  const v0 = Math.hypot(sc.vx0, sc.vy0, sc.vz0) * 3.6 * rate;
+  const raised = model !== 'cravada' && r.maxY > Math.max(part.traj.apex || 0, y0) + 0.05;
+  document.getElementById('side-note').innerHTML = r.netHit
+    ? '<span class="warn">Com o jogador nesta posição, a bola passa abaixo da fita e bate na rede.</span>'
+    : raised ? `Para passar a fita daqui, o jogo sobe o pico para <b>${fmt(r.maxY, 1)} m</b> (o mínimo necessário).` : 'Passa a rede (ou fica no nosso campo).';
+  document.getElementById('side-stats').innerHTML = `<span>Altura máx. <b>${fmt(r.maxY, 1)} m</b></span><span>Alcance <b>${fmt(r.len, 1)} m</b></span><span>Tempo no ar <b>${fmt(flight, 2)} s</b></span><span>Saída <b>${fmt(v0, 0)} km/h</b></span><span>Média <b>${fmt(r.len / flight * 3.6, 0)} km/h</b></span>`;
+}
+function redrawCourt() {
+  const m = metaOf(current), def = defs[m.key];
+  const holder = document.querySelector('.court');
+  const old = document.getElementById('court-svg');
+  if (!old) return;
+  old.outerHTML = courtSVG(m, partOf(m, def), example[current]);
+}
+
+// ---------- edição ----------
+function change(fn, field = '') {
+  if (!canWrite) return;
+  remember('mv:' + current + ':' + field);
+  const m = metaOf(current), def = defs[m.key];
+  const p = partOf(m, def);
+  for (const q of [def, def.alt]) if (q && q.aim) normAim(q.aim); // medidas em metros (w × h)
+  fn(p, def);
+  // guarda no formato físico: modelo novo, sem os campos da primeira versão (tempo, freada)
+  for (const q of [def, def.alt]) if (q && q.traj) { q.traj.model = modelOf(q.traj.model); delete q.traj.time; delete q.traj.brake; }
+  queueSave(m.key);
+  renderList();
+}
+function queueSave(key) {
+  if (LOCAL) { markDirty(key); return; }
+  clearTimeout(timers[key]);
+  setStatus('saving', 'Salvando…');
+  timers[key] = setTimeout(async () => {
+    timers[key] = null;
+    if (!db) { setStatus('offline', 'Sem salvar (só nesta tela)'); return; }
+    try { await db.doc('moves/' + key).set(JSON.parse(JSON.stringify(defs[key]))); await markPending(key); setStatus('saved', 'Salvo'); }
+    catch (e) {
+      if (e && e.code === 'invalid_argument') { canWrite = false; setStatus('error', 'Sem permissão para editar'); renderEditor(); }
+      else setStatus('error', 'Não salvou — tente de novo');
+    }
+  }, 600);
+}
+// ---------- aplicar no jogo ----------
+// Aberto pelo servidor do jogo (serve.ps1, http://localhost:<porta>/docs/editor-golpes.html), o
+// editor é parte da engine: lê os golpes e a física do próprio código (src/data/*.js) e o botão
+// "Aplicar no jogo" grava os arquivos (POST /api/golpes) e avisa o jogo aberto no mesmo navegador,
+// que troca os valores na hora (src/engine/liveEdit.js).
+// Publicado no claude.ai, ele não alcança os arquivos: salva no armazenamento do artefato e marca
+// cada edição em "pending" até ser levada para o código.
+const LOCAL_HOST = /^(localhost|127\.0\.0\.1)$/.test(location.hostname) && location.protocol === 'http:';
+let LOCAL = false;       // servidor do jogo respondeu: grava direto no código
+const dirty = new Set(); // modo local: edições ainda não aplicadas no jogo
+let appliedLocal = null; // hora da última aplicação neste modo
+let applying = false;
+// 4.0: grava sozinho 1,2 s depois da última alteração (o botão e o Ctrl+S continuam valendo)
+let autoTimer = null;
+function markDirty(id) {
+  dirty.add(id);
+  setStatus('saving', 'Alterações não aplicadas no jogo');
+  renderSync(); renderList();
+  if (LOCAL) { clearTimeout(autoTimer); autoTimer = setTimeout(() => { if (applying) markDirty(id); else applyToGame(); }, 1200); }
+}
+async function applyToGame() {
+  if (applying || !dirty.size) return;
+  applying = true; renderSync();
+  setStatus('saving', 'Aplicando no jogo…');
+  const payload = { moves: JSON.parse(JSON.stringify(defs)), models: JSON.parse(JSON.stringify(MP)), hitbox: { ...HB }, aiTree: JSON.parse(JSON.stringify(TREE)) };
+  try {
+    payload.tilt = JSON.parse(JSON.stringify(TILTD));
+    const body = JSON.stringify({ ...payload, aiTreeText: JSON.stringify(TREE, null, 2), tiltText: JSON.stringify(TILTD, null, 2) });
+    const r = await fetch('/api/golpes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok || !j.ok) throw new Error(j.error || 'HTTP ' + r.status);
+    try { const ch = new BroadcastChannel('rf2-golpes'); ch.postMessage(payload); ch.close(); } catch (e) { /* o jogo pega ao recarregar */ }
+    baseline = snapshot();
+    dirty.clear();
+    appliedLocal = Date.now();
+    setStatus('saved', 'Aplicado no jogo');
+  } catch (e) {
+    setStatus('error', 'Não aplicou: ' + e.message + ' (o servidor do jogo está rodando?)');
+  } finally {
+    applying = false; renderSync(); renderList();
+  }
+}
+addEventListener('beforeunload', e => { if (LOCAL && dirty.size) { e.preventDefault(); e.returnValue = ''; } });
+addEventListener('keydown', e => { if (LOCAL && (e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') { e.preventDefault(); applyToGame(); } });
+
+const pending = {};      // modo artefato: id da marca → { at }
+let applied = null;      // modo artefato: { at } da última vez que foi levado para o código
+async function markPending(id) {
+  if (pending[id]) return; // já marcado: nada a regravar
+  pending[id] = { at: Date.now() };
+  renderSync(); renderList();
+  try { await db.doc('pending/' + id).set({ at: pending[id].at }); } catch (e) { /* a edição já foi salva; só a marca falhou */ }
+}
+const pendingName = id => id === 'hitbox' ? 'Largura da hitbox' : id === 'ia' ? 'Árvore de decisão da CPU' : id === 'tilt' ? 'Golpes do Modo Tilt' : id.startsWith('m-')
+  ? (id === 'm-mundo' ? 'Gravidade' : 'Física · ' + ((MODELS[id.slice(2)] || {}).name || id.slice(2)))
+  : ((META.find(m => m.key === id) || {}).name || id);
+const when = t => new Date(t).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+function renderSync() {
+  const box = document.getElementById('sync');
+  const btn = document.getElementById('sync-copy');
+  if (LOCAL) {
+    const ids = [...dirty];
+    box.hidden = false;
+    box.className = 'card sync ' + (ids.length ? 'pending' : 'done');
+    document.getElementById('sync-title').textContent = ids.length
+      ? `${ids.length} ${ids.length === 1 ? 'alteração ainda não aplicada' : 'alterações ainda não aplicadas'} no jogo`
+      : 'O jogo está igual ao editor';
+    document.getElementById('sync-text').textContent = ids.length
+      ? `${ids.map(pendingName).join(', ')}. Clique em "Aplicar no jogo" (ou Ctrl+S): grava o código e o jogo aberto muda na hora.`
+      : appliedLocal ? `Aplicado às ${when(appliedLocal)}: código gravado e jogo atualizado.` : 'Valores lidos do código do jogo (src/data). Edite e aplique.';
+    btn.hidden = false;
+    btn.textContent = applying ? 'Aplicando…' : 'Aplicar no jogo';
+    btn.disabled = applying || !ids.length;
+    return;
+  }
+  const ids = Object.keys(pending);
+  if (!ids.length && !applied) { box.hidden = true; return; }
+  box.hidden = false;
+  box.className = 'card sync ' + (ids.length ? 'pending' : 'done');
+  document.getElementById('sync-title').textContent = ids.length
+    ? `${ids.length} ${ids.length === 1 ? 'edição ainda não aplicada' : 'edições ainda não aplicadas'} no jogo`
+    : 'Tudo aplicado no jogo';
+  document.getElementById('sync-text').textContent = ids.length
+    ? `${ids.map(pendingName).join(', ')}. Esta cópia no claude.ai não grava no jogo. Para aplicar com um clique, abra o editor da engine: rode o jogo (serve.ps1) e entre em http://localhost:8767/docs/editor-golpes.html.`
+    : `Levado para o código em ${when(applied.at)}. Para editar gravando direto no jogo, use o editor da engine em http://localhost:8767/docs/editor-golpes.html.`;
+  btn.hidden = true;
+}
+document.getElementById('sync-copy').addEventListener('click', () => { if (LOCAL) applyToGame(); });
+
+const FIELD = {
+  dist: (p, d, v) => { p.aim.dist = v; },
+  // medidas da área inteira (m): diâmetro no círculo, horizontal × vertical na elipse
+  diam: (p, d, v) => { p.aim.w = p.aim.h = v; p.aim.precision = levelOf(p.aim); },
+  aw: (p, d, v) => { p.aim.w = v; p.aim.precision = levelOf(p.aim); },
+  ah: (p, d, v) => { p.aim.h = v; p.aim.precision = levelOf(p.aim); },
+  apex: (p, d, v) => { p.traj.apex = v; }, launch: (p, d, v) => { p.traj.launch = v; }, bend: (p, d, v) => { p.traj.bend = v; },
+  lo: (p, d, v) => { d.band[0] = v; }, hi: (p, d, v) => { d.band[1] = v; }, reach: (p, d, v) => { d.reach = v; }, hardErr: (p, d, v) => { d.hardErr = v; },
+};
+document.getElementById('editor').addEventListener('input', e => {
+  const mp = e.target.dataset.mp;
+  if (mp) {
+    const v = +e.target.value;
+    if (Number.isNaN(v)) return;
+    setParam(e.target.dataset.mpm, mp, v);
+    syncPair(e.target);
+    const model = modelOf(metaPart().traj.model);
+    drawAll(); drawFn(model);
+    document.querySelectorAll('[data-model]').forEach(b => { b.querySelector('svg').outerHTML = modelIcon(b.dataset.model); });
+    return;
+  }
+  const f = e.target.dataset.f;
+  if (!f) return;
+  if (f === 'y0') { example[current + ':y'] = +e.target.value; syncPair(e.target); drawAll(); return; }
+  if (f === 'hbSide') {
+    const v = +e.target.value;
+    if (Number.isNaN(v) || v <= 0 || !canWrite) return;
+    remember('hitbox');
+    HB.side = v;
+    syncPair(e.target);
+    queueHitboxSave();
+    redrawCourt();
+    return;
+  }
+  if (FIELD[f]) {
+    const v = +e.target.value;
+    if (Number.isNaN(v)) return;
+    change((p, d) => FIELD[f](p, d, v), f); // arrastar o mesmo controle = um passo só no desfazer
+    syncPair(e.target);
+    if (f === 'diam' || f === 'aw' || f === 'ah') refreshLevel();
+    redrawCourt(); drawAll();
+  }
+});
+// o atalho de nível acompanha as medidas digitadas (ou mostra "Personalizada")
+function refreshLevel() {
+  const sel = document.getElementById('precision');
+  if (!sel) return;
+  const aim = metaPart().aim;
+  sel.value = aim.precision;
+  sel.querySelector('option[value="personalizada"]').textContent = `Personalizada · ${sizeLabel(aim)}`;
+}
+document.getElementById('editor').addEventListener('change', e => {
+  const f = e.target.dataset.f;
+  if (f === 'precision') {
+    // atalho: o tamanho do nível vira o diâmetro (círculo) ou o maior lado (elipse, mantendo a proporção)
+    const lv = PRECISION[e.target.value];
+    if (!lv) return;
+    change(p => {
+      const a = p.aim;
+      if (a.shape === 'circulo') a.w = a.h = lv.size;
+      else { const k = lv.size / Math.max(a.w, a.h); a.w = r2(a.w * k); a.h = r2(a.h * k); }
+      a.precision = levelOf(a);
+    });
+    renderEditor();
+  }
+  else if (f === 'noAim' || f === 'ownCourt') { change(p => { p.aim[f] = e.target.checked; }); redrawCourt(); drawAll(); }
+});
+const metaPart = () => { const m = metaOf(current); return partOf(m, defs[m.key]); };
+document.getElementById('editor').addEventListener('click', e => {
+  const rs = e.target.closest('[data-mp-reset]');
+  if (rs && canWrite) { const id = rs.dataset.mpReset; remember('reset:' + id, true); MP[id] = JSON.parse(JSON.stringify(MODEL_DEFAULTS[id])); queueModelSave(id); renderEditor(); return; }
+  const pc = e.target.closest('[data-pace]');
+  if (pc) { change(p => { if (pc.dataset.pace === 'normal') delete p.traj.pace; else p.traj.pace = pc.dataset.pace; }); renderEditor(); return; }
+  const sh = e.target.closest('[data-shape]');
+  if (sh) {
+    change(p => {
+      const a = p.aim;
+      if (a.shape === sh.dataset.shape) return;
+      a.shape = sh.dataset.shape;
+      // círculo → elipse: começa 1,5 vez mais larga que alta; elipse → círculo: diâmetro = maior lado
+      if (a.shape === 'elipse') a.h = r2(a.w / 1.5);
+      else a.w = a.h = Math.max(a.w, a.h);
+      a.precision = levelOf(a);
+    });
+    renderEditor(); return;
+  }
+  const md = e.target.closest('[data-model]');
+  if (md) {
+    const id = md.dataset.model;
+    change(p => { p.traj.model = id; if (id === 'cravada' && p.traj.launch == null) p.traj.launch = 3; if (id !== 'cravada' && !p.traj.apex) p.traj.apex = 3; });
+    renderEditor();
+  }
+});
+function syncPair(el) {
+  const base = el.id.replace(/-r$/, '');
+  const other = document.getElementById(el.id.endsWith('-r') ? base : base + '-r');
+  if (other && other !== el) other.value = el.value;
+}
+// arrastar na quadra: o centro anda sobre a linha reta (distância); o jogador é só exemplo
+let drag = null;
+document.getElementById('editor').addEventListener('pointerdown', e => {
+  const t = e.target.closest('[data-drag]');
+  if (!t) return;
+  if (t.dataset.drag === 'center' && !canWrite) return;
+  drag = t.dataset.drag;
+  e.target.setPointerCapture && e.target.setPointerCapture(e.pointerId);
+  e.preventDefault();
+});
+addEventListener('pointermove', e => {
+  if (!drag) return;
+  const svg = document.getElementById('court-svg');
+  if (!svg) return;
+  const r = svg.getBoundingClientRect();
+  const wx = ((e.clientX - r.left) / r.width * W - CM) / CS - 9;
+  const wz = ((e.clientY - r.top) / r.height * Hh - CM) / CS - 4.5;
+  const pos = example[current];
+  if (drag === 'player') { pos[0] = clamp(wx, -9.6, -0.3); pos[1] = clamp(wz, -4.3, 4.3); }
+  else {
+    const v = Math.round(clamp(wx - pos[0], 0.3, 20) * 20) / 20;
+    change(p => { p.aim.dist = v; });
+    const inp = document.getElementById('dist'), rng = document.getElementById('dist-r');
+    if (inp) inp.value = v; if (rng) rng.value = v;
+  }
+  redrawCourt(); drawAll();
+});
+addEventListener('pointerup', () => { drag = null; });
+document.getElementById('list').addEventListener('click', e => {
+  const b = e.target.closest('[data-id]');
+  if (!b) return;
+  current = b.dataset.id;
+  try { localStorage.setItem('rf2-editor-current', current); } catch (err) { /* ignora */ }
+  renderList(); renderEditor();
+});
+addEventListener('resize', () => { if (document.getElementById('side')) { drawAll(); drawFn(modelOf(metaPart().traj.model)); } });
+
+// exportar: o mesmo formato de src/data/moves.js
+document.getElementById('export').addEventListener('click', async () => {
+  const text = JSON.stringify({ golpes: defs, modelos: MP }, null, 2);
+  const box = document.getElementById('export-box'), ta = document.getElementById('export-text');
+  ta.value = text; box.hidden = false;
+  try { await navigator.clipboard.writeText(text); setStatus('saved', 'JSON copiado'); }
+  catch (e) { ta.focus(); ta.select(); setStatus('saved', 'Selecione e copie o JSON abaixo'); }
+});
+
+// ---------- árvore de decisão da CPU (src/data/ai-tree.js; lida por src/ai.js) ----------
+// iguais a AI_MOVES e AI_VARS em src/ai.js
+const AI_MOVES = {
+  1: { ground: ['peito', 'pe'], air: ['cabeca'] },
+  2: { ground: ['ombro', 'naFita'], air: ['ataqueSegunda', 'cabecaSet'] },
+  3: { ground: ['chuteColocado', 'pingo'], air: ['sharkAttack', 'cabecada'] },
+};
+const AI_VARS = {
+  netDist: { label: 'distância da rede', unit: 'm' },
+  defDepth: { label: 'defesa adversária no fundo', unit: 'm' },
+  ballSpeed: { label: 'velocidade da bola recebida', unit: 'm/s' },
+};
+const TOUCH_NAME = { 1: '1º toque · domínio', 2: '2º toque · levantamento', 3: '3º toque · ataque' };
+// árvore padrão (igual a src/data/ai-tree.js); no modo local é lida do código
+const TREE = {
+  1: { rules: [{ when: [{ v: 'ballSpeed', op: '>', x: 12 }], move: 'peito', chance: 100 }], fallback: 'pe' },
+  2: { rules: [{ when: [{ v: 'netDist', op: '<', x: 3 }], move: 'naFita', chance: 100 }], fallback: 'ombro' },
+  3: { rules: [
+    { when: [{ v: 'netDist', op: '<', x: 1.4 }], move: 'sharkAttack', chance: 90 },
+    { when: [{ v: 'netDist', op: '<', x: 3 }, { v: 'defDepth', op: '>', x: 4.5 }], move: 'pingo', chance: 100 },
+  ], fallback: 'chuteColocado' },
+};
+const moveName = id => (META.find(m => m.key === id) || { name: id }).name;
+const moveOpts = (t, sel) => ['ground', 'air'].map(k => AI_MOVES[t][k].map(id =>
+  `<option value="${id}" ${id === sel ? 'selected' : ''}>${moveName(id)}${k === 'air' ? ' (no ar)' : ''}</option>`).join('')).join('');
+function renderTree() {
+  const box = document.getElementById('ia-tree');
+  if (!box) return;
+  const dis = canWrite ? '' : 'disabled';
+  box.innerHTML = [1, 2, 3].map(t => {
+    const tr = TREE[t] || (TREE[t] = { rules: [], fallback: AI_MOVES[t].ground[0] });
+    const rules = tr.rules.map((r, i) => {
+      const conds = (r.when || []).map((c, j) => `<div class="cond"><span class="kw">${j ? 'e' : 'se'}</span>
+          <select data-tr="cv" data-t="${t}" data-i="${i}" data-j="${j}" aria-label="Variável" ${dis}>${Object.entries(AI_VARS).map(([k, v]) => `<option value="${k}" ${k === c.v ? 'selected' : ''}>${v.label}</option>`).join('')}</select>
+          <select data-tr="cop" data-t="${t}" data-i="${i}" data-j="${j}" aria-label="Comparação" ${dis}><option value="<" ${c.op === '<' ? 'selected' : ''}>menor que</option><option value=">" ${c.op === '>' ? 'selected' : ''}>maior que</option></select>
+          <input type="number" step="0.1" value="${c.x}" data-tr="cx" data-t="${t}" data-i="${i}" data-j="${j}" aria-label="Valor" ${dis}> ${AI_VARS[c.v] ? AI_VARS[c.v].unit : ''}
+          <button type="button" data-tr="cdel" data-t="${t}" data-i="${i}" data-j="${j}" title="Tirar condição" ${dis}>✕</button></div>`).join('');
+      return `<div class="node"><div class="rule">
+        <div class="rhead">Regra ${i + 1}<span class="btns">
+          <button type="button" data-tr="up" data-t="${t}" data-i="${i}" title="Subir" ${i ? '' : 'disabled'} ${dis}>↑</button>
+          <button type="button" data-tr="down" data-t="${t}" data-i="${i}" title="Descer" ${i < tr.rules.length - 1 ? '' : 'disabled'} ${dis}>↓</button>
+          <button type="button" data-tr="del" data-t="${t}" data-i="${i}" title="Apagar regra" ${dis}>Apagar</button></span></div>
+        ${conds || '<div class="cond"><span class="kw">sempre</span></div>'}
+        <button type="button" data-tr="cadd" data-t="${t}" data-i="${i}" ${dis} style="align-self:flex-start;font-size:12px;padding:2px 8px">+ condição</button>
+        <div class="then"><span class="kw">então</span><select data-tr="move" data-t="${t}" data-i="${i}" aria-label="Golpe" ${dis}>${moveOpts(t, r.move)}</select>
+          <span class="kw">chance</span><input type="number" min="0" max="100" step="5" value="${r.chance ?? 100}" data-tr="chance" data-t="${t}" data-i="${i}" aria-label="Chance em %" ${dis}> %</div>
+      </div></div>`;
+    }).join('');
+    return `<div class="card"><h4>${TOUCH_NAME[t]}</h4><div class="tree">
+      <span class="root">Bola chegando · ${t}º toque</span>
+      ${rules}
+      <div class="node last"><div class="fallback"><span class="kw">senão</span> golpe padrão
+        <select data-tr="fb" data-t="${t}" aria-label="Golpe padrão" ${dis}>${moveOpts(t, tr.fallback)}</select></div></div>
+      <button type="button" class="add" data-tr="add" data-t="${t}" ${dis}>+ Regra</button>
+    </div></div>`;
+  }).join('');
+}
+function queueTreeSave() {
+  if (LOCAL) { markDirty('ia'); return; }
+  clearTimeout(timers.ia);
+  setStatus('saving', 'Salvando…');
+  timers.ia = setTimeout(async () => {
+    timers.ia = null;
+    if (!db) { setStatus('offline', 'Sem salvar (só nesta tela)'); return; }
+    try { await db.doc('settings/aitree').set({ json: JSON.stringify(TREE) }); await markPending('ia'); setStatus('saved', 'Salvo'); }
+    catch (e) { setStatus('error', 'Não salvou — tente de novo'); }
+  }, 600);
+}
+const treeBox = document.getElementById('ia-tree');
+// números: grava enquanto digita (sem redesenhar, para não perder o foco)
+treeBox.addEventListener('input', e => {
+  const d = e.target.dataset;
+  if (d.tr !== 'cx' && d.tr !== 'chance') return;
+  const v = +e.target.value;
+  if (Number.isNaN(v) || !canWrite) return;
+  remember(`ia:${d.t}:${d.i}:${d.j}:${d.tr}`);
+  const r = TREE[d.t].rules[d.i];
+  if (d.tr === 'cx') r.when[d.j].x = v; else r.chance = Math.max(0, Math.min(100, v));
+  queueTreeSave();
+});
+treeBox.addEventListener('change', e => {
+  const d = e.target.dataset;
+  if (!['cv', 'cop', 'move', 'fb'].includes(d.tr) || !canWrite) return;
+  remember('ia-sel', true);
+  const tr = TREE[d.t];
+  if (d.tr === 'fb') tr.fallback = e.target.value;
+  else if (d.tr === 'move') tr.rules[d.i].move = e.target.value;
+  else if (d.tr === 'cv') tr.rules[d.i].when[d.j].v = e.target.value;
+  else tr.rules[d.i].when[d.j].op = e.target.value;
+  queueTreeSave(); renderTree();
+});
+treeBox.addEventListener('click', e => {
+  const b = e.target.closest('button[data-tr]');
+  if (!b || !canWrite) return;
+  const d = b.dataset, tr = TREE[d.t], i = +d.i;
+  if (!['up', 'down', 'del', 'cadd', 'cdel', 'add'].includes(d.tr)) return;
+  remember('ia-btn', true);
+  if (d.tr === 'add') tr.rules.push({ when: [{ v: 'netDist', op: '<', x: 3 }], move: AI_MOVES[d.t].ground[0], chance: 100 });
+  else if (d.tr === 'del') tr.rules.splice(i, 1);
+  else if (d.tr === 'up' && i > 0) [tr.rules[i - 1], tr.rules[i]] = [tr.rules[i], tr.rules[i - 1]];
+  else if (d.tr === 'down' && i < tr.rules.length - 1) [tr.rules[i + 1], tr.rules[i]] = [tr.rules[i], tr.rules[i + 1]];
+  else if (d.tr === 'cadd') (tr.rules[i].when = tr.rules[i].when || []).push({ v: 'netDist', op: '<', x: 3 });
+  else if (d.tr === 'cdel') tr.rules[i].when.splice(+d.j, 1);
+  queueTreeSave(); renderTree();
+});
+
+// ---------- mapa dos golpes: grafo de decisão, DER e tabela de interações ----------
+// botões do jogador por toque (igual a TABLE em src/moves.js) e saque
+const PLAYER_MOVES = {
+  1: { ground: { A: 'peito', B: 'pe' }, air: { A: 'cabeca', B: 'sharkBlock' } },
+  2: { ground: { A: 'ombro', B: 'naFita' }, air: { A: 'ataqueSegunda', B: 'cabecaSet' } },
+  3: { ground: { A: 'chuteColocado', B: 'pingo' }, air: { A: 'cabecada', B: 'sharkAttack' } },
+};
+const SPECIALS = { bicicleta: 'Giulia', meiaBicicleta: 'Zefa', sharkSupremo: 'Tubarão', pingoPipoca: 'Pipoca', sarrada: 'Dráuzio', escorpiao: 'Varella' };
+const DEFENSE_SPECIALS = ['sarrada', 'escorpiao'];
+const BTN = { A: '□', B: '○', C: '✕', D: '△' };
+const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;');
+// a bola deste golpe fica no nosso campo? (valores atuais, do ponto de exemplo do golpe)
+function staysOwn(key, alt = false) {
+  const d = defs[key];
+  if (!d) return false;
+  const part = alt ? d.alt : d;
+  if (!part || !part.aim) return false;
+  const m = META.find(x => x.key === key && !!x.alt === alt) || META.find(x => x.key === key);
+  return cells(normAim(part.aim), m.from[0], m.from[1])[4].x < 0;
+}
+function trajTxt(part) {
+  if (!part || !part.traj) return '';
+  const t = part.traj, md = MODELS[modelOf(t.model)];
+  const h = modelOf(t.model) === 'cravada' ? `${fmt(t.launch ?? 3)} m/s para baixo` : `pico ${fmt(t.apex)} m`;
+  return `${md ? md.name : t.model} · ${h}${t.bend ? ` · curva ${fmt(Math.abs(t.bend))} m` : ''}${t.pace && t.pace !== 'normal' ? ` · bola ${PACE[t.pace].name.toLowerCase()}` : ''}`;
+}
+function destTxt(part) {
+  if (!part || !part.aim) return '';
+  const a = normAim(part.aim);
+  return `${fmt(a.dist)} m · ${a.shape === 'circulo' ? 'círculo' : 'elipse'} ${sizeLabel(a)}${a.noAim ? ' · sem mira' : ''}${a.ownCourt ? ' · fica no nosso campo' : ''}`;
+}
+function renderMap() {
+  const g = document.getElementById('map-graph');
+  if (!g || !Object.keys(defs).length) return;
+  g.innerHTML = graphSVG();
+  document.getElementById('map-der').innerHTML = derSVG();
+  document.getElementById('map-table').innerHTML = interactionsTable();
+  document.getElementById('map-grades').innerHTML = gradesHTML();
+  document.getElementById('map-grade-rules').innerHTML = gradeRulesHTML();
+}
+// grafo: saque e os 3 toques em colunas; em cada toque, chão/ar e botão → golpe → para onde vai
+function graphSVG() {
+  const W = 1260, H = 570, NW = 220, NH = 38;
+  const COL = { s: 20, 1: 290, 2: 560, 3: 830 }, ADV = { x: 1100, y: 70, w: 140, h: 420 };
+  const out = [], edges = [];
+  const node = (x, y, label, sub, cls) => out.push(`<g class="gn ${cls}"><rect x="${x}" y="${y}" width="${NW}" height="${NH}" rx="9"/>
+    <text x="${x + 10}" y="${y + 16}" class="gt">${esc(label)}</text><text x="${x + 10}" y="${y + 31}" class="gs">${esc(sub)}</text></g>`);
+  const head = (x, txt) => out.push(`<g class="gh"><rect x="${x}" y="22" width="${NW}" height="30" rx="15"/><text x="${x + NW / 2}" y="42" text-anchor="middle">${esc(txt)}</text></g>`);
+  const lab = (x, y, txt) => out.push(`<text x="${x}" y="${y}" class="gl">${esc(txt)}</text>`);
+  const link = (x1, y1, x2, y2, cls) => {
+    const mx = (x1 + x2) / 2;
+    edges.push(`<path d="M ${x1} ${y1} C ${mx} ${y1}, ${mx} ${y2}, ${x2} ${y2}" class="ge ${cls}" marker-end="url(#ga-${cls})"/>`);
+  };
+  // saque
+  head(COL.s, 'Saque');
+  [['A', 'saqueForte', 96], ['B', 'saqueColocado', 142]].forEach(([b, id, y]) => {
+    node(COL.s, y, `${BTN[b]}  ${moveName(id)}`, 'segura e solta', 'opp');
+    link(COL.s + NW, y + NH / 2, ADV.x, ADV.y + 40, 'opp');
+  });
+  lab(COL.s, 230, 'Do outro lado, a bola');
+  lab(COL.s, 246, 'chega no 1º toque deles.');
+  // toques
+  for (const t of [1, 2, 3]) {
+    const x = COL[t];
+    head(x, TOUCH_NAME[t]);
+    lab(x, 80, 'NO CHÃO');
+    const rows = [
+      ['A', PLAYER_MOVES[t].ground.A, 88], ['B', PLAYER_MOVES[t].ground.B, 134],
+      ['D', 'carrinho', 180],
+      ['C+A', PLAYER_MOVES[t].air.A, 262], ['C+B', PLAYER_MOVES[t].air.B, 308],
+    ];
+    lab(x, 254, 'NO AR (✕ pula)');
+    for (const [b, id, y] of rows) {
+      const alt = id === 'carrinho' && t === 3;
+      const own = staysOwn(id, alt);
+      const key = b.split('+').map(k => BTN[k]).join('+');
+      const fault = own && t === 3;
+      node(x, y, `${key}  ${moveName(id)}${alt ? ' (3º toque)' : ''}`, fault ? 'fica no nosso campo: seria o 4º toque!' : own ? '→ fica no nosso campo' : '→ passa a rede', fault ? 'warn' : own ? 'own' : 'opp');
+      if (own && !fault) link(x + NW, y + NH / 2, COL[t + 1], 37, 'own');
+      else if (!own) link(x + NW, y + NH / 2, ADV.x, ADV.y + 60 + (t - 1) * 110 + (y - 88) / 4, 'opp');
+    }
+    node(x, 354, '✕✕  Especial do atleta', 'no ar, com a barra cheia ↓', 'sp');
+  }
+  // especiais
+  out.push(`<text x="${COL.s}" y="440" class="gl">ESPECIAIS (✕ ✕ NO AR, BARRA CHEIA) · UM POR ATLETA</text>`);
+  Object.entries(SPECIALS).forEach(([id, who], i) => {
+    const x = COL.s + (i % 3) * 270, y = 452 + Math.floor(i / 3) * 52;
+    const def = DEFENSE_SPECIALS.includes(id);
+    const own = staysOwn(id);
+    node(x, y, `${moveName(id).replace(/ \(.*\)$/, '')} · ${who}`, def ? `${own ? 'nosso campo' : 'passa'} · no 3º toque: ${staysOwn(id, true) ? 'nosso campo' : 'passa a rede'}` : (own ? '→ fica no nosso campo' : '→ passa a rede'), 'sp');
+  });
+  out.push(`<g class="gadv"><rect x="${ADV.x}" y="${ADV.y}" width="${ADV.w}" height="${ADV.h}" rx="12"/>
+    <text x="${ADV.x + ADV.w / 2}" y="${ADV.y + ADV.h / 2 - 8}" text-anchor="middle" class="gt">Campo</text>
+    <text x="${ADV.x + ADV.w / 2}" y="${ADV.y + ADV.h / 2 + 10}" text-anchor="middle" class="gt">adversário</text>
+    <text x="${ADV.x + ADV.w / 2}" y="${ADV.y + ADV.h / 2 + 30}" text-anchor="middle" class="gs">→ 1º toque deles</text></g>`);
+  return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Grafo de decisão do jogador: do toque ao golpe e ao destino da bola">
+    <defs>${['own', 'opp'].map(c => `<marker id="ga-${c}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10 z" class="gam ${c}"/></marker>`).join('')}</defs>
+    <style>
+      .gn rect{fill:var(--surface);stroke:var(--line);stroke-width:2}
+      .gn.own rect{stroke:var(--ok)} .gn.opp rect{stroke:var(--warn)} .gn.sp rect{stroke:var(--sun);fill:color-mix(in srgb,var(--sun) 14%,var(--surface))}
+      .gn.warn rect{stroke:var(--warn);stroke-dasharray:5 4}
+      .gt{font:900 13px Nunito,sans-serif;fill:var(--fg)} .gs{font:700 11px Nunito,sans-serif;fill:var(--muted)}
+      .gn.warn .gs{fill:var(--warn)}
+      .gl{font:900 10px Nunito,sans-serif;letter-spacing:.8px;fill:var(--muted)}
+      .gh rect{fill:var(--zone)} .gh text{font:900 13px Nunito,sans-serif;fill:#fff}
+      .gadv rect{fill:color-mix(in srgb,var(--warn) 12%,var(--surface));stroke:var(--warn);stroke-width:2}
+      .ge{fill:none;stroke-width:1.8;opacity:.75} .ge.own{stroke:var(--ok)} .ge.opp{stroke:var(--warn)}
+      .gam.own{fill:var(--ok)} .gam.opp{fill:var(--warn)}
+    </style>
+    ${edges.join('')}${out.join('')}
+  </svg>`;
+}
+// DER: entidades (atributos) e relacionamentos com cardinalidade
+function derSVG() {
+  const W = 1200, H = 670;
+  const E = {
+    golpe: { x: 470, y: 250, t: 'GOLPE', a: ['id · nome (21)', 'alcance (m)', 'faixa de contato (m)', 'erro com bola forte'] },
+    toque: { x: 470, y: 30, t: 'TOQUE', a: ['saque · 1º · 2º · 3º', 'defesa (qualquer)'] },
+    botao: { x: 150, y: 70, t: 'BOTÃO', a: ['□ ○ ✕ △', 'combinações (✕+□, ✕✕)'] },
+    posicao: { x: 150, y: 250, t: 'POSIÇÃO', a: ['chão · ar'] },
+    atleta: { x: 150, y: 430, t: 'ATLETA', a: ['nome', 'especial (0..1)'] },
+    destino: { x: 800, y: 70, t: 'DESTINO', a: ['distância (m)', 'círculo · elipse', 'horizontal × vertical (m)', 'sem mira · nosso campo'] },
+    nivel: { x: 1010, y: 70, t: 'NÍVEL DE PRECISÃO', a: ['nome · tamanho (7)'] },
+    traj: { x: 800, y: 240, t: 'TRAJETÓRIA', a: ['altura máx. (m)', 'saída p/ baixo (cravada)', 'curva lateral (m)', 'velocidade da bola'] },
+    modelo: { x: 1010, y: 240, t: 'MODELO FÍSICO', a: ['nome (9)', 'arrasto · efeito', 'oscilação'] },
+    regra: { x: 150, y: 560, t: 'REGRA DA IA', a: ['toque (1º · 2º · 3º)', 'condições (se … e …)', 'chance (%)'] },
+    hitbox: { x: 470, y: 520, t: 'HITBOX (global)', a: ['largura para os lados (m)'] },
+  };
+  const BW = 170, line = 15;
+  const boxH = e => 30 + e.a.length * line + 6;
+  const ctr = e => ({ x: e.x + BW / 2, y: e.y + boxH(e) / 2 });
+  // [de, para, verbo, cardinalidade de, cardinalidade para]
+  const R = [
+    ['golpe', 'toque', 'é usado no', 'N', '1'], ['golpe', 'botao', 'acionado por', 'N', '1'], ['golpe', 'posicao', 'exige', 'N', '1'],
+    ['atleta', 'golpe', 'tem o especial', '1', '0..1'], ['golpe', 'destino', 'tem (+ 0..1 no 3º toque)', '1', '1..2'],
+    ['destino', 'nivel', 'atalho', 'N', '0..1'], ['golpe', 'traj', 'segue', '1', '1..2'], ['traj', 'modelo', 'usa', 'N', '1'],
+    ['regra', 'golpe', 'escolhe', 'N', '1'], ['hitbox', 'golpe', 'largura de', '1', 'N'],
+  ];
+  const lines = R.map(([a, b, verb, ca, cb]) => {
+    const p = ctr(E[a]), q = ctr(E[b]);
+    const mx = (p.x + q.x) / 2, my = (p.y + q.y) / 2;
+    const k = 0.2, ax = p.x + (q.x - p.x) * k, ay = p.y + (q.y - p.y) * k, bx = q.x - (q.x - p.x) * k, by = q.y - (q.y - p.y) * k;
+    return `<line x1="${p.x}" y1="${p.y}" x2="${q.x}" y2="${q.y}" class="dl"/>
+      <g class="dv"><rect x="${mx - verb.length * 3.3 - 8}" y="${my - 10}" width="${verb.length * 6.6 + 16}" height="20" rx="10"/><text x="${mx}" y="${my + 4}" text-anchor="middle">${esc(verb)}</text></g>
+      <text x="${ax}" y="${ay - 4}" class="dc" text-anchor="middle">${ca}</text><text x="${bx}" y="${by - 4}" class="dc" text-anchor="middle">${cb}</text>`;
+  }).join('');
+  // relacionamento do golpe com ele mesmo: passa para o golpe do próximo toque
+  const gp = E.golpe, gh = boxH(gp);
+  const self = `<path d="M ${gp.x + BW - 30} ${gp.y + gh} C ${gp.x + BW + 30} ${gp.y + gh + 120}, ${gp.x + BW + 130} ${gp.y + gh + 30}, ${gp.x + BW} ${gp.y + gh - 14}" class="dl"/>
+    <g class="dv"><rect x="${gp.x + BW + 30}" y="${gp.y + gh + 52}" width="210" height="20" rx="10"/><text x="${gp.x + BW + 135}" y="${gp.y + gh + 66}" text-anchor="middle">passa para (próximo toque) · N:N</text></g>`;
+  const boxes = Object.values(E).map(e => `<g class="de${e === E.golpe ? ' main' : ''}"><rect x="${e.x}" y="${e.y}" width="${BW}" height="${boxH(e)}" rx="8"/>
+    <rect x="${e.x}" y="${e.y}" width="${BW}" height="26" rx="8" class="dh"/><text x="${e.x + BW / 2}" y="${e.y + 18}" text-anchor="middle" class="dt">${esc(e.t)}</text>
+    ${e.a.map((s, i) => `<text x="${e.x + 9}" y="${e.y + 42 + i * line}" class="da">${esc(s)}</text>`).join('')}</g>`).join('');
+  return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Diagrama de entidade e relacionamento do sistema de golpes">
+    <style>
+      .dl{stroke:var(--muted);stroke-width:1.6;fill:none;opacity:.7}
+      .dv rect{fill:var(--bg);stroke:var(--line);stroke-width:1.5} .dv text{font:800 11px Nunito,sans-serif;fill:var(--fg)}
+      .dc{font:900 12px Nunito,sans-serif;fill:var(--zone)}
+      .de rect{fill:var(--surface);stroke:var(--line);stroke-width:2} .de .dh{fill:var(--surface-2);stroke:none}
+      .de.main rect{stroke:var(--zone)} .de.main .dh{fill:var(--zone)} .de.main .dt{fill:#fff}
+      .dt{font:900 12px Nunito,sans-serif;fill:var(--fg);letter-spacing:.5px} .da{font:700 11px Nunito,sans-serif;fill:var(--muted)}
+    </style>
+    ${lines}${self}${boxes}
+  </svg>`;
+}
+// tabela: as 21 instâncias de Golpe com os relacionamentos (valores atuais do editor)
+function interactionsTable() {
+  const touchOf = m => ({ '1º toque': 1, '2º toque': 2, '3º toque': 3 })[m.group];
+  const nextList = (t, own) => {
+    if (!own) return '<span class="tag-opp">passa a rede</span> → 1º toque deles';
+    if (t === 3) return '<span class="tag-opp">fica no nosso campo: seria o 4º toque</span>';
+    const n = t ? t + 1 : 2;
+    const p = PLAYER_MOVES[n];
+    return `<span class="tag-own">nosso campo</span> → ${n}º toque: ${[p.ground.A, p.ground.B, p.air.A, p.air.B].map(moveName).join(', ')}`;
+  };
+  const rows = META.filter(m => !m.alt && defs[m.key]).map(m => {
+    const d = defs[m.key], t = touchOf(m);
+    const btn = m.btn.split(' · ')[0];
+    let next;
+    if (m.group === 'Saque') next = nextList(0, false);
+    else if (d.alt) next = `1º e 2º toque: ${nextList(1, staysOwn(m.key))}<br><small>3º toque: ${destTxt(d.alt)} · ${staysOwn(m.key, true) ? '<span class="tag-own">nosso campo</span>' : '<span class="tag-opp">passa a rede</span>'}</small>`;
+    else next = t ? nextList(t, staysOwn(m.key)) : (staysOwn(m.key) ? '<span class="tag-own">nosso campo</span> → próximo toque' : nextList(0, false));
+    const band = d.band ? `${fmt(d.band[0])}–${fmt(d.band[1])} m` : 'na mão';
+    return `<tr><td><b>${esc(m.name)}</b>${SPECIALS[m.key] ? `<br><small>especial · ${SPECIALS[m.key]}</small>` : ''}</td>
+      <td>${esc(m.group)}</td><td>${esc(btn)}<br><small>${esc(m.pos)}</small></td>
+      <td>${band}<br><small>alcance ${d.reach ? fmt(d.reach) + ' m' : '—'} × ${fmt(HB.side)} m</small></td>
+      <td>${destTxt(d)}</td><td>${trajTxt(d)}</td><td>${next}</td></tr>`;
+  }).join('');
+  return `<table class="mtable"><thead><tr><th>Golpe</th><th>Toque</th><th>Botão · posição</th><th>Contato · hitbox</th><th>Destino (precisão)</th><th>Trajetória</th><th>Interação: para onde a bola vai e o que vem depois</th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+
+// ---------- notas entre os toques ----------
+// Regras da nota (iguais a src/grade.js): b = { speed (m/s da bola que chega), h (altura da bola em
+// relação aos pés), net (distância do atleta à rede), ballY (altura da bola) }
+const NET_TOP = NET_H; // altura da fita
+const GRADE_RULES = {
+  peito: { f: b => b.speed > 10 ? 'otimo' : 'bom', txt: 'Ótimo: bola chegando a mais de 10 m/s (36 km/h) · Bom: senão (nunca Ruim)' },
+  pe: { f: b => b.speed < 9 ? 'otimo' : b.speed < 12 ? 'bom' : b.speed < 15 ? 'ruim' : 'pior', txt: 'Ótimo: menos de 9 m/s · Bom: até 12 · Ruim: até 15 · Pior: acima' },
+  cabeca: { f: b => b.speed > 14 ? 'ruim' : b.h > 1.7 && b.speed < 11 ? 'otimo' : 'bom', txt: 'Ótimo: bola a mais de 1,7 m dos pés e abaixo de 11 m/s · Ruim: acima de 14 m/s · Bom: senão' },
+  sharkBlock: { f: b => b.net > 2.6 ? 'pior' : b.net < 1.5 && b.speed > 11 ? 'otimo' : b.net < 2.2 ? 'bom' : 'ruim', txt: 'Ótimo: a menos de 1,5 m da rede contra bola acima de 11 m/s · Bom: até 2,2 m · Ruim: até 2,6 m · Pior: além' },
+  carrinho: { f: b => b.speed > 16 ? 'ruim' : 'bom', txt: 'Bom · Ruim contra bola acima de 16 m/s' },
+  ombro: { f: b => b.h > 1.6 ? 'otimo' : b.h > 1.1 ? 'bom' : 'ruim', txt: 'Ótimo: bola chegando acima de 1,6 m dos pés · Bom: acima de 1,1 m · Ruim: abaixo' },
+  naFita: { f: b => b.net < 2.5 ? 'otimo' : b.net < 4 ? 'bom' : 'ruim', txt: 'Ótimo: a menos de 2,5 m da rede · Bom: até 4 m · Ruim: mais longe' },
+  ataqueSegunda: { f: b => b.net < 2.5 && b.ballY > NET_TOP + 0.2 ? 'otimo' : b.net < 4.5 ? 'bom' : 'ruim', txt: 'Ótimo: a menos de 2,5 m da rede com a bola acima de 2,4 m · Bom: até 4,5 m · Ruim: mais longe' },
+  cabecaSet: { f: b => b.h > 1.6 ? 'bom' : 'ruim', txt: 'Bom: bola acima de 1,6 m dos pés · Ruim: abaixo (não dá Ótimo)' },
+  chuteColocado: { f: b => b.net > 3.5 ? 'otimo' : 'bom', txt: 'Ótimo: batendo a mais de 3,5 m da rede · Bom: mais perto' },
+  pingo: { f: b => b.net < 3 ? 'otimo' : b.net < 6 ? 'bom' : 'ruim', txt: 'Ótimo: a menos de 3 m da rede · Bom: até 6 m · Ruim: mais longe' },
+  cabecada: { f: b => b.h < 1.4 ? 'ruim' : b.net > 3.5 ? 'otimo' : 'bom', txt: 'Ótimo: bola a mais de 1,4 m dos pés e batendo a mais de 3,5 m da rede · Ruim: bola abaixo de 1,4 m · Bom: senão' },
+  sharkAttack: { f: b => b.net < 1.8 && b.ballY > NET_TOP + 0.4 ? 'otimo' : b.net < 2.2 ? 'bom' : 'pior', txt: 'Ótimo: a menos de 1,8 m da rede com a bola acima de 2,6 m · Bom: até 2,2 m · Pior: além' },
+};
+const GRADE_NAME = { otimo: 'Ótimo', bom: 'Bom', ruim: 'Ruim', pior: 'Pior' };
+const GRADE_RANK = { pior: 0, ruim: 1, bom: 2, otimo: 3 };
+const GRADE_EFFECT = {
+  otimo: 'barra de especial ×1,6 · o próximo toque do time (o parceiro) sai 15% mais rápido e 40% mais perto do centro',
+  bom: 'barra ×1',
+  ruim: 'barra ×0,5 · o atleta é empurrado para trás · o próximo toque do time sai 40% mais longe do centro e com até 0,35 m de erro',
+  pior: 'barra ×0 · o atleta cai na areia · o próximo toque do time sai 80% mais longe do centro, 5% mais lento e com até 0,8 m de erro',
+};
+const gTag = g => `<span class="g-${g}">${GRADE_NAME[g]}</span>`;
+// a bola do golpe (do ponto de exemplo, Força 5) descendo até a altura h: velocidade e distância da rede
+function arrival(key, part, h) {
+  if (!TRAJ || !part || !part.traj) return null;
+  const m = META.find(x => x.key === key && !x.alt) || META.find(x => x.key === key);
+  const aim = normAim(part.aim), c = cells(aim, m.from[0], m.from[1])[4];
+  syncTraj();
+  const sc = TRAJ.solve({ ...part.traj, model: modelOf(part.traj.model), to: { x: c.x, z: c.z }, y1: 0.15 }, { x: m.from[0] + 0.35, y: m.y, z: m.from[1] }, 1, { netClear: NET_CLEAR });
+  const N = 300, dt = sc.T / N / (sc.rate || 1);
+  let prev = TRAJ.pointAt(sc, 0), peaked = false;
+  for (let i = 1; i <= N; i++) {
+    const p = TRAJ.pointAt(sc, i / N);
+    if (p.y < prev.y) peaked = true;
+    if (peaked && p.y <= h) return { speed: Math.hypot(p.x - prev.x, p.y - prev.y, p.z - prev.z) / dt, net: Math.abs(p.x), h, ballY: h };
+    prev = p;
+  }
+  return null;
+}
+// melhor nota possível do golpe "next" recebendo a bola do golpe "key" (escolhendo a altura do contato)
+function bestGrade(key, part, next) {
+  const rule = GRADE_RULES[next], d = defs[next];
+  if (!rule || !d) return null;
+  const band = d.band || [0, 3];
+  let best = null;
+  for (let h = band[1]; h >= band[0] - 0.001; h -= 0.1) {
+    const a = arrival(key, part, Math.max(0.2, h));
+    if (!a) continue;
+    const g = rule.f(a);
+    if (!best || GRADE_RANK[g] > GRADE_RANK[best.g]) best = { g, a };
+  }
+  return best;
+}
+function gradesHTML() {
+  if (!TRAJ) return '<p class="hint">Carregando a física do jogo…</p>';
+  const P1 = PLAYER_MOVES;
+  const list = t => [P1[t].ground.A, P1[t].ground.B, P1[t].air.A, P1[t].air.B];
+  const steps = [
+    { from: ['saqueForte', 'saqueColocado'], to: list(1), t: 'Saque → 1º toque do adversário' },
+    { from: [...list(1), 'carrinho'], to: list(2), t: '1º toque → 2º toque (parceiro)' },
+    { from: list(2), to: list(3), t: '2º toque → 3º toque (parceiro)' },
+    { from: [...list(3), 'bicicleta', 'meiaBicicleta', 'sharkSupremo', 'pingoPipoca'], to: [...list(1), 'carrinho'], t: '3º toque → 1º toque do adversário' },
+  ];
+  const tables = steps.map(s => `<h4 style="margin-top:14px">${s.t}</h4><table class="mtable heat"><thead><tr><th>A bola vem de ↓ · vai para →</th>${s.to.map(id => `<th>${esc(moveName(id))}</th>`).join('')}</tr></thead><tbody>
+    ${s.from.filter(k => defs[k]).map(k => `<tr><td><b>${esc(moveName(k))}</b></td>${s.to.map(n => {
+      const r = bestGrade(k, defs[k], n);
+      if (!r) return '<td>—</td>';
+      return `<td title="chega a ${fmt(r.a.speed, 1)} m/s, ${fmt(r.a.net, 1)} m da rede, contato a ${fmt(r.a.h, 1)} m">${gTag(r.g)}</td>`;
+    }).join('')}</tr>`).join('')}</tbody></table>`).join('');
+  return `<p class="hint">Melhor nota possível do golpe da coluna ao receber a bola do golpe da linha (com os valores atuais, Força 5, do ponto de exemplo de cada golpe; passe o mouse para ver velocidade, distância da rede e altura do contato).</p>${tables}`;
+}
+function gradeRulesHTML() {
+  const rows = Object.entries(GRADE_RULES).map(([k, r]) => `<tr><td><b>${esc(moveName(k))}</b></td><td>${esc(r.txt)}</td></tr>`).join('');
+  const eff = Object.entries(GRADE_EFFECT).map(([g, t]) => `<tr><td>${gTag(g)}</td><td>${esc(t)}</td></tr>`).join('');
+  return `<h4 style="margin-top:14px">Efeito de cada nota</h4><table class="mtable"><tbody>${eff}</tbody></table>
+    <h4 style="margin-top:14px">Regras da nota de cada golpe</h4><table class="mtable"><thead><tr><th>Golpe</th><th>Condições</th></tr></thead><tbody>${rows}
+    <tr><td><b>Especiais</b></td><td>Sempre Bom</td></tr></tbody></table>`;
+}
+
+// ---------- medição: partidas simuladas com os valores atuais do editor ----------
+async function runSim() {
+  const status = document.getElementById('sim-status'), out = document.getElementById('sim-out');
+  const n = Math.max(1, Math.min(60, +document.getElementById('sim-n').value || 10));
+  const la = Math.max(1, Math.min(12, +document.getElementById('sim-a').value || 8)), lb = Math.max(1, Math.min(12, +document.getElementById('sim-b').value || 8));
+  let mods;
+  try {
+    const base = location.pathname.includes('/docs/') ? '../' : './';
+    const [mt, mv, tj, hb, ai, ch] = await Promise.all(['src/match.js', 'src/moves.js', 'src/engine/trajectory.js', 'src/data/hitbox.js', 'src/data/ai-tree.js', 'src/art/characters.js'].map(f => import(base + f)));
+    mods = { Match: mt.Match, moveDefs: mv.moveDefs, MP: tj.MODEL_PARAMS, HB: hb.default, AI: ai.default, CH: ch.CHARACTERS };
+  } catch (e) { status.textContent = 'A simulação só funciona no editor aberto pelo servidor do jogo.'; return; }
+  // valores do editor (antes de aplicar)
+  mods.moveDefs.load(JSON.parse(JSON.stringify(defs)));
+  for (const [k, v] of Object.entries(MP)) mods.MP[k] = { ...(mods.MP[k] || {}), ...v };
+  Object.assign(mods.HB, HB);
+  replaceAll(mods.AI, JSON.parse(JSON.stringify(TREE)));
+  const S = { matches: 0, time: 0, points: 0, rallies: [], end: {}, wins: [0, 0], grades: {}, trans: {}, pair: {} };
+  const DT = 1 / 120;
+  for (let g = 0; g < n; g++) {
+    status.textContent = `Simulando partida ${g + 1} de ${n}…`;
+    await new Promise(r => setTimeout(r, 0));
+    const roster = ids => ids.map(id => mods.CH[id]);
+    const m = new mods.Match([roster(['giulia', 'zefa']), roster(['tubarao', 'pipoca'])], { mode: 'demo', level: lb, levels: { 0: [la, la], 1: [lb, lb] } });
+    m.begin();
+    let rally = [], pend = null, t = 0;
+    for (let i = 0; i < 120 * 900 && m.state !== 'over'; i++) {
+      m.step(DT, {}); t += DT;
+      for (const e of m.events) {
+        if (e.type === 'grade') pend = { pl: e.player, grade: e.grade };
+        else if (e.type === 'hit') {
+          const grade = pend && pend.pl === e.player ? pend.grade : null;
+          rally.push({ team: e.player.team, move: e.move.id, grade });
+          pend = null;
+          if (grade) { const gm = S.grades[e.move.id] || (S.grades[e.move.id] = { otimo: 0, bom: 0, ruim: 0, pior: 0 }); gm[grade]++; }
+        } else if (e.type === 'point') {
+          const last = rally[rally.length - 1];
+          let kind = e.reason === 'FORA!' ? 'Bola fora' : e.reason === 'NA REDE!' ? 'Na rede' : e.reason === '4 TOQUES!' ? '4 toques' : last && last.team === e.winner ? 'Ataque no chão' : 'Caiu no próprio campo';
+          if (last && (kind === 'Ataque no chão' || kind === 'Caiu no próprio campo')) kind += ` · ${moveName(last.move)}`;
+          S.end[kind] = (S.end[kind] || 0) + 1;
+          S.rallies.push(rally.length);
+          // relação das notas: toque seguinte do mesmo time
+          for (let k = 1; k < rally.length; k++) {
+            const a = rally[k - 1], b = rally[k];
+            if (a.team !== b.team || !a.grade || !b.grade) continue;
+            const tr = S.trans[a.grade] || (S.trans[a.grade] = { otimo: 0, bom: 0, ruim: 0, pior: 0 }); tr[b.grade]++;
+            const key = a.move + '>' + b.move, pr = S.pair[key] || (S.pair[key] = { otimo: 0, bom: 0, ruim: 0, pior: 0, n: 0 }); pr[b.grade]++; pr.n++;
+          }
+          rally = []; S.points++;
+        }
+      }
+      m.events.length = 0;
+    }
+    S.matches++; S.time += t;
+    if (m.state === 'over') S.wins[m.winner]++;
+  }
+  status.textContent = `Pronto: ${n} partidas, nível ${la} contra ${lb}.`;
+  out.innerHTML = simHTML(S, la, lb);
+}
+function simHTML(S, la, lb) {
+  const avg = a => a.reduce((x, y) => x + y, 0) / Math.max(1, a.length);
+  const mins = S.time / S.matches / 60;
+  const pct = (x, tot) => `${Math.round(100 * x / Math.max(1, tot))}%`;
+  const rl = S.rallies, long = rl.filter(x => x >= 4).length;
+  const kpis = `<div class="kpis">
+    <div class="kpi"><b>${fmt(mins, 1)} min</b><span>por partida (meta: 3 a 5)</span></div>
+    <div class="kpi"><b>${fmt(avg(rl), 1)}</b><span>toques por ponto (somando os dois times)</span></div>
+    <div class="kpi"><b>${pct(long, rl.length)}</b><span>pontos com 4 toques ou mais</span></div>
+    <div class="kpi"><b>${S.wins[0]} × ${S.wins[1]}</b><span>vitórias · nível ${la} × nível ${lb}</span></div>
+  </div>`;
+  const ends = Object.entries(S.end).sort((a, b) => b[1] - a[1]).map(([k, v]) => `<tr><td>${esc(k)}</td><td>${v}</td><td>${pct(v, S.points)}</td></tr>`).join('');
+  const G = ['otimo', 'bom', 'ruim', 'pior'];
+  const trans = G.filter(g => S.trans[g]).map(g => { const r = S.trans[g], tot = G.reduce((s, x) => s + r[x], 0); return `<tr><td>${gTag(g)} <small>(${tot})</small></td>${G.map(x => `<td>${pct(r[x], tot)}</td>`).join('')}</tr>`; }).join('');
+  const grades = Object.entries(S.grades).map(([k, r]) => { const tot = G.reduce((s, x) => s + r[x], 0); return `<tr><td>${esc(moveName(k))} <small>(${tot})</small></td>${G.map(x => `<td>${r[x] ? pct(r[x], tot) : '·'}</td>`).join('')}</tr>`; }).join('');
+  const pairs = Object.entries(S.pair).filter(([, r]) => r.n >= 5).sort((a, b) => b[1].n - a[1].n).map(([k, r]) => {
+    const [a, b] = k.split('>');
+    return `<tr><td>${esc(moveName(a))} → ${esc(moveName(b))} <small>(${r.n})</small></td>${G.map(x => `<td>${r[x] ? pct(r[x], r.n) : '·'}</td>`).join('')}</tr>`;
+  }).join('');
+  const head = `<tr><th></th>${G.map(g => `<th>${gTag(g)}</th>`).join('')}</tr>`;
+  return `${kpis}
+    <h4 style="margin-top:14px">Como os pontos terminam</h4><table class="mtable"><tbody>${ends}</tbody></table>
+    <h4 style="margin-top:14px">Nota de um toque → nota do toque seguinte do mesmo time</h4><table class="mtable heat"><thead>${head}</thead><tbody>${trans}</tbody></table>
+    <h4 style="margin-top:14px">Sequências mais comuns (golpe → golpe seguinte do parceiro): nota do segundo</h4><table class="mtable heat"><thead>${head}</thead><tbody>${pairs}</tbody></table>
+    <h4 style="margin-top:14px">Notas de cada golpe</h4><table class="mtable heat"><thead>${head}</thead><tbody>${grades}</tbody></table>`;
+}
+document.getElementById('sim-run').addEventListener('click', async e => {
+  e.target.disabled = true;
+  try { await runSim(); } finally { e.target.disabled = false; }
+});
+
+// ---------- Modo Tilt (src/data/tilt.js; lido por src/tilt.js) ----------
+// padrão igual a src/data/tilt.js; no modo local é lido do código
+const TILTD = {
+  ground: { A: { name: 'Bola rápida', dist: 9, radius: 1.7, apex: 2.8, model: 'arrasto', pace: 'rapida' }, B: { name: 'Bola precisa', dist: 3.6, radius: 0.6, apex: 4.8, model: 'backspin', pace: 'lenta' } },
+  air: { A: { name: 'Cortada 45°', dist: 9, radius: 1.7, angle: 45, model: 'balistica', pace: 'rapida' }, B: { name: 'No parceiro', radius: 1, apex: 4.2, model: 'backspin', pace: 'normal' } },
+  names: {
+    1: { ground: { A: 'Domínio de peito', B: 'Domínio de pé' }, air: { A: 'Cabeça', B: 'Shark (bloqueio)' } },
+    2: { ground: { A: 'Passe de ombro', B: 'Na fita' }, air: { A: 'Ataque de segunda', B: 'Levantada de cabeça' } },
+    3: { ground: { A: 'Chute colocado', B: 'Pingo' }, air: { A: 'Cabeçada', B: 'Shark Attack' } },
+  },
+  specials: { attack: ['bicicleta', 'sharkSupremo', 'pingoPipoca'], defense: ['sarrada', 'escorpiao', 'meiaBicicleta'] },
+  specialDefs: {},
+};
+// especiais que existem no jogo (podem entrar em qualquer uma das duas listas)
+const SPECIAL_IDS = ['bicicleta', 'meiaBicicleta', 'sharkSupremo', 'pingoPipoca', 'sarrada', 'escorpiao', 'ondaBarra', 'pedradaLeme', 'porDoSol', 'bondinho', 'toqueClasse', 'asaDelta', 'pontal', 'freguesia', 'aterro', 'mareBaia'];
+// dados de cada especial só no Tilt (specialDefs): padrão igual a src/data/tilt.js
+const TILT_SP_DEFAULT = {
+  ondaBarra: {name: 'Onda da Barra',dist: 11,radius: 1,apex: 2.4,launch: 0,bend: 0,model: 'topspin',pace: 'rapida',band: [0.5,3.3],reach: 1.8},
+  pedradaLeme: {name: 'Pedrada do Leme',dist: 5.5,radius: 0.9,apex: 2.2,launch: 5,bend: 0,model: 'cravada',pace: 'normal',band: [1,3.4],reach: 1.7},
+  porDoSol: {name: 'Pôr do Sol de Ipanema',dist: 9.5,radius: 1.1,apex: 6.5,launch: 0,bend: 0,model: 'balao',pace: 'lenta',band: [0.5,3.2],reach: 1.75},
+  bondinho: {name: 'Bondinho',dist: 4.2,radius: 0.8,apex: 4.5,launch: 0,bend: 0,model: 'largadinha',pace: 'lenta',band: [0.4,3.2],reach: 1.75},
+  toqueClasse: {name: 'Toque de Classe',dist: 7,radius: 0.6,apex: 3,launch: 0,bend: 0,model: 'backspin',pace: 'normal',band: [0.4,3.2],reach: 1.75},
+  asaDelta: {name: 'Asa-Delta',dist: 10,radius: 1.1,apex: 3.2,launch: 0,bend: 2,model: 'sidespin',pace: 'normal',band: [0.5,3.3],reach: 1.8},
+  pontal: {name: 'Pedra do Pontal',dist: 8,radius: 1,apex: 1.9,launch: 0,bend: 0,model: 'arrasto',pace: 'rapida',band: [0.8,3.4],reach: 1.75},
+  freguesia: {name: 'Rasteira da Freguesia',dist: 6,radius: 1,apex: 2,launch: 0,bend: 0,model: 'arrasto',pace: 'rapida',band: [0.2,2.6],reach: 1.9},
+  aterro: {name: 'Aterro Supremo',dist: 7,radius: 1,apex: 2.5,launch: 7,bend: 0,model: 'cravada',pace: 'rapida',band: [1,3.5],reach: 1.75},
+  mareBaia: {name: 'Maré da Baía',dist: 12,radius: 1.2,apex: 3,launch: 0,bend: 1.8,model: 'sidespin',pace: 'normal',band: [0.5,3.3],reach: 1.8},
+  bicicleta: { name: 'Bicicleta', dist: 10, radius: 1, apex: 2.6, launch: 0, bend: 0, model: 'topspin', pace: 'normal', band: [0.5, 3.3], reach: 1.75 },
+  meiaBicicleta: { name: 'Meia-Bicicleta', dist: 8, radius: 1, apex: 2.7, launch: 0, bend: 1.6, model: 'sidespin', pace: 'normal', band: [0.5, 3.3], reach: 1.75 },
+  sharkSupremo: { name: 'Shark Attack Supremo', dist: 7.4, radius: 1, apex: 3, launch: 0, bend: 0, model: 'topspin', pace: 'normal', band: [0.5, 3.4], reach: 1.75 },
+  pingoPipoca: { name: 'Pingo Envenenado', dist: 4.7, radius: 1, apex: 2.8, launch: 0, bend: 0, model: 'largadinha', pace: 'normal', band: [0.5, 3.3], reach: 1.75 },
+  sarrada: { name: 'Sarrada', dist: 3.4, radius: 1, apex: 4.4, launch: 0, bend: 0, model: 'balistica', pace: 'normal', band: [0.1, 2.8], reach: 2.55 },
+  escorpiao: { name: 'Escorpião', dist: 2.4, radius: 1, apex: 4.6, launch: 0, bend: 0, model: 'balistica', pace: 'normal', band: [0.5, 3.4], reach: 2.15 },
+};
+// completa os especiais sem dados (arquivo antigo) com o padrão
+// carrinho (△) no Tilt: padrão igual a src/data/tilt.js
+const TILT_CAR_DEFAULT = { dist: 2.5, radius: 2, apex: 3.8, launch: 0, bend: 0, model: 'balistica', pace: 'normal', band: [0, 1], reach: 1.65 };
+function ensureSpecialDefs() {
+  if (!TILTD.carrinho) TILTD.carrinho = JSON.parse(JSON.stringify(TILT_CAR_DEFAULT));
+  const d = TILTD.specialDefs || (TILTD.specialDefs = {});
+  for (const id of SPECIAL_IDS) if (!d[id]) d[id] = JSON.parse(JSON.stringify(TILT_SP_DEFAULT[id]));
+}
+ensureSpecialDefs();
+const spName = id => ((TILTD.specialDefs || {})[id] || {}).name || moveName(id);
+let tiltSpSel = 'bicicleta'; // especial aberto no card de edição
+const TILT_BTN = { A: '□ (X no Xbox)', B: '○ (B no Xbox)' };
+const getPath = p => p.split('.').reduce((o, k) => (o == null ? o : o[k]), TILTD);
+const setPath = (p, v) => { const ks = p.split('.'), last = ks.pop(); const o = ks.reduce((o, k) => (o[k] = o[k] || {}), TILTD); o[last] = v; };
+// prévia vista de cima: jogador de exemplo, seta apontando para a rede (gira 360°) e a área.
+// base = 'ground.A' | 'air.B' | 'specialDefs.<id>' | 'carrinho'
+const TILT_COLOR = { A: '#ff3b4f', B: '#3d8bff', S: '#ffc21a', D: '#ff8a1f' };
+const tiltKind = base => (base.startsWith('specialDefs.') ? 'S' : base === 'carrinho' ? 'D' : base.split('.')[1]);
+function tiltPreview(base) {
+  const b = getPath(base) || {}, kind = tiltKind(base), col = TILT_COLOR[kind];
+  const W = 18 * CS + 2 * CM, Hh = 9 * CS + 2 * CM, p = [-4.5, -1.2];
+  const r = Math.max(0.05, +b.radius || 1);
+  let tx, tz, ring = '', label;
+  if (base === 'air.B') { const mt = mateFor(p[0], p[1]); tx = mt.x; tz = mt.z; label = 'PARCEIRO'; }
+  else {
+    const d = Math.max(0, +b.dist || 0);
+    tx = p[0] + d; tz = p[1];
+    // o carrinho não tem seta para girar: vai sempre reto, rumo à rede
+    if (kind !== 'D') ring = `<circle cx="${X(p[0])}" cy="${Z(p[1])}" r="${d * CS}" fill="none" stroke="${col}" stroke-width="1.3" stroke-dasharray="4 5" opacity=".45"/>`;
+    label = `${fmt(d)} m`;
+  }
+  const ang = Math.atan2(tz - p[1], tx - p[0]), len = Math.hypot(tx - p[0], tz - p[1]) * CS;
+  const w = kind === 'S' || kind === 'D' ? 5 : kind === 'A' ? 3 : 8, head = 12, ex = X(p[0]) + Math.cos(ang) * Math.max(0, len - head), ez = Z(p[1]) + Math.sin(ang) * Math.max(0, len - head);
+  const hx = X(tx), hz = Z(tz), nx = -Math.sin(ang) * (w + 5), nz = Math.cos(ang) * (w + 5);
+  return `<svg viewBox="0 0 ${W} ${Hh}" class="tlp" role="img" aria-label="Prévia vista de cima: seta e área">
+    <rect x="4" y="4" width="${W - 8}" height="${Hh - 8}" rx="10" fill="var(--sand)"/>
+    <rect x="${X(-9)}" y="${Z(-4.5)}" width="${18 * CS}" height="${9 * CS}" fill="none" stroke="var(--sand-line)" stroke-width="2.5"/>
+    <line x1="${X(0)}" y1="${Z(-4.5) - 6}" x2="${X(0)}" y2="${Z(4.5) + 6}" stroke="var(--net)" stroke-width="5" stroke-linecap="round"/>
+    ${ring}
+    <circle cx="${hx}" cy="${hz}" r="${r * CS}" fill="${col}" fill-opacity=".22" stroke="${col}" stroke-width="2"/>
+    <line x1="${X(p[0])}" y1="${Z(p[1])}" x2="${ex}" y2="${ez}" stroke="${col}" stroke-width="${w}" stroke-linecap="round"/>
+    <polygon points="${hx},${hz} ${ex + nx},${ez + nz} ${ex - nx},${ez - nz}" fill="${col}"/>
+    <circle cx="${X(p[0])}" cy="${Z(p[1])}" r="8" fill="var(--fg)" stroke="var(--surface)" stroke-width="3"/>
+    <text x="${hx}" y="${hz - r * CS - 6}" text-anchor="middle" class="tlp-lb">${label} · ⌀ ${fmt(2 * r)} m</text>
+  </svg>`;
+}
+// vista de lado: a trajetória da física do jogo do contato até o destino final e, quando o golpe
+// tem hitbox própria (especiais e carrinho), a hitbox. Arraste o destino (distância), o pico
+// (altura máxima; no □ do ar, o ângulo) e as bordas da hitbox.
+const TSP_X = -4.5;
+function tiltSideSpec(base) {
+  const o = getPath(base);
+  if (!o) return null;
+  const airA = base === 'air.A', airB = base === 'air.B', hb = Array.isArray(o.band);
+  const y0 = hb ? Math.min(base === 'carrinho' ? 0.4 : 3, (o.band[0] + o.band[1]) / 2) : base.startsWith('air.') ? 2.2 : 0.8;
+  const dist = airB ? Math.abs(mateFor(TSP_X, -1.2).x - TSP_X) : Math.max(0.5, +o.dist || 1);
+  // □ no ar: como no jogo, a bola sobe d·tan(ângulo)/4 acima do contato
+  const apex = airA ? y0 + dist * Math.tan((+o.angle || 45) * Math.PI / 180) / 4 : +o.apex || 3;
+  return { o, airA, airB, hb, y0, dist, apex, col: TILT_COLOR[tiltKind(base)], traj: { model: o.model, apex, launch: o.launch || 0, bend: 0, pace: o.pace } };
+}
+function tiltSideGeom(canvas, s) {
+  const dpr = Math.min(2, devicePixelRatio || 1), w = canvas.width, h = canvas.height, pad = 30 * dpr;
+  const x0 = TSP_X - (s.hb ? 4.8 : 1.5), x1 = Math.max(TSP_X + s.dist, 1) + 1.5;
+  const top = Math.max(5.5, s.apex + 1);
+  return { dpr, w, h, pad, x0, x1, top, PX: x => pad + (x - x0) / (x1 - x0) * (w - pad * 2), PY: y => h - pad - y / top * (h - pad * 2),
+    FX: px => x0 + (px - pad) / (w - pad * 2) * (x1 - x0), FY: py => (h - pad - py) / (h - pad * 2) * top };
+}
+// G0: escala congelada durante o arraste (senão a escala muda sob o mouse)
+function drawTiltSide(canvas, G0) {
+  const base = canvas && canvas.dataset.tside, s = base && tiltSideSpec(base);
+  if (!s) return;
+  if (!G0) {
+    const r = canvas.getBoundingClientRect(), dprR = Math.min(2, devicePixelRatio || 1);
+    canvas.width = Math.max(300, r.width * dprR); canvas.height = canvas.width * 9 / 16;
+  }
+  const G = G0 || tiltSideGeom(canvas, s), { dpr, w, h, pad, PX, PY, top } = G, g = canvas.getContext('2d');
+  const css = getComputedStyle(document.documentElement), col = n => css.getPropertyValue(n).trim();
+  g.clearRect(0, 0, w, h);
+  g.fillStyle = col('--sand'); g.fillRect(0, PY(0), w, h - PY(0));
+  g.strokeStyle = col('--net'); g.lineWidth = 4 * dpr; g.beginPath(); g.moveTo(PX(0), PY(0)); g.lineTo(PX(0), PY(NET_H)); g.stroke();
+  g.font = `800 ${11 * dpr}px Nunito, sans-serif`;
+  g.strokeStyle = col('--line'); g.lineWidth = 1 * dpr; g.fillStyle = col('--muted');
+  for (let y = 1; y < top; y++) { g.beginPath(); g.moveTo(pad, PY(y)); g.lineTo(w - pad, PY(y)); g.stroke(); g.fillText(`${y} m`, 4 * dpr, PY(y) + 4 * dpr); }
+  const dot = (x, y, c, r = 5, ring = false) => {
+    g.fillStyle = c; g.beginPath(); g.arc(x, y, r * dpr, 0, 7); g.fill();
+    if (ring) { g.strokeStyle = col('--surface'); g.lineWidth = 2 * dpr; g.stroke(); }
+  };
+  // hitbox: da altura mínima à máxima, alcance para a frente e para trás (como no jogo)
+  if (s.hb) {
+    const o = s.o, hx0 = PX(TSP_X - o.reach), hx1 = PX(TSP_X + o.reach), hy0 = PY(o.band[1]), hy1 = PY(o.band[0]);
+    g.fillStyle = 'rgba(57,255,136,.2)'; g.fillRect(hx0, hy0, hx1 - hx0, hy1 - hy0);
+    g.strokeStyle = '#1fbf6a'; g.lineWidth = 2 * dpr; g.strokeRect(hx0, hy0, hx1 - hx0, hy1 - hy0);
+    for (const [x, y] of [[(hx0 + hx1) / 2, hy0], [(hx0 + hx1) / 2, hy1], [hx1, (hy0 + hy1) / 2]]) dot(x, y, '#1fbf6a');
+  }
+  // trajetória até o destino (vermelha depois de bater na rede)
+  const ph = physPath(s.traj, { x: TSP_X, y: s.y0, z: 0 }, { x: TSP_X + s.dist, z: 0 });
+  const info = canvas.parentElement.querySelector('[data-tsinfo]');
+  canvas._handles = {};
+  if (ph) {
+    const netHit = ph.netY != null && ph.netY < NET_H + BALL_R;
+    let hit = false, prev = null, peak = ph.pts[0];
+    for (const p of ph.pts) {
+      if (p.y > peak.y) peak = p;
+      if (prev && netHit && (prev.x < 0) !== (p.x < 0)) hit = true;
+      if (prev) { g.strokeStyle = hit ? col('--warn') : s.col; g.lineWidth = 3 * dpr; g.beginPath(); g.moveTo(PX(prev.x), PY(prev.y)); g.lineTo(PX(p.x), PY(p.y)); g.stroke(); }
+      prev = p;
+    }
+    // alças: pico (altura máxima / ângulo) e destino final (distância)
+    const end = ph.pts[ph.pts.length - 1], ey = Math.max(0.15, end.y);
+    dot(PX(peak.x), PY(peak.y), s.col, 6, true);
+    if (!s.airB) dot(PX(end.x), PY(ey), s.col, 7, true);
+    canvas._handles = { peak: [PX(peak.x), PY(peak.y)], end: s.airB ? null : [PX(end.x), PY(ey)] };
+    if (info) info.innerHTML = `Destino a <b>${fmt(s.dist)} m</b> · tempo no ar <b>${fmt((ph.sc.T || 0) / (ph.sc.rate || 1))} s</b> · altura máxima <b>${fmt(peak.y)} m</b>${netHit ? ' · <b style="color:var(--warn)">bate na rede</b>' : ''}`;
+  }
+  dot(PX(TSP_X), PY(s.y0), col('--fg'), 6);
+}
+// as duas vistas de um golpe (de cima e de lado)
+function tiltViews(base, hb) {
+  return `<div class="tsp-views">
+      <div><h4 class="sub-h">Vista de cima · seta e área</h4><div data-tlprev="${base}">${tiltPreview(base)}</div></div>
+      <div><h4 class="sub-h">Vista de lado · trajetória até o destino${hb ? ' e hitbox' : ''}</h4><canvas data-tside="${base}" class="tsp-side" aria-label="Trajetória da bola até o destino"></canvas>
+        <p class="hint" data-tsinfo></p><p class="hint">Arraste ${base === 'air.B' ? '' : 'o ponto do destino (distância) e '}o do pico (${base === 'air.A' ? 'ângulo de saída' : 'altura máxima'})${hb ? '; as bolinhas verdes mudam a hitbox (altura mínima, máxima e alcance)' : ''}.</p></div>
+    </div>`;
+}
+function renderTiltTab() {
+  const box = document.getElementById('tilt-edit');
+  if (!box) return;
+  ensureSpecialDefs();
+  if (!SPECIAL_IDS.includes(tiltSpSel)) tiltSpSel = SPECIAL_IDS[0];
+  const dis = canWrite ? '' : 'disabled';
+  const numF = (path, label, hint, min, max, step) => `<div class="row"><label>${label}${hint ? `<small>${hint}</small>` : ''}</label><div class="ctl">
+    <input type="range" data-tl="${path}" min="${min}" max="${max}" step="${step}" value="${getPath(path)}" ${dis}>
+    <input type="number" data-tl="${path}" min="${min}" max="${max}" step="${step}" value="${getPath(path)}" ${dis}></div></div>`;
+  const txtF = (path, label) => `<div class="row"><label>${label}</label><div class="ctl"><input type="text" class="tl-txt" data-tl="${path}" value="${esc(getPath(path) || '')}" ${dis}></div></div>`;
+  const selF = (path, label, opts) => `<div class="row"><label>${label}</label><div class="ctl"><select data-tl="${path}" ${dis}>${opts.map(([v, t]) => `<option value="${v}" ${getPath(path) === v ? 'selected' : ''}>${t}</option>`).join('')}</select></div></div>`;
+  const models = Object.entries(MODELS).map(([k, m]) => [k, m.name]);
+  const paces = Object.entries(PACE).map(([k, p]) => [k, `${p.name} · ${Math.round(p.rate * 100)}%`]);
+  // trajetória: modelo (efeito), os extras do modelo (cravada / sidespin) e a velocidade
+  const trajF = (p, o) => `${selF(p + '.model', 'Trajetória · efeito', models)}
+    ${o.model === 'cravada' ? numF(p + '.launch', 'Velocidade para baixo', 'm/s na saída (cravada)', 0, 12, 0.1) : ''}
+    ${o.model === 'sidespin' ? numF(p + '.bend', 'Curva lateral', 'm', 0, 4, 0.05) : ''}
+    ${selF(p + '.pace', 'Velocidade da bola', paces)}`;
+  const hbF = p => `<h4 class="sub-h">Hitbox</h4>
+    ${numF(p + '.band.0', 'Altura mínima', 'm dos pés', 0, 3, 0.05)}
+    ${numF(p + '.band.1', 'Altura máxima da bola', 'm dos pés', 0.3, 4.5, 0.05)}
+    ${numF(p + '.reach', 'Alcance', 'm, para a frente e para trás', 0.5, 4, 0.05)}`;
+  const ball = (pos, k) => {
+    const p = `${pos}.${k}`, o = getPath(p), airB = pos === 'air' && k === 'B', airA = pos === 'air' && k === 'A';
+    return `<div class="card tsp-edit"><h4>Ataque básico · ${pos === 'ground' ? 'no chão' : 'no ar'} · ${TILT_BTN[k]}</h4>
+      ${tiltViews(p, false)}
+      ${txtF(p + '.name', 'Nome da bola')}
+      ${airB ? numF(p + '.radius', 'Raio da área no parceiro', 'm (diâmetro = 2 × raio)', 0.2, 3, 0.05)
+        : numF(p + '.dist', 'Distância', 'm, na direção da seta', 1, 18, 0.1) + numF(p + '.radius', 'Raio da área', 'm', 0.2, 4, 0.05)}
+      ${airA ? numF(p + '.angle', 'Ângulo de saída', 'graus (a altura máxima sai dele)', 10, 75, 1) : numF(p + '.apex', 'Altura máxima', 'm', 0.5, 9, 0.05)}
+      ${trajF(p, o)}
+      ${airB ? '<p class="hint">Vai direto para a região do parceiro, sem pausa e sem seta.</p>' : ''}
+    </div>`;
+  };
+  const names = `<div class="card"><h4>Nome do golpe em cada toque</h4><div class="tl-scroll"><table class="mtable tl-names"><thead><tr><th>Toque</th><th>Chão □</th><th>Chão ○</th><th>Ar □</th><th>Ar ○</th></tr></thead><tbody>
+    ${[1, 2, 3].map(t => `<tr><td><b>${t}º</b></td>${[['ground', 'A'], ['ground', 'B'], ['air', 'A'], ['air', 'B']].map(([pos, k]) =>
+      `<td><input type="text" class="tl-txt" data-tl="names.${t}.${pos}.${k}" value="${esc(getPath(`names.${t}.${pos}.${k}`) || '')}" aria-label="Toque ${t}, ${pos === 'ground' ? 'chão' : 'ar'}, botão ${k}" ${dis}></td>`).join('')}</tr>`).join('')}
+    </tbody></table></div><p class="hint">O nome e a animação mudam com o toque; a bola é a do botão.</p></div>`;
+  // carrinho (△): sem pausa e sem seta, vai reto rumo à rede
+  const carCard = `<div class="card tsp-edit"><h4>Carrinho · △ (Y no Xbox) · só no Modo Tilt</h4>
+    ${tiltViews('carrinho', true)}
+    ${numF('carrinho.dist', 'Distância', 'm, reto rumo à rede (sem seta)', 0.5, 18, 0.1)}
+    ${numF('carrinho.radius', 'Raio da área', 'm', 0.2, 4, 0.05)}
+    ${numF('carrinho.apex', 'Altura máxima', 'm', 0.5, 9, 0.05)}
+    ${trajF('carrinho', TILTD.carrinho)}
+    ${hbF('carrinho')}
+    <div class="row"><label>Padrão</label><div class="ctl"><button type="button" data-tlsp="reset-car" ${dis}>Voltar ao padrão</button></div></div>
+  </div>`;
+  const spList = (row, title) => {
+    const list = TILTD.specials[row] || [];
+    const free = SPECIAL_IDS.filter(id => !list.includes(id));
+    return `<div class="card"><h4>${title}</h4>
+      ${list.map((id, i) => `<div class="row"><label>${esc(spName(id))}</label><div class="ctl"><button type="button" data-tlsp="edit" data-id="${id}">Editar</button><button type="button" data-tlsp="del" data-row="${row}" data-i="${i}" ${dis}>Remover</button></div></div>`).join('') || '<p class="hint">Nenhum especial nesta lista.</p>'}
+      ${free.length ? `<div class="row"><label>Adicionar</label><div class="ctl"><select data-tlsp-add="${row}" ${dis}><option value="">escolha…</option>${free.map(id => `<option value="${id}">${esc(spName(id))}</option>`).join('')}</select></div></div>` : ''}
+    </div>`;
+  };
+  // card de edição do especial escolhido (só vale no Tilt)
+  const id = tiltSpSel, p = `specialDefs.${id}`, s = TILTD.specialDefs[id];
+  const lists = ['attack', 'defense'].filter(r => (TILTD.specials[r] || []).includes(id)).map(r => (r === 'attack' ? 'ataque □□' : 'defesa ○○'));
+  const spEdit = `<div class="card tsp-edit" id="tsp-edit"><h4>Editar especial (só no Modo Tilt)</h4>
+    <div class="row"><label>Especial</label><div class="ctl"><select data-tlsp-pick>${SPECIAL_IDS.map(k => `<option value="${k}" ${k === id ? 'selected' : ''}>${esc(spName(k))}</option>`).join('')}</select></div></div>
+    <p class="hint">${lists.length ? `Está na lista de ${lists.join(' e de ')}.` : 'Não está em nenhuma lista: adicione abaixo para os atletas poderem escolher.'} Animação: a do especial no jogo.</p>
+    ${tiltViews(p, true)}
+    ${txtF(p + '.name', 'Nome')}
+    ${numF(p + '.dist', 'Distância', 'm, na direção da seta', 1, 18, 0.1)}
+    ${numF(p + '.radius', 'Raio da área', 'm', 0.2, 4, 0.05)}
+    ${numF(p + '.apex', 'Altura máxima', 'm', 0.5, 9, 0.05)}
+    ${trajF(p, s)}
+    ${hbF(p)}
+    <div class="row"><label>Padrão</label><div class="ctl"><button type="button" data-tlsp="reset" data-id="${id}" ${dis}>Voltar ao padrão</button></div></div>
+  </div>`;
+  box.innerHTML = ball('ground', 'A') + ball('ground', 'B') + ball('air', 'A') + ball('air', 'B') + carCard + names +
+    spList('attack', 'Especiais de ataque · □□ (barra cheia)') + spList('defense', 'Especiais de defesa · ○○ (barra cheia)') + spEdit;
+  box.querySelectorAll('canvas[data-tside]').forEach(c => drawTiltSide(c));
+}
+function queueTiltSave() {
+  if (LOCAL) { markDirty('tilt'); return; }
+  clearTimeout(timers.tilt);
+  setStatus('saving', 'Salvando…');
+  timers.tilt = setTimeout(async () => {
+    timers.tilt = null;
+    if (!db) { setStatus('offline', 'Sem salvar (só nesta tela)'); return; }
+    try { await db.doc('settings/tilt').set({ json: JSON.stringify(TILTD) }); await markPending('tilt'); setStatus('saved', 'Salvo'); }
+    catch (e) { setStatus('error', 'Não salvou — tente de novo'); }
+  }, 600);
+}
+const tiltBox = document.getElementById('tilt-edit');
+// caminho do campo → golpe a que ele pertence ('ground.A', 'specialDefs.sarrada', 'carrinho')
+const tiltBase = path => (path.startsWith('carrinho') ? 'carrinho' : path.split('.').slice(0, 2).join('.'));
+tiltBox.addEventListener('input', e => {
+  const path = e.target.dataset.tl;
+  if (!path || !canWrite || e.target.tagName === 'SELECT') return;
+  remember('tilt:' + path);
+  if (e.target.type === 'text') setPath(path, e.target.value);
+  else { const v = +e.target.value; if (Number.isNaN(v)) return; setPath(path, v); tiltBox.querySelectorAll(`[data-tl="${path}"]`).forEach(o => { if (o !== e.target) o.value = v; }); }
+  refreshTiltViews(path);
+  if (path.endsWith('.name') && path.startsWith('specialDefs.')) {
+    // o nome novo aparece nas listas e no seletor sem perder o foco do campo
+    const id = path.split('.')[1];
+    tiltBox.querySelectorAll(`option[value="${id}"]`).forEach(o => { o.textContent = spName(id); });
+    tiltBox.querySelectorAll(`[data-tlsp="edit"][data-id="${id}"]`).forEach(b => { b.closest('.row').querySelector('label').textContent = spName(id); });
+  }
+  queueTiltSave();
+});
+// redesenha as vistas do golpe que mudou
+function refreshTiltViews(path) {
+  const base = tiltBase(path), prev = tiltBox.querySelector(`[data-tlprev="${base}"]`);
+  if (prev) prev.innerHTML = tiltPreview(base);
+  drawTiltSide(tiltBox.querySelector(`canvas[data-tside="${base}"]`));
+}
+tiltBox.addEventListener('change', e => {
+  if (e.target.matches('[data-tlsp-pick]')) { tiltSpSel = e.target.value; renderTiltTab(); document.getElementById('tsp-edit').scrollIntoView({ block: 'nearest' }); return; }
+  if (!canWrite) return;
+  if (e.target.tagName === 'SELECT' && e.target.dataset.tl) {
+    remember('tilt-sel', true); setPath(e.target.dataset.tl, e.target.value); queueTiltSave();
+    // o modelo mostra/esconde a velocidade para baixo (cravada) e a curva (sidespin)
+    if (e.target.dataset.tl.endsWith('.model')) { const y = scrollY; renderTiltTab(); scrollTo(0, y); }
+    else refreshTiltViews(e.target.dataset.tl);
+    return;
+  }
+  const row = e.target.dataset.tlspAdd;
+  if (row && e.target.value) { remember('tilt-sp', true); TILTD.specials[row].push(e.target.value); queueTiltSave(); renderTiltTab(); }
+});
+tiltBox.addEventListener('click', e => {
+  const b = e.target.closest('[data-tlsp]');
+  if (!b) return;
+  if (b.dataset.tlsp === 'edit') { tiltSpSel = b.dataset.id; renderTiltTab(); document.getElementById('tsp-edit').scrollIntoView({ block: 'start', behavior: 'smooth' }); return; }
+  if (!canWrite) return;
+  remember('tilt-sp', true);
+  const y = scrollY;
+  if (b.dataset.tlsp === 'reset') TILTD.specialDefs[b.dataset.id] = JSON.parse(JSON.stringify(TILT_SP_DEFAULT[b.dataset.id]));
+  else if (b.dataset.tlsp === 'reset-car') TILTD.carrinho = JSON.parse(JSON.stringify(TILT_CAR_DEFAULT));
+  else TILTD.specials[b.dataset.row].splice(+b.dataset.i, 1);
+  queueTiltSave(); renderTiltTab(); scrollTo(0, y);
+});
+// arrastar na vista de lado: destino (distância), pico (altura máxima / ângulo) e bordas da hitbox
+let tspDrag = null;
+tiltBox.addEventListener('pointerdown', e => {
+  const cv = e.target.closest('canvas[data-tside]');
+  if (!cv || !canWrite) return;
+  const base = cv.dataset.tside, s = tiltSideSpec(base), G = tiltSideGeom(cv, s), rc = cv.getBoundingClientRect();
+  const k = cv.width / rc.width, px = (e.clientX - rc.left) * k, py = (e.clientY - rc.top) * k;
+  const hs = cv._handles || {}, cand = [];
+  if (hs.end) cand.push(['dist', ...hs.end]);
+  if (hs.peak) cand.push(['apex', ...hs.peak]);
+  if (s.hb) {
+    const o = s.o, mx = (G.PX(TSP_X - o.reach) + G.PX(TSP_X + o.reach)) / 2, my = (G.PY(o.band[0]) + G.PY(o.band[1])) / 2;
+    cand.push(['hi', mx, G.PY(o.band[1])], ['lo', mx, G.PY(o.band[0])], ['reach', G.PX(TSP_X + o.reach), my]);
+  }
+  const best = cand.map(([w, x, y]) => [w, Math.hypot(px - x, py - y)]).sort((a, b) => a[1] - b[1])[0];
+  if (!best || best[1] > 22 * G.dpr) return;
+  tspDrag = { what: best[0], base, cv, G };
+  cv.setPointerCapture(e.pointerId);
+  remember('tilt-drag:' + base + best[0]);
+  e.preventDefault();
+});
+tiltBox.addEventListener('pointermove', e => {
+  if (!tspDrag) return;
+  const { what, base, cv, G } = tspDrag, s = tiltSideSpec(base), o = s.o, rc = cv.getBoundingClientRect();
+  const k = cv.width / rc.width, x = G.FX((e.clientX - rc.left) * k), y = G.FY((e.clientY - rc.top) * k);
+  const q = (v, st) => Math.round(v / st) * st, cl = (v, a, b) => Math.min(b, Math.max(a, v));
+  const set = {};
+  if (what === 'hi') set['band.1'] = q(cl(y, o.band[0] + 0.2, 4.5), 0.05);
+  else if (what === 'lo') set['band.0'] = q(cl(y, 0, o.band[1] - 0.2), 0.05);
+  else if (what === 'reach') set.reach = q(cl(x - TSP_X, 0.5, 4), 0.05);
+  else if (what === 'dist') set.dist = q(cl(x - TSP_X, base === 'carrinho' ? 0.5 : 1, 18), 0.1);
+  else if (s.airA) set.angle = Math.round(cl(Math.atan(4 * Math.max(0.05, y - s.y0) / s.dist) * 180 / Math.PI, 10, 75));
+  else set.apex = q(cl(y, 0.5, 9), 0.05);
+  for (const [f, v] of Object.entries(set)) {
+    const path = `${base}.${f}`, val = Math.round(v * 100) / 100;
+    setPath(path, val);
+    tiltBox.querySelectorAll(`[data-tl="${path}"]`).forEach(el => { el.value = val; });
+  }
+  const prev = tiltBox.querySelector(`[data-tlprev="${base}"]`);
+  if (prev) prev.innerHTML = tiltPreview(base);
+  drawTiltSide(cv, G);
+  queueTiltSave();
+});
+// solto: redesenha com a escala nova
+const tspEnd = () => { if (tspDrag) { const cv = tspDrag.cv; tspDrag = null; drawTiltSide(cv); } };
+tiltBox.addEventListener('pointerup', tspEnd);
+tiltBox.addEventListener('pointercancel', tspEnd);
+
+// ---------- abas ----------
+function showTab(id) {
+  document.querySelectorAll('.tabs [data-tab]').forEach(b => b.setAttribute('aria-selected', String(b.dataset.tab === id)));
+  document.getElementById('pane-golpes').style.display = id === 'golpes' ? '' : 'none';
+  for (const p of ['ia', 'mapa', 'tilt']) {
+    const el = document.getElementById('pane-' + p);
+    el.hidden = id !== p; el.style.display = id === p ? '' : 'none';
+  }
+  try { localStorage.setItem('rf2-editor-tab', id); } catch (e) { /* sem armazenamento */ }
+  if (id === 'ia') renderTree();
+  else if (id === 'mapa') renderMap();
+  else if (id === 'tilt') renderTiltTab();
+  else if (defs[metaOf(current).key] && document.getElementById('side')) { drawAll(); drawFn(modelOf(metaPart().traj.model)); }
+}
+document.querySelector('.tabs').addEventListener('click', e => { const b = e.target.closest('[data-tab]'); if (b) showTab(b.dataset.tab); });
+function restoreTab() {
+  let t = 'golpes';
+  try { const s = localStorage.getItem('rf2-editor-tab'); t = s === 'ia' || s === 'mapa' || s === 'tilt' ? s : 'golpes'; } catch (e) { /* sem armazenamento */ }
+  showTab(t);
+}
+
+// ---------- desfazer / refazer ----------
+// Cada edição guarda uma foto de tudo (golpes, física, hitbox, árvore). Mexer no mesmo controle
+// seguido (arrastar um slider) vira um passo só.
+const undoStack = [], redoStack = [];
+let lastMark = { key: null, t: 0 };
+let baseline = null; // modo local: estado igual ao do jogo (para saber o que falta aplicar)
+const snapshot = () => JSON.stringify({ defs, MP, HB, TREE, TILTD });
+function remember(key, force = false) {
+  const now = performance.now();
+  if (!force && key === lastMark.key && now - lastMark.t < 900) { lastMark.t = now; return; }
+  lastMark = { key, t: now };
+  undoStack.push(snapshot());
+  if (undoStack.length > 300) undoStack.shift();
+  redoStack.length = 0;
+  refreshUndo();
+}
+function refreshUndo() {
+  document.getElementById('undo').disabled = !undoStack.length;
+  document.getElementById('redo').disabled = !redoStack.length;
+}
+const replaceAll = (obj, src) => { for (const k of Object.keys(obj)) delete obj[k]; Object.assign(obj, src); };
+// partes do estado, com o nome que a faixa "falta aplicar" usa
+function parts(s) {
+  const out = {};
+  for (const [k, v] of Object.entries(s.defs)) out[k] = JSON.stringify(v);
+  for (const [k, v] of Object.entries(s.MP)) out['m-' + k] = JSON.stringify(v);
+  out.hitbox = JSON.stringify(s.HB);
+  out.ia = JSON.stringify(s.TREE);
+  out.tilt = JSON.stringify(s.TILTD);
+  return out;
+}
+function restore(json) {
+  const before = parts(JSON.parse(snapshot()));
+  const s = JSON.parse(json);
+  replaceAll(defs, s.defs); replaceAll(MP, s.MP); Object.assign(HB, s.HB); replaceAll(TREE, s.TREE);
+  if (s.TILTD) replaceAll(TILTD, s.TILTD);
+  const after = parts(s);
+  if (LOCAL) {
+    // o que falta aplicar = o que difere do jogo
+    const base = baseline ? parts(JSON.parse(baseline)) : {};
+    dirty.clear();
+    for (const k of Object.keys(after)) if (after[k] !== base[k]) dirty.add(k);
+    setStatus(dirty.size ? 'saving' : 'saved', dirty.size ? 'Alterações não aplicadas no jogo' : 'Igual ao jogo');
+  } else {
+    for (const k of Object.keys(after)) {
+      if (after[k] === before[k]) continue;
+      if (k === 'hitbox') queueHitboxSave(); else if (k === 'ia') queueTreeSave(); else if (k === 'tilt') queueTiltSave();
+      else if (k.startsWith('m-')) queueModelSave(k.slice(2)); else queueSave(k);
+    }
+  }
+  lastMark = { key: null, t: 0 };
+  renderSync(); renderList(); renderEditor(); renderTree(); renderTiltTab(); refreshUndo();
+  if (document.getElementById('pane-mapa').style.display !== 'none' && !document.getElementById('pane-mapa').hidden) renderMap();
+}
+function undo() { if (!undoStack.length || !canWrite) return; redoStack.push(snapshot()); restore(undoStack.pop()); }
+function redo() { if (!redoStack.length || !canWrite) return; undoStack.push(snapshot()); restore(redoStack.pop()); }
+document.getElementById('undo').addEventListener('click', undo);
+document.getElementById('redo').addEventListener('click', redo);
+addEventListener('keydown', e => {
+  if (!(e.ctrlKey || e.metaKey) || e.target.tagName === 'TEXTAREA') return;
+  const k = e.key.toLowerCase();
+  if (k === 'z' && !e.shiftKey) { e.preventDefault(); undo(); }
+  else if (k === 'y' || (k === 'z' && e.shiftKey)) { e.preventDefault(); redo(); }
+});
+
+// ---------- dados ----------
+renderList();
+(async () => {
+  // editor da engine: servido pelo jogo, lê e grava o próprio código
+  if (LOCAL_HOST) {
+    try {
+      const r = await fetch('/api/golpes', { cache: 'no-store' });
+      LOCAL = r.ok && (await r.json()).ok === true;
+    } catch (e) { LOCAL = false; }
+  }
+  if (LOCAL) {
+    try {
+      const v = '?v=' + Date.now();
+      const [mv, tr, hb, ai, tl] = await Promise.all([import('../src/data/moves.js' + v), import('../src/data/trajectories.js' + v), import('../src/data/hitbox.js' + v), import('../src/data/ai-tree.js' + v), import('../src/data/tilt.js' + v)]);
+      replaceAll(TILTD, JSON.parse(JSON.stringify(tl.default)));
+      Object.assign(HB, hb.default);
+      replaceAll(TREE, JSON.parse(JSON.stringify(ai.default)));
+      for (const [k, v] of Object.entries(mv.default)) defs[k] = JSON.parse(JSON.stringify(v));
+      for (const [k, v] of Object.entries(tr.default)) MP[k] = { ...(MODEL_DEFAULTS[k] || {}), ...v };
+      canWrite = true;
+      setStatus('saved', 'Lido do código do jogo');
+    } catch (e) { setStatus('error', 'Não consegui ler os golpes do jogo'); }
+    renderSync(); renderList(); renderEditor();
+    baseline = snapshot(); // igual ao jogo agora
+    restoreTab();
+    return;
+  }
+  restoreTab();
+  db = await window.claude?.use?.('db') ?? null;
+  const user = await window.claude?.use?.('user') ?? null;
+  if (user && (await user.can?.('data.write')) === false) canWrite = false;
+  if (!db) { setStatus('offline', 'Sem conexão com o armazenamento'); renderEditor(); return; }
+  setStatus('saved', canWrite ? 'Pronto' : 'Somente leitura');
+  let first = true;
+  db.collection('moves').onSnapshot(snap => {
+    let changed = first;
+    for (const d of snap.docs) {
+      if (timers[d.id]) continue; // edição local ainda não gravada: mantém a da tela
+      const body = JSON.stringify(d.data());
+      if (body === JSON.stringify(defs[d.id])) continue; // é a nossa própria gravação
+      defs[d.id] = JSON.parse(body);
+      changed = true;
+    }
+    first = false;
+    if (!changed) return;
+    renderList();
+    if (!drag) renderEditor();
+  }, () => setStatus('error', 'Conexão perdida — recarregue a página'));
+  // parâmetros das funções dos modelos (vazio = padrões)
+  db.collection('models').onSnapshot(snap => {
+    let changed = false;
+    for (const d of snap.docs) {
+      if (timers['m:' + d.id] || !MP[d.id]) continue;
+      const body = JSON.stringify(d.data());
+      if (body === JSON.stringify(MP[d.id])) continue;
+      MP[d.id] = { ...MODEL_DEFAULTS[d.id], ...JSON.parse(body) };
+      changed = true;
+    }
+    if (changed && !drag) renderEditor();
+  }, () => setStatus('error', 'Conexão perdida — recarregue a página'));
+  // o que falta aplicar no jogo
+  db.collection('pending').onSnapshot(snap => {
+    for (const k of Object.keys(pending)) delete pending[k];
+    for (const d of snap.docs) pending[d.id] = d.data();
+    renderSync(); renderList();
+  }, () => {});
+  db.doc('settings/tilt').onSnapshot(d => {
+    if (timers.tilt || !d.exists) return;
+    try { const t = JSON.parse(d.data().json); if (JSON.stringify(t) !== JSON.stringify(TILTD)) { replaceAll(TILTD, t); renderTiltTab(); } } catch (e) { /* ignora */ }
+  }, () => {});
+  db.doc('settings/aitree').onSnapshot(d => {
+    if (timers.ia || !d.exists) return;
+    try { const t = JSON.parse(d.data().json); if (JSON.stringify(t) !== JSON.stringify(TREE)) { replaceAll(TREE, t); renderTree(); } } catch (e) { /* ignora */ }
+  }, () => {});
+  db.doc('settings/hitbox').onSnapshot(d => {
+    if (timers.hitbox || !d.exists) return;
+    const v = d.data();
+    if (v && v.side > 0 && v.side !== HB.side) { HB.side = v.side; if (!drag) renderEditor(); }
+  }, () => {});
+  db.doc('sync/applied').onSnapshot(d => { applied = d.exists ? d.data() : null; renderSync(); }, () => {});
+})();
+</script>
+
+<script type="module">
+// ---------- visualizador: o atleta do jogo (Cartoon ou Pincel), a hitbox e a trajetória real ----------
+// Usa o próprio código do jogo 3.0, publicado junto com esta página: desenho (chibi/brush), poses
+// e a simulação da bola (ball.js → sampleScript, com batida na rede).
+const base = location.pathname.includes('/docs/') ? '../' : './';
+const note = document.getElementById('viewer-note');
+let mods;
+try {
+  const [chibi, brush, poses, chars, ball, cfg, traj] = await Promise.all([
+    import(base + 'src/art/chibi.js'), import(base + 'src/art/brush.js'), import(base + 'src/art/poses.js'),
+    import(base + 'src/art/characters.js'), import(base + 'src/ball.js'), import(base + 'src/config.js'),
+    import(base + 'src/engine/trajectory.js'),
+  ]);
+  mods = { drawChibi: chibi.drawChibi, drawBallArt: chibi.drawBall, drawBrush: brush.drawBrush, poseFor: poses.poseFor, CHARACTERS: chars.CHARACTERS, sampleScript: ball.sampleScript, solve: traj.solve, P: cfg.P, BALL_R: cfg.BALL_R, NET: cfg.COURT.netH };
+  // a física do jogo passa a desenhar também as curvas do editor
+  TRAJ = traj;
+  renderEditor();
+  if (document.getElementById('pane-mapa').style.display !== 'none' && !document.getElementById('pane-mapa').hidden) renderMap();
+} catch (e) {
+  note.textContent = 'Não foi possível carregar o desenho dos atletas nesta visualização.';
+}
+
+if (mods) {
+  const { drawChibi, drawBallArt, drawBrush, poseFor, CHARACTERS, sampleScript, solve, P, BALL_R, NET } = mods;
+  const SPRITE = { cartoon: { size: 2.5, feet: 10 }, pincel: { size: 3.05, feet: 8 } };
+  const OWNER = { bicicleta: 'giulia', meiaBicicleta: 'zefa', sharkSupremo: 'tubarao', pingoPipoca: 'pipoca', sarrada: 'drauzio', escorpiao: 'varella' };
+  const WIND = 0.55, PRE = 0.15, HOLD = 0.9; // preparação, golpe até o contato, pausa no fim (s)
+  const cv = document.getElementById('viewer-canvas');
+  const g = cv.getContext('2d');
+  const sprite = document.createElement('canvas'); sprite.width = sprite.height = 256;
+  const sg = sprite.getContext('2d');
+  const ballC = document.createElement('canvas'); ballC.width = ballC.height = 64; drawBallArt(ballC.getContext('2d'));
+  let style = 'pincel', speed = 1, playing = !matchMedia('(prefers-reduced-motion: reduce)').matches, clock = 0.75, last = performance.now();
+  let charId = 'auto', key = '', sim = null;
+  try { const s = localStorage.getItem('rf2-viewer-style'); if (s === 'cartoon' || s === 'pincel') style = s; } catch (e) { /* sem armazenamento */ }
+
+  // atletas
+  const sel = document.getElementById('v-char');
+  sel.innerHTML = `<option value="auto">Atleta do golpe</option>` + Object.values(CHARACTERS).map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+  sel.addEventListener('change', () => { charId = sel.value; });
+  const syncButtons = () => {
+    document.querySelectorAll('[data-vstyle]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.vstyle === style)));
+    document.querySelectorAll('[data-vspeed]').forEach(b => b.setAttribute('aria-pressed', String(+b.dataset.vspeed === speed)));
+    document.getElementById('v-play').textContent = playing ? 'Pausar' : 'Tocar';
+  };
+  document.getElementById('viewer').addEventListener('click', e => {
+    const st = e.target.closest('[data-vstyle]');
+    if (st) { style = st.dataset.vstyle; try { localStorage.setItem('rf2-viewer-style', style); } catch (err) { /* ignora */ } }
+    const sp = e.target.closest('[data-vspeed]');
+    if (sp) speed = +sp.dataset.vspeed;
+    if (e.target.id === 'v-play') playing = !playing;
+    syncButtons();
+  });
+  syncButtons();
+
+  // monta a simulação do golpe atual (refeita quando qualquer valor muda)
+  function build() {
+    const m = metaOf(current), def = defs[m.key];
+    if (!def) return null;
+    const part = partOf(m, def);
+    const pos = example[current] || [...m.from];
+    const y0 = example[current + ':y'] ?? m.y;
+    const band = def.band || [0, 3];
+    const feet = m.air ? Math.max(0, y0 - (band[0] + band[1]) / 2) : 0;
+    const dive = m.anim === 'slide';
+    const contact = { x: pos[0] + (dive ? 0.55 : 0.35), y: y0, z: 0 };
+    const target = cells(part.aim, pos[0], pos[1])[4];
+    // física como está no editor (gravidade e parâmetros dos modelos), igual ao launchPath do jogo
+    syncTraj();
+    const sc = solve({ ...part.traj, model: modelOf(part.traj.model), to: { x: target.x, z: 0 }, y1: 0.15 }, contact, 1, { netClear: NET + BALL_R + 0.12 });
+    const path = sampleScript(sc);
+    let netAt = -1;
+    for (let i = 1; i < path.length; i++) if (Math.abs(Math.abs(path[i].x) - BALL_R) < 1e-9 && netAt < 0) netAt = i;
+    const who = charId !== 'auto' ? charId : (OWNER[m.key] || 'giulia');
+    return { m, def, part, pos, y0, band, feet, dive, contact, path, netAt, ch: CHARACTERS[who] || CHARACTERS.giulia, reach: def.reach || 1.35 };
+  }
+  const keyOf = () => JSON.stringify([current, defs[metaOf(current).key], example[current], example[current + ':y'], charId, MP]);
+
+  function ballAt(s, t) {
+    const p = s.path, i = Math.min(p.length - 1, Math.max(0, t * 60));
+    const a = p[Math.floor(i)], b = p[Math.min(p.length - 1, Math.floor(i) + 1)], k = i - Math.floor(i);
+    return { x: a.x + (b.x - a.x) * k, y: a.y + (b.y - a.y) * k };
+  }
+
+  function frame(now) {
+    requestAnimationFrame(frame);
+    const dt = Math.min(0.1, (now - last) / 1000); last = now;
+    const k = keyOf();
+    if (k !== key) { key = k; sim = build(); clock = 0; }
+    if (!sim) return;
+    if (playing) clock += dt * speed;
+    const flight = sim.path[sim.path.length - 1].t;
+    const total = WIND + PRE + flight + HOLD;
+    if (clock > total) clock = 0;
+    draw(sim, clock, flight);
+  }
+
+  function draw(s, t, flight) {
+    const css = getComputedStyle(document.documentElement), col = n => css.getPropertyValue(n).trim();
+    const W = cv.width, H = cv.height;
+    const land = s.path[s.path.length - 1];
+    const xmin = Math.min(s.pos[0], land.x) - 2.2, xmax = Math.max(1.5, land.x, s.pos[0]) + 1.4;
+    const ymax = Math.max(5, (s.part.traj.apex || 0) + 1, s.y0 + 1.6, s.feet + 3.4);
+    const S = Math.min(W / (xmax - xmin), (H - 30) / ymax);
+    const ox = (W - (xmax - xmin) * S) / 2;
+    const X = x => ox + (x - xmin) * S, Y = y => H - 26 - y * S;
+    g.clearRect(0, 0, W, H);
+    // areia, linhas e rede
+    g.fillStyle = col('--sand'); g.fillRect(0, Y(0), W, H - Y(0));
+    g.fillStyle = col('--sand-line');
+    for (const x of [-9, 9]) if (x > xmin && x < xmax) g.fillRect(X(x) - 2, Y(0), 4, 10);
+    g.font = '800 18px Nunito, sans-serif'; g.fillStyle = col('--muted');
+    for (let y = 1; y < ymax; y++) { g.fillRect(0, Y(y), 10, 1.5); g.fillText(`${y} m`, 14, Y(y) + 6); }
+    g.strokeStyle = col('--net'); g.lineWidth = 6; g.beginPath(); g.moveTo(X(0), Y(0)); g.lineTo(X(0), Y(NET)); g.stroke();
+    g.fillStyle = '#ffffff'; g.fillRect(X(0) - 7, Y(NET) - 4, 14, 8);
+
+    // fase do golpe
+    const swingT = t - WIND;
+    const pl = {
+      idx: 0, team: 0, state: s.dive && swingT >= 0 ? 'dive' : (s.m.air ? 'air' : 'ground'), facing: 1, speed: 0, runPhase: 0,
+      mood: null, hold: swingT < 0 ? 'A' : null, holdT: Math.max(0, t), telegraph: swingT < 0 && !s.dive ? s.m.anim : null,
+      swing: swingT >= 0 ? { anim: s.m.anim, t: swingT, kind: 'hit' } : null, downKind: 'back', vx: 0,
+    };
+    // hitbox: acesa enquanto o golpe está ativo (janela de 0,3 s depois de soltar o botão)
+    const active = swingT >= 0 && swingT <= P.swingWindow;
+    const rc = s.pos[0] + (s.dive ? 0.55 : 0.15);
+    const lo = s.feet + s.band[0] - P.bandPad, hi = s.feet + s.band[1] + P.bandPad;
+    g.fillStyle = active ? 'rgba(57,255,136,0.32)' : 'rgba(57,255,136,0.14)';
+    g.strokeStyle = active ? '#1fbf6a' : 'rgba(31,191,106,0.6)'; g.lineWidth = active ? 4 : 2;
+    g.fillRect(X(rc - s.reach), Y(hi), s.reach * 2 * S, (hi - lo) * S);
+    g.strokeRect(X(rc - s.reach), Y(hi), s.reach * 2 * S, (hi - lo) * S);
+
+    // atleta (desenho do jogo, no estilo escolhido)
+    const spr = SPRITE[style];
+    (style === 'pincel' ? drawBrush : drawChibi)(sg, s.ch, poseFor(pl, t), t);
+    const size = spr.size * S;
+    g.drawImage(sprite, X(s.pos[0]) - size / 2, Y(s.feet) - size + size * spr.feet / 256, size, size);
+
+    // trajetória real inteira (tracejada) e o trecho depois da rede em vermelho
+    g.lineWidth = 3; g.setLineDash([10, 8]);
+    for (let i = 1; i < s.path.length; i++) {
+      const a = s.path[i - 1], b = s.path[i];
+      g.strokeStyle = s.netAt >= 0 && i >= s.netAt ? col('--warn') : col('--zone');
+      g.beginPath(); g.moveTo(X(a.x), Y(a.y)); g.lineTo(X(b.x), Y(b.y)); g.stroke();
+    }
+    g.setLineDash([]);
+    // bola: chegando, no contato, voando pelo caminho simulado
+    let b;
+    const tc = WIND + PRE;
+    if (t < tc) {
+      const u = t / tc;
+      b = s.m.key.startsWith('saque') ? s.contact : { x: s.contact.x + 5.5 * (1 - u), y: s.contact.y + Math.sin(u * Math.PI) * 1.1 + (1 - u) * 0.6 };
+    } else b = ballAt(s, Math.min(t - tc, flight));
+    const br = Math.max(16, 0.46 * S);
+    g.drawImage(ballC, X(b.x) - br / 2, Y(b.y) - br / 2, br, br);
+    // ponto de contato e destino
+    g.fillStyle = col('--fg'); g.beginPath(); g.arc(X(s.contact.x), Y(s.contact.y), 5, 0, 7); g.fill();
+    g.strokeStyle = col('--zone'); g.lineWidth = 3; g.beginPath(); g.ellipse(X(land.x), Y(0.02), 14, 5, 0, 0, 7); g.stroke();
+
+    const inBand = s.y0 - s.feet >= s.band[0] && s.y0 - s.feet <= s.band[1];
+    const maxY = Math.max(...s.path.map(p => p.y));
+    note.innerHTML = `${s.netAt >= 0 ? '<span class="warn">A bola bate na rede.</span>' : `A bola cai a <b>${fmt(Math.abs(land.x))} m</b> da rede${land.x < 0 ? ' (no nosso campo)' : ''}.`}
+      Altura máxima <b>${fmt(maxY, 1)} m</b> · tempo no ar <b>${fmt(flight, 2)} s</b> (Força 5) · hitbox: bola de <b>${fmt(s.band[0])}</b> a <b>${fmt(s.band[1])} m</b> dos pés (mais 0,2 m de folga), alcance <b>${fmt(s.reach)} m</b> para a frente e para trás e <b>${fmt(HB.side)} m</b> para os lados (largura, igual em todos os golpes).
+      ${inBand ? '' : '<span class="warn">Com essa altura de contato a bola está fora da faixa do golpe.</span>'}`;
+  }
+  requestAnimationFrame(frame);
+}
+</script>

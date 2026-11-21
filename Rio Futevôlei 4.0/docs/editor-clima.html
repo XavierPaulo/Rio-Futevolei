@@ -1,0 +1,392 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Editor de Clima 4.0</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Nunito:wght@600;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="editores.css">
+<style>
+.sl { display: flex; gap: 8px; align-items: center; min-width: 0; }
+.sl input[type="range"] { flex: 1; min-width: 0; accent-color: var(--zone); }
+.sl input[type="number"] { width: 84px; flex: none; }
+.sl small { color: var(--muted); font-weight: 900; font-size: 12px; min-width: 24px; }
+.figs { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 12px; }
+.fig { background: var(--surface-2); border-radius: 12px; padding: 10px; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.fig canvas { width: 100%; height: auto; border-radius: 8px; display: block; }
+.fig b { font-size: 13px; color: var(--muted); font-weight: 900; }
+.big-ico { font-size: 34px; line-height: 1; margin-right: 6px; vertical-align: -4px; }
+.odds { display: flex; flex-direction: column; gap: 6px; margin-top: 6px; }
+.odds .o { display: grid; grid-template-columns: minmax(120px, 34%) minmax(0, 1fr) 56px; gap: 8px; align-items: center; font-weight: 800; font-size: 14px; }
+.odds .bar { height: 14px; border-radius: 7px; background: var(--surface-2); overflow: hidden; }
+.odds .bar i { display: block; height: 100%; background: var(--zone); border-radius: 7px; }
+.odds .o span:last-child { text-align: right; font-variant-numeric: tabular-nums; }
+.odds .o.off { opacity: .5; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <a class="back" href="index.html">← Editores</a>
+      <h1>Editor de <span>Clima</span> 4.0</h1>
+      <p class="kicker">Chuva, vento forte e sol forte: nome, ícone, descrição, a força de cada efeito, o visual na arena e o sorteio do dia. Grave e recarregue o jogo para ver.</p>
+    </div>
+    <div class="tools">
+      <span class="status" id="status"><i></i><span>carregando…</span></span>
+      <button id="undo" type="button" disabled>Desfazer tudo</button>
+      <button id="save" class="primary" type="button" disabled>Gravar no jogo</button>
+    </div>
+  </header>
+  <div class="main">
+    <nav id="nav" aria-label="Climas"></nav>
+    <div class="editor" id="editor"></div>
+  </div>
+</div>
+<script type="module">
+import WX from '../src/data/weather.js';
+import { clone, esc, saver, row, text, check, color, button } from './editores.js';
+
+const original = JSON.stringify(WX);
+let data = clone(WX);
+let cur = 'chuva';
+const ORDER = ['chuva', 'vento', 'sol'];
+const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+const S = saver({
+  kind: 'clima', original, get: () => data,
+  statusEl: document.getElementById('status'), saveBtn: document.getElementById('save'), undoBtn: document.getElementById('undo'),
+  onUndo: () => { data = JSON.parse(original); render(); },
+});
+const changed = () => { S.dirty(); renderNav(); };
+
+// controle deslizante + número
+function slider(value, set, { min = 0, max = 10, step = 0.01, unit = '' } = {}) {
+  const box = document.createElement('div'); box.className = 'sl';
+  const r = document.createElement('input'); r.type = 'range'; r.min = min; r.max = max; r.step = step; r.value = value;
+  const n = document.createElement('input'); n.type = 'number'; n.min = min; n.max = max; n.step = step; n.value = value;
+  const u = document.createElement('small'); u.textContent = unit;
+  const go = v => { v = Math.max(min, Math.min(max, +v || 0)); set(v); };
+  r.oninput = () => { n.value = r.value; go(r.value); };
+  n.oninput = () => { r.value = n.value; go(n.value); };
+  box.append(r, n, u);
+  return box;
+}
+
+// ---------- descrição gerada pelos números ----------
+const br = n => Number(n).toLocaleString('pt-BR');
+function autoInfo(k) {
+  const e = data.climas[k].efeito;
+  if (k === 'chuva') return `a área do alvo cresce até ${br(e.espalha)} m (menos precisão)`;
+  if (k === 'vento') return `a bola desvia entre −${e.graus}° e +${e.graus}°`;
+  const corte = Math.round((1 - e.viseira) * 100);
+  return `o Pique cai ${br(e.piquePorToque)} a cada toque, até −${br(e.piqueMax)} (protetor solar anula${corte ? `; viseira corta ${corte}%` : ''})`;
+}
+
+// ---------- lista ----------
+function renderNav() {
+  const nav = document.getElementById('nav');
+  nav.innerHTML = '';
+  const h = document.createElement('h3'); h.innerHTML = '<span>Climas</span>'; nav.append(h);
+  for (const k of ORDER) {
+    const w = data.climas[k];
+    const b = document.createElement('button'); b.type = 'button';
+    b.className = 'it' + (w.enabled === false ? ' off' : '');
+    b.innerHTML = `<span class="nm">${esc(w.icon)} ${esc(w.name)}</span><small>${w.enabled === false ? 'desativado' : ''}</small>`;
+    b.setAttribute('aria-current', String(k === cur));
+    b.onclick = () => { cur = k; render(); };
+    nav.append(b);
+  }
+  const h2 = document.createElement('h3'); h2.innerHTML = '<span>Dia a dia</span>'; nav.append(h2);
+  const b = document.createElement('button'); b.type = 'button'; b.className = 'it';
+  b.innerHTML = `<span class="nm">🎲 Sorteio do clima</span><small>${data.sorteio.diaNormal}% normal</small>`;
+  b.setAttribute('aria-current', String(cur === 'sorteio'));
+  b.onclick = () => { cur = 'sorteio'; render(); };
+  nav.append(b);
+}
+
+// ---------- prévias ----------
+let anim = null, figs = [];
+const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+function mix(a, b, t) { // cores #rrggbb
+  const p = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
+  const A = p(a), B = p(b);
+  return `rgb(${A.map((x, i) => Math.round(x + (B[i] - x) * t)).join(',')})`;
+}
+function makeCanvas(w, h) { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; }
+
+// cena da praia: céu, mar, areia, rede; com luz, neblina, gotas e sol como no jogo
+function beachScene(kind) {
+  const c = makeCanvas(560, 260), g = c.getContext('2d');
+  const drops = Array.from({ length: 400 }, () => [Math.random() * 640 - 40, Math.random() * 260]);
+  let ventoNaChuva = kind === 'vento';
+  const flags = [];
+  function draw(dt) {
+    const ch = data.climas.chuva, so = data.climas.sol, ve = data.climas.vento;
+    const wet = kind === 'chuva', hot = kind === 'sol';
+    const vis = wet ? ch.visual : hot ? so.visual : {};
+    const light = wet ? (vis.luzSol * 0.55 + vis.luzCeu * 0.45) : hot ? (vis.luzSol * 0.55 + vis.luzCeu * 0.45) : 1;
+    let sky1 = '#7cc8f0', sky2 = '#d6f0fb', sea = '#2a8fc4', sand = '#f1d79c';
+    if (wet) { const f = ch.visual.neblina, m = ch.visual.neblinaMix; sky1 = mix(sky1, f, m); sky2 = mix(sky2, f, m); sea = mix(sea, f, m * 0.6); }
+    if (hot) { const t = so.visual.tom, m = so.visual.tomMix; sky2 = mix(sky2, t, m); sand = mix(sand, t, m * 0.5); }
+    const gr = g.createLinearGradient(0, 0, 0, 150); gr.addColorStop(0, sky1); gr.addColorStop(1, sky2);
+    g.fillStyle = gr; g.fillRect(0, 0, 560, 150);
+    if (!wet) { // sol
+      g.fillStyle = hot ? '#fff3b0' : '#fff8d6'; g.beginPath(); g.arc(470, 46, hot ? 30 : 22, 0, 7); g.fill();
+      if (hot) { g.strokeStyle = 'rgba(255,220,120,.7)'; g.lineWidth = 4; for (let i = 0; i < 12; i++) { const a = i / 12 * Math.PI * 2; g.beginPath(); g.moveTo(470 + Math.cos(a) * 38, 46 + Math.sin(a) * 38); g.lineTo(470 + Math.cos(a) * 52, 46 + Math.sin(a) * 52); g.stroke(); } }
+    }
+    g.fillStyle = sea; g.fillRect(0, 150, 560, 30);
+    g.fillStyle = sand; g.fillRect(0, 180, 560, 80);
+    // rede e postes
+    g.fillStyle = '#5b4a3a'; g.fillRect(150, 120, 6, 110); g.fillRect(404, 120, 6, 110);
+    g.strokeStyle = 'rgba(30,30,30,.55)'; g.lineWidth = 1;
+    for (let x = 156; x < 404; x += 8) { g.beginPath(); g.moveTo(x, 124); g.lineTo(x, 160); g.stroke(); }
+    for (let y = 124; y <= 160; y += 6) { g.beginPath(); g.moveTo(156, y); g.lineTo(404, y); g.stroke(); }
+    g.fillStyle = '#fff'; g.fillRect(156, 120, 248, 5);
+    // bandeirinhas do vento
+    const wind = kind === 'vento' || ventoNaChuva ? ve.visual.arrasto : 0.8;
+    for (const x of [153, 407]) {
+      const t = performance.now() / 1000, len = 10 + wind * 3.2;
+      g.fillStyle = '#ff5a3c'; g.beginPath(); g.moveTo(x, 112);
+      for (let i = 0; i <= 6; i++) g.lineTo(x + len * i / 6, 112 + Math.sin(t * (2 + wind) + i) * (1 + wind * 0.4) * (i / 6));
+      for (let i = 6; i >= 0; i--) g.lineTo(x + len * i / 6, 122 + Math.sin(t * (2 + wind) + i) * (1 + wind * 0.4) * (i / 6));
+      g.fill();
+      g.fillStyle = '#5b4a3a'; g.fillRect(x - 1, 108, 3, 14);
+    }
+    // escurece ou clareia pela luz
+    if (light < 1) { g.fillStyle = `rgba(10,20,35,${Math.min(0.6, (1 - light) * 0.55)})`; g.fillRect(0, 0, 560, 260); }
+    else if (light > 1) { g.fillStyle = `rgba(255,240,200,${Math.min(0.35, (light - 1) * 0.6)})`; g.fillRect(0, 0, 560, 260); }
+    // chuva
+    if (wet) {
+      const n = Math.round(Math.min(400, ch.visual.gotas / 4)), fall = ch.visual.queda * 14, drift = (ventoNaChuva ? ve.visual.arrasto : 0.8) * 14;
+      g.strokeStyle = ch.visual.corGota; g.globalAlpha = 0.7; g.lineWidth = 1.5;
+      for (let i = 0; i < n; i++) {
+        const d = drops[i];
+        d[1] += fall * dt; d[0] += drift * dt;
+        if (d[1] > 260 || d[0] > 600) { d[1] = -10; d[0] = Math.random() * 640 - 80; }
+        g.beginPath(); g.moveTo(d[0], d[1]); g.lineTo(d[0] - drift * 0.03, d[1] - 9); g.stroke();
+      }
+      g.globalAlpha = 1;
+    }
+    // riscos de vento
+    if (kind === 'vento') {
+      g.strokeStyle = 'rgba(255,255,255,.75)'; g.lineWidth = 2;
+      const t = performance.now() / 1000;
+      for (let i = 0; i < 7; i++) {
+        const x = ((t * ve.visual.arrasto * 40 + i * 97) % 680) - 60, y = 30 + i * 30;
+        g.beginPath(); g.moveTo(x, y); g.quadraticCurveTo(x + 30, y - 6, x + 60, y); g.stroke();
+      }
+    }
+  }
+  const out = { c, draw, label: kind === 'chuva' ? 'Na arena (céu, neblina e gotas)' : kind === 'sol' ? 'Na arena (luz e tom do sol)' : 'Na arena (bandeirinhas e a chuva inclinada)' };
+  if (kind === 'chuva') out.extra = check('com vento junto', ventoNaChuva, v => { ventoNaChuva = v; });
+  return out;
+}
+
+// onde a bola cai: meia quadra vista de cima, mira no centro e 300 toques sorteados
+function landingFig(kind) {
+  const c = makeCanvas(480, 300), g = c.getContext('2d');
+  let pts = [];
+  const M = 30; // px por metro
+  const O = { x: 40, y: 150 }, T = { x: 40 + 7 * M, y: 150 }; // quem toca e o alvo (meio da quadra do outro lado)
+  function roll() {
+    pts = [];
+    const e = kind === 'chuva' ? data.climas.chuva.efeito : data.climas.vento.efeito;
+    for (let i = 0; i < 300; i++) {
+      let x = T.x - O.x, y = 0; // 7 m até o alvo
+      if (kind === 'vento') { const a = (Math.random() * 2 - 1) * e.graus * Math.PI / 180; [x, y] = [x * Math.cos(a), x * Math.sin(a)]; }
+      else { const r = e.espalha * M * Math.sqrt(Math.random()), t = Math.random() * Math.PI * 2; x += Math.cos(t) * r; y += Math.sin(t) * r; }
+      pts.push([O.x + x, O.y + y]);
+    }
+  }
+  function draw() {
+    roll();
+    g.fillStyle = '#f1d79c'; g.fillRect(0, 0, 480, 300);
+    g.strokeStyle = '#1d5cff'; g.lineWidth = 3;
+    g.strokeRect(O.x + 3 * M, 150 - 4 * M, 8 * M, 8 * M); // meia quadra do outro lado (8 x 8 m)
+    g.fillStyle = '#10233d'; g.fillRect(O.x + 3 * M - 2, 150 - 4 * M - 6, 4, 8 * M + 12); // rede
+    if (kind === 'vento') {
+      const a = data.climas.vento.efeito.graus * Math.PI / 180, R = 7 * M;
+      g.fillStyle = 'rgba(255,90,60,.15)'; g.beginPath(); g.moveTo(O.x, O.y); g.arc(O.x, O.y, R + 20, -a, a); g.closePath(); g.fill();
+    } else {
+      g.strokeStyle = 'rgba(255,90,60,.6)'; g.setLineDash([5, 4]); g.lineWidth = 2;
+      g.beginPath(); g.arc(T.x, T.y, data.climas.chuva.efeito.espalha * M, 0, 7); g.stroke(); g.setLineDash([]);
+    }
+    g.fillStyle = 'rgba(16,35,61,.55)';
+    for (const [x, y] of pts) { g.beginPath(); g.arc(x, y, 2.4, 0, 7); g.fill(); }
+    g.strokeStyle = '#ff5a3c'; g.lineWidth = 3;
+    g.beginPath(); g.moveTo(T.x - 9, T.y - 9); g.lineTo(T.x + 9, T.y + 9); g.moveTo(T.x + 9, T.y - 9); g.lineTo(T.x - 9, T.y + 9); g.stroke();
+    g.fillStyle = '#10233d'; g.beginPath(); g.arc(O.x, O.y, 7, 0, 7); g.fill();
+    g.font = "800 13px Nunito, sans-serif"; g.fillText('quem toca', O.x - 14, O.y + 24); g.fillText('mira', T.x - 12, T.y - 16);
+    g.fillText('1 m', 420, 286); g.fillRect(420, 270, M, 3);
+  }
+  return { c, draw, label: 'Onde caem 300 toques mirando no X (vista de cima)', still: true };
+}
+
+// sol: quanto do Pique some ao longo dos toques
+function sunFig() {
+  const c = makeCanvas(480, 300), g = c.getContext('2d');
+  function draw() {
+    const e = data.climas.sol.efeito, N = 80;
+    const top = Math.max(1, Math.ceil(e.piqueMax));
+    const X = t => 46 + t / N * 410, Y = v => 30 + v / top * 220;
+    g.fillStyle = css('--surface') || '#fff'; g.fillRect(0, 0, 480, 300);
+    g.strokeStyle = css('--line') || '#ccc'; g.lineWidth = 1; g.fillStyle = css('--muted') || '#555'; g.font = "800 12px Nunito, sans-serif";
+    for (let v = 0; v <= top; v++) { g.beginPath(); g.moveTo(46, Y(v)); g.lineTo(456, Y(v)); g.stroke(); g.fillText('−' + v, 14, Y(v) + 4); }
+    for (let t = 0; t <= N; t += 20) g.fillText(String(t), X(t) - 6, 270);
+    g.fillText('toques do atleta', 200, 290);
+    const line = (k, col, dash) => {
+      g.strokeStyle = col; g.lineWidth = 3; g.setLineDash(dash || []); g.beginPath();
+      for (let t = 0; t <= N; t++) { const v = Math.min(e.piqueMax, t * e.piquePorToque * k); t ? g.lineTo(X(t), Y(v)) : g.moveTo(X(t), Y(v)); }
+      g.stroke(); g.setLineDash([]);
+    };
+    line(1, '#ff5a3c'); line(e.viseira, '#1d5cff', [7, 5]); line(0, '#139a55', [2, 4]);
+    const lg = [['#ff5a3c', 'sem proteção'], ['#1d5cff', 'com viseira'], ['#139a55', 'com protetor solar']];
+    lg.forEach(([col, t], i) => { g.fillStyle = col; g.fillRect(300, 62 + i * 18, 14, 4); g.fillStyle = css('--fg') || '#000'; g.fillText(t, 320, 68 + i * 18); });
+  }
+  return { c, draw, label: 'Pique perdido (o Pique vai de 1 a 10)', still: true };
+}
+
+function startFigs(list) {
+  cancelAnimationFrame(anim); figs = list;
+  let last = performance.now();
+  const loop = now => {
+    const dt = Math.min(0.05, (now - last) / 1000); last = now;
+    for (const f of figs) if (!f.still) f.draw(dt);
+    if (!reduced) anim = requestAnimationFrame(loop);
+  };
+  for (const f of figs) f.draw(0.016);
+  anim = requestAnimationFrame(loop);
+}
+const redrawStill = () => figs.forEach(f => f.still && f.draw());
+
+function figBox(f) {
+  const d = document.createElement('div'); d.className = 'fig';
+  const b = document.createElement('b'); b.textContent = f.label;
+  d.append(b, f.c); if (f.extra) d.append(f.extra);
+  return d;
+}
+
+// ---------- edição de um clima ----------
+const card = (title, ...kids) => { const s = document.createElement('section'); s.className = 'card'; if (title) s.innerHTML = `<h4>${title}</h4>`; s.append(...kids); return s; };
+const hint = t => { const p = document.createElement('p'); p.className = 'hint'; p.textContent = t; return p; };
+const fields = (...kids) => { const g = document.createElement('div'); g.className = 'fields'; g.append(...kids); return g; };
+const col = (...kids) => { const d = document.createElement('div'); d.append(...kids); return d; };
+
+function renderClima(ed, k) {
+  const w = data.climas[k];
+  const tr = document.createElement('div'); tr.className = 'title-row';
+  const h2 = document.createElement('h2');
+  const setTitle = () => { h2.innerHTML = `<span class="big-ico">${esc(w.icon)}</span>${esc(w.name)}`; };
+  setTitle();
+  tr.append(h2, check('Aparece no jogo', w.enabled !== false, v => { w.enabled = v; changed(); }));
+  const f = [beachScene(k)];
+  if (k === 'chuva' || k === 'vento') f.push(landingFig(k)); else f.push(sunFig());
+  const fg = document.createElement('div'); fg.className = 'figs'; fg.append(...f.map(figBox));
+  const top = card('', tr, fg, hint(w.enabled === false
+    ? 'Desativado: não é sorteado nos dias do Modo História e some das opções de clima da Exibição.'
+    : 'Desativar tira o clima do sorteio do Modo História e das opções da Exibição.'));
+
+  // identidade
+  const info = text(w.info, v => { w.info = v; changed(); }, { max: 120, area: true });
+  const gen = button('Gerar pelo efeito', () => { w.info = autoInfo(k); info.value = w.info; changed(); });
+  const ident = card('Nome e descrição', fields(
+    col(row('Nome', text(w.name, v => { w.name = v || 'Clima'; setTitle(); changed(); }, { max: 20 })),
+        row('Ícone (emoji)', text(w.icon, v => { w.icon = v || '?'; setTitle(); changed(); }, { max: 4 }))),
+    col(row('Descrição', info, true), gen),
+  ), hint('A descrição aparece na escolha do clima da Exibição e ao passar o mouse no clima do placar. O ícone e o nome aparecem no placar, na tela da partida e na previsão da Lotérica.'));
+
+  // efeito
+  const e = w.efeito;
+  const sl = (label, key, o, explain) => { const r = row(label, slider(e[key], v => { e[key] = v; changed(); redrawStill(); }, o)); return explain ? col(r, hint(explain)) : r; };
+  let ef;
+  if (k === 'chuva') ef = card('Efeito na partida', sl('Espalha o alvo', 'espalha', { min: 0, max: 3, step: 0.05, unit: 'm' },
+    'Cada toque cai num ponto sorteado dentro de um círculo com esse raio em volta de onde o atleta mirou (nunca troca de lado da rede). 0 = a chuva não muda nada.'));
+  else if (k === 'vento') ef = card('Efeito na partida', sl('Desvio máximo', 'graus', { min: 0, max: 60, step: 1, unit: '°' },
+    'Cada toque tem a direção girada por um ângulo sorteado entre −esse e +esse valor. Quanto mais longe o alvo, maior o erro em metros.'));
+  else ef = card('Efeito na partida', fields(
+    col(sl('Pique por toque', 'piquePorToque', { min: 0, max: 1, step: 0.01, unit: 'pts' }, 'Quanto do Pique o atleta perde a cada bola que toca.'),
+        sl('Perda máxima', 'piqueMax', { min: 0, max: 9, step: 0.5, unit: 'pts' }, 'O sol não tira mais do que isso na partida.')),
+    col(sl('Sede extra por ponto', 'sedeExtra', { min: 0, max: 20, step: 1, unit: '' }, 'Somada à sede de cada ponto disputado (normal: +3; a sede pesa a partir de 70).'),
+        sl('Fator da viseira', 'viseira', { min: 0, max: 1, step: 0.05, unit: '×' }, 'Com a viseira (Artigos Esportivos) a perda é multiplicada por isso. 0,5 = metade; 0 = a viseira anula.')),
+  ), hint('O protetor solar (Farmácia) anula a perda de Pique e a sede extra até o fim da partida. A Zefa não sente o sol no Modo História.'));
+
+  // visual
+  const v = w.visual;
+  const vs = (label, key, o) => row(label, slider(v[key], x => { v[key] = x; changed(); }, o));
+  const vc = (label, key) => row(label, color([['#8b97a6', 'Cinza-chuva'], ['#5d6b7c', 'Chumbo'], ['#cfe3ff', 'Azul-claro'], ['#ffffff', 'Branco'], ['#ffd08a', 'Dourado'], ['#ff9c5a', 'Laranja']],
+    v[key], (x, live) => { v[key] = x; changed(); if (!live) render(); }));
+  let vis;
+  if (k === 'chuva') vis = card('Visual na arena', fields(
+    col(vs('Luz do sol', 'luzSol', { min: 0, max: 2, step: 0.05, unit: '×' }), vs('Luz do céu', 'luzCeu', { min: 0, max: 2, step: 0.05, unit: '×' }),
+        vc('Cor da neblina', 'neblina'), vs('Mistura da neblina', 'neblinaMix', { min: 0, max: 1, step: 0.05, unit: '' })),
+    col(vs('Gotas', 'gotas', { min: 0, max: 5000, step: 50, unit: '' }), vs('Velocidade da queda', 'queda', { min: 2, max: 40, step: 1, unit: 'm/s' }),
+        vc('Cor das gotas', 'corGota')),
+  ), hint('Luz 1 = arena normal; abaixo de 1 escurece. A neblina tinge o horizonte. Muitas gotas pesam em computador fraco (o jogo limita a 5000).'));
+  else if (k === 'vento') vis = card('Visual na arena', vs('Arrasto da chuva', 'arrasto', { min: 0, max: 20, step: 0.5, unit: 'm/s' }),
+    hint('Com vento, a chuva cai inclinada por essa velocidade lateral (sem vento: 0,8). Só aparece quando chove junto.'));
+  else vis = card('Visual na arena', fields(
+    col(vs('Luz do sol', 'luzSol', { min: 0, max: 3, step: 0.05, unit: '×' }), vs('Luz do céu', 'luzCeu', { min: 0, max: 3, step: 0.05, unit: '×' })),
+    col(vc('Tom da luz', 'tom'), vs('Mistura do tom', 'tomMix', { min: 0, max: 1, step: 0.05, unit: '' })),
+  ), hint('Luz acima de 1 = mais forte que o normal. O tom esquenta a cor da luz do sol.'));
+
+  ed.append(top, ident, ef, vis);
+  startFigs(f);
+}
+
+// ---------- sorteio ----------
+function odds() {
+  const S = data.sorteio, on = k => data.climas[k].enabled !== false;
+  const tot = (S.soPrincipal + S.soVento + S.ambos) || 1, bad = 1 - S.diaNormal / 100;
+  const raw = [];
+  for (const [m, pm] of [['chuva', S.chuva / 100], ['sol', 1 - S.chuva / 100]]) {
+    raw.push([[m], bad * pm * S.soPrincipal / tot], [['vento'], bad * pm * S.soVento / tot], [[m, 'vento'], bad * pm * S.ambos / tot]);
+  }
+  const out = new Map([['', S.diaNormal / 100]]);
+  for (const [l, p] of raw) { const key = l.filter(on).join('+'); out.set(key, (out.get(key) || 0) + p); }
+  return out;
+}
+function renderSorteio(ed) {
+  const S = data.sorteio;
+  const list = document.createElement('div'); list.className = 'odds';
+  const draw = () => {
+    list.innerHTML = '';
+    const o = odds();
+    const names = ['', 'chuva', 'sol', 'vento', 'chuva+vento', 'sol+vento'];
+    for (const key of names) {
+      const p = o.get(key) || 0;
+      const label = key ? key.split('+').map(k => data.climas[k].icon + ' ' + data.climas[k].name).join(' + ') : '☀ Dia normal';
+      const d = document.createElement('div'); d.className = 'o' + (p ? '' : ' off');
+      d.innerHTML = `<span>${esc(label)}</span><span class="bar"><i style="width:${(p * 100).toFixed(1)}%"></i></span><span>${(p * 100).toFixed(1)}%</span>`;
+      list.append(d);
+    }
+  };
+  const sl = (label, key, o) => row(label, slider(S[key], v => { S[key] = v; changed(); draw(); }, o));
+  const tr = document.createElement('div'); tr.className = 'title-row';
+  tr.innerHTML = '<h2><span class="big-ico">🎲</span>Sorteio do clima</h2>';
+  ed.append(
+    card('', tr, hint('No Modo História cada dia novo sorteia o clima (a Lotérica anuncia o de amanhã). Na Exibição, a opção "Aleatório" usa o mesmo sorteio.'), list),
+    card('Regras', fields(
+      col(sl('Dia normal', 'diaNormal', { min: 0, max: 100, step: 1, unit: '%' }),
+          sl('Chuva (senão, sol)', 'chuva', { min: 0, max: 100, step: 1, unit: '%' })),
+      col(sl('Peso: só chuva/sol', 'soPrincipal', { min: 0, max: 100, step: 1, unit: '' }),
+          sl('Peso: só vento', 'soVento', { min: 0, max: 100, step: 1, unit: '' }),
+          sl('Peso: chuva/sol + vento', 'ambos', { min: 0, max: 100, step: 1, unit: '' })),
+    ), hint('Primeiro decide se o dia é normal. Se não for, sorteia o clima principal (chuva ou sol, nunca os dois) e depois, pelos pesos, se vem só ele, só o vento ou os dois juntos. Um clima desativado sai do resultado (por exemplo, sem vento, "chuva + vento" vira só chuva).')),
+  );
+  draw();
+}
+
+function render() {
+  cancelAnimationFrame(anim); figs = [];
+  renderNav();
+  const ed = document.getElementById('editor');
+  ed.innerHTML = '';
+  if (cur === 'sorteio') renderSorteio(ed); else renderClima(ed, cur);
+}
+render();
+</script>
+</body>
+</html>

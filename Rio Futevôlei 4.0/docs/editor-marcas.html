@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Editor de Marcas 4.0</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Nunito:wght@600;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="editores.css">
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <a class="back" href="index.html">← Editores</a>
+      <h1>Editor de <span>Marcas</span> 4.0</h1>
+      <p class="kicker">As marcas patrocinadoras das placas, da faixa do avião e da bandeirinha da rede. Grave e recarregue o jogo para ver.</p>
+    </div>
+    <div class="tools">
+      <span class="status" id="status"><i></i><span>carregando…</span></span>
+      <button id="undo" type="button" disabled>Desfazer tudo</button>
+      <button id="save" class="primary" type="button" disabled>Gravar no jogo</button>
+    </div>
+  </header>
+  <div class="main">
+    <nav id="nav" aria-label="Marcas"></nav>
+    <div class="editor" id="editor"></div>
+  </div>
+</div>
+<script type="module">
+import BRANDS from '../src/data/brands.js';
+import { LOGOS, drawBrandStrip, onLogoImage } from '../src/art/logos.js';
+import { OPTIONS } from '../src/art/custom.js';
+import { clone, esc, makeId, saver, uploadImage, row, text, num, select, check, color, button, filePick } from './editores.js';
+
+const original = JSON.stringify(BRANDS);
+let data = clone(BRANDS);
+let cur = Object.keys(data)[0] || null;
+const COLORS = [...OPTIONS.color, ['#ff7a1a', 'Laranja'], ['#2f6b2f', 'Verde-escuro'], ['#f6e3b4', 'Areia']];
+const LOGO_NAMES = { sunburn: 'Pele queimada e sol', camelinho: 'Camelinho', lagartixa: 'Lagartixa', cuia: 'Cuia de mate', gotas: 'Gotas', bola: 'Bola', varas: 'Varas', 'balao-aviao': 'Balão e avião', coentro: 'Folhas de coentro' };
+
+const S = saver({
+  kind: 'marcas', original, get: () => data,
+  statusEl: document.getElementById('status'), saveBtn: document.getElementById('save'), undoBtn: document.getElementById('undo'),
+  onUndo: () => { data = JSON.parse(original); if (!data[cur]) cur = Object.keys(data)[0] || null; render(); },
+});
+const changed = (redraw = true) => { S.dirty(); renderNav(); if (redraw) drawPreview(); };
+
+// ---------- lista ----------
+function renderNav() {
+  const nav = document.getElementById('nav');
+  nav.innerHTML = '';
+  const on = Object.values(data).filter(b => b.enabled !== false).length;
+  const h = document.createElement('h3'); h.innerHTML = `<span>Marcas · ${on} no jogo</span>`;
+  nav.append(h);
+  for (const [id, b] of Object.entries(data)) {
+    const btn = document.createElement('button'); btn.type = 'button';
+    btn.className = 'it' + (b.enabled === false ? ' off' : '');
+    btn.innerHTML = `<span class="nm"><i style="display:inline-block;width:14px;height:14px;border-radius:4px;border:2px solid var(--line);background:${esc(b.colors.bg)}"></i>${esc(b.name)}</span><small>${b.enabled === false ? 'desativada' : esc(b.product)}</small>`;
+    btn.setAttribute('aria-current', String(id === cur));
+    btn.onclick = () => { cur = id; render(); };
+    nav.append(btn);
+  }
+  const add = button('+ Nova marca', () => {
+    const id = makeId('marca nova', Object.keys(data));
+    data[id] = { enabled: true, name: 'Marca Nova', product: 'Produto', logo: '', image: null, colors: { bg: '#1d5cff', fg: '#ffffff', accent: '#ffcf2e' }, weight: 1 };
+    cur = id; S.dirty(); render();
+  }, 'it add');
+  nav.append(add);
+}
+
+// ---------- prévia: placa e faixa do avião, desenhadas pelo próprio jogo ----------
+let boardC, bannerC;
+const forPage = b => (b.image ? { ...b, image: '../' + b.image } : b); // caminho da imagem a partir de docs/
+function drawPreview() {
+  if (!cur || !boardC) return;
+  const b = forPage(data[cur]);
+  drawBrandStrip(boardC.getContext('2d'), b, boardC.width, boardC.height);
+  drawBrandStrip(bannerC.getContext('2d'), b, bannerC.width, bannerC.height, { border: false });
+}
+onLogoImage(drawPreview);
+if (document.fonts) document.fonts.load("40px 'Lilita One'").then(drawPreview, () => {});
+
+// ---------- edição ----------
+function render() {
+  renderNav();
+  const ed = document.getElementById('editor');
+  ed.innerHTML = '';
+  if (!cur) { ed.innerHTML = '<div class="card empty">Nenhuma marca. Crie uma em "+ Nova marca".</div>'; return; }
+  const b = data[cur];
+
+  const top = document.createElement('section'); top.className = 'card';
+  const tr = document.createElement('div'); tr.className = 'title-row';
+  const h2 = document.createElement('h2'); h2.textContent = b.name;
+  const acts = document.createElement('div'); acts.className = 'inline';
+  acts.append(
+    check('Aparece no jogo', b.enabled !== false, v => { b.enabled = v; changed(false); }),
+    button('Excluir marca', () => {
+      if (!confirm(`Excluir a marca "${b.name}"? Ela sai do jogo quando você gravar.`)) return;
+      delete data[cur]; cur = Object.keys(data)[0] || null; S.dirty(); render();
+    }, 'danger'),
+  );
+  tr.append(h2, acts); top.append(tr);
+  const pv = document.createElement('div'); pv.className = 'preview';
+  boardC = document.createElement('canvas'); boardC.width = 512; boardC.height = 136; boardC.title = 'Placa em volta da quadra';
+  bannerC = document.createElement('canvas'); bannerC.width = 1024; bannerC.height = 180; bannerC.title = 'Faixa do avião';
+  boardC.style.cssText = 'width:100%;max-width:384px'; bannerC.style.cssText = 'width:100%;max-width:560px';
+  pv.append(boardC, bannerC); top.append(pv);
+  const hint = document.createElement('p'); hint.className = 'hint';
+  hint.textContent = 'Placa em volta da quadra e faixa puxada pelo avião, como no jogo. Cada partida sorteia 5 das marcas ativas (o peso aumenta a chance).';
+  top.append(hint);
+
+  const f = document.createElement('section'); f.className = 'card';
+  f.innerHTML = '<h4>Marca</h4>';
+  const grid = document.createElement('div'); grid.className = 'fields';
+  const c1 = document.createElement('div'), c2 = document.createElement('div');
+  c1.append(
+    row('Nome', text(b.name, v => { b.name = v || 'Marca'; h2.textContent = b.name; changed(); }, { max: 24 })),
+    row('Descrição', text(b.product, v => { b.product = v; changed(); }, { max: 28 })),
+    row('Peso no rodízio', num(b.weight ?? 1, v => { b.weight = v; changed(false); }, { min: 0, max: 5 })),
+  );
+  const colorRow = (label, key) => row(label, color(COLORS, b.colors[key], (v, live) => { b.colors[key] = v; changed(); if (!live) render(); }));
+  c2.append(colorRow('Cor do banner', 'bg'), colorRow('Cor do nome', 'fg'), colorRow('Cor de detalhe', 'accent'));
+  grid.append(c1, c2); f.append(grid);
+  const d = document.createElement('p'); d.className = 'hint';
+  d.textContent = 'A descrição aparece menor, embaixo do nome, em letras maiúsculas. Peso 0 = ativa, mas fora do sorteio.';
+  f.append(d);
+
+  const lg = document.createElement('section'); lg.className = 'card';
+  lg.innerHTML = '<h4>Logo</h4>';
+  const msg = document.createElement('p'); msg.className = 'hint';
+  const logoSel = select([['', '— só a inicial do nome —'], ...Object.keys(LOGOS).map(k => [k, LOGO_NAMES[k] || k])], b.logo || '', v => { b.logo = v; changed(); });
+  logoSel.disabled = !!b.image;
+  lg.append(row('Desenho do jogo', logoSel));
+  const up = filePick(b.image ? 'Trocar imagem' : 'Enviar imagem', async file => {
+    if (!S.canSave()) { msg.textContent = 'Para enviar imagem, abra esta página pelo jogo (serve.ps1).'; return; }
+    msg.textContent = 'enviando…';
+    try { b.image = await uploadImage('marcas', cur, file); S.dirty(); render(); }
+    catch (e) { msg.textContent = 'Não enviou: ' + e.message; }
+  });
+  const ctl = [up];
+  if (b.image) ctl.push(button('Usar o desenho', () => { b.image = null; S.dirty(); render(); }));
+  const box = document.createElement('div'); box.className = 'inline'; box.append(...ctl);
+  lg.append(row('Imagem própria', box));
+  msg.textContent = b.image ? `Usando a imagem ${b.image}. Fundo transparente (PNG) fica melhor.` : 'Envie um PNG/JPG/WEBP/GIF (até 3 MB) para usar no lugar do desenho. Fundo transparente fica melhor.';
+  lg.append(msg);
+
+  ed.append(top, f, lg);
+  drawPreview();
+}
+render();
+</script>
+</body>
+</html>

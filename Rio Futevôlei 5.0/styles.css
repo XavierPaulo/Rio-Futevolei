@@ -1,0 +1,1158 @@
+:root {
+  --ink: #221433;
+  --sun: #ffd21a;
+  --pink: #ff5fa2;
+  --sea: #15b8c9;
+  --good: #19c26b;
+  --bad: #ff4d6d;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; overflow: hidden; background: #7cc6ff; font-family: 'Nunito', system-ui, sans-serif; color: #fff; }
+#game { display: block; width: 100vw; height: 100vh; }
+#hud { position: fixed; inset: 0; pointer-events: none; user-select: none; }
+
+/* placar */
+.board.swapped, .board.swapped .score { flex-direction: row-reverse; }
+.board.swapped .team.t0 { text-align: right; }
+.board.swapped .team.t1 { text-align: left; }
+.board.swapped .t0 .touches { justify-content: flex-end; }
+.board.swapped .t1 .touches { justify-content: flex-start; }
+.board { position: absolute; top: 14px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 14px; }
+.team { width: min(30vw, 260px); padding: 8px 12px; background: rgba(34, 20, 51, 0.72); border: 3px solid var(--ink); border-radius: 14px; box-shadow: 0 4px 0 var(--ink); }
+.team.t1 { text-align: right; }
+.team .name { font-family: 'Lilita One', sans-serif; font-size: clamp(13px, 1.6vw, 18px); letter-spacing: 0.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* barras de especial individuais */
+.meters { display: flex; flex-direction: column; gap: 3px; margin-top: 5px; }
+.pm { display: flex; align-items: center; gap: 5px; }
+.t1 .pm, .board.swapped .t0 .pm { flex-direction: row-reverse; }
+.board.swapped .t1 .pm { flex-direction: row; }
+.cpu-tag { padding: 0 4px; border-radius: 4px; background: #5b556e; color: #fff; font-size: 10px; }
+.pm img { width: 22px; height: 22px; margin: -4px 0; object-fit: cover; object-position: 50% 12%; }
+.pm .bar { flex: 1; height: 8px; background: rgba(255, 255, 255, 0.18); border-radius: 6px; overflow: hidden; display: flex; }
+.t1 .pm .bar, .board.swapped .t0 .pm .bar { justify-content: flex-end; }
+.board.swapped .t1 .pm .bar { justify-content: flex-start; }
+.pm .bar i { display: block; height: 100%; width: 0; transition: width 0.2s; }
+.pm.full .bar i { animation: glow 0.5s infinite alternate; }
+@keyframes glow { from { filter: brightness(1); } to { filter: brightness(1.6); } }
+.touches { display: flex; gap: 5px; margin-top: 5px; }
+.t1 .touches { justify-content: flex-end; }
+.touches b { width: 10px; height: 10px; border-radius: 50%; border: 2px solid rgba(255, 255, 255, 0.6); }
+.touches b.on { background: var(--sun); border-color: var(--sun); }
+.score { font-family: 'Lilita One', sans-serif; font-size: clamp(30px, 4.5vw, 52px); background: var(--sun); color: var(--ink); padding: 2px 18px; border: 3px solid var(--ink); border-radius: 16px; box-shadow: 0 5px 0 var(--ink); display: flex; gap: 10px; align-items: center; }
+.score em { font-style: normal; font-size: 0.55em; opacity: 0.6; }
+
+/* textos */
+.ticker { position: absolute; top: 108px; left: 50%; transform: translateX(-50%) scale(0.9); font-family: 'Lilita One', sans-serif; font-size: 22px; padding: 4px 14px; border-radius: 10px; background: rgba(34, 20, 51, 0.7); opacity: 0; transition: opacity 0.15s, transform 0.15s; }
+.ticker.show { opacity: 1; transform: translateX(-50%) scale(1); }
+.callout { position: absolute; top: 34%; left: 50%; transform: translate(-50%, -50%); font-family: 'Lilita One', sans-serif; font-size: clamp(40px, 8vw, 96px); color: #fff; -webkit-text-stroke: 3px var(--ink); text-shadow: 0 6px 0 var(--ink); opacity: 0; white-space: nowrap; }
+.callout.show { opacity: 1; }
+.callout.anim { animation: pop 0.45s cubic-bezier(.2, 1.6, .4, 1); }
+.callout.good { color: var(--sun); }
+.callout.bad { color: var(--bad); }
+.callout.swap { color: var(--sea); font-size: clamp(34px, 6.5vw, 76px); }
+.callout.special { color: var(--c, var(--pink)); font-size: clamp(36px, 7vw, 84px); }
+@keyframes pop { from { transform: translate(-50%, -50%) scale(0.2) rotate(-8deg); } to { transform: translate(-50%, -50%) scale(1) rotate(0); } }
+.formation { position: absolute; left: 16px; bottom: 14px; padding: 8px 12px; font-weight: 900; font-size: 14px; line-height: 1.4; background: rgba(34, 20, 51, 0.65); border-radius: 12px; max-width: calc(100vw - 32px); }
+.formation b { display: inline-block; background: var(--sun); color: var(--ink); border-radius: 6px; padding: 0 6px; margin-right: 4px; }
+.formation small { font-size: 12px; opacity: 0.85; }
+.formation.f1 { left: auto; right: 16px; text-align: right; }
+.formation.f0, .formation.f1 { max-width: 26vw; }
+
+/* legenda de golpes por toque */
+/* legenda: só o toque atual, discreta */
+.legend { position: absolute; left: 50%; bottom: 12px; transform: translate(-50%, 6px); display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 4px 12px;
+  max-width: 44vw; padding: 5px 14px; border-radius: 999px; background: rgba(20, 12, 34, 0.32); backdrop-filter: blur(3px);
+  font-size: 12px; font-weight: 700; color: rgba(255, 255, 255, 0.88); opacity: 0; transition: opacity 0.25s, transform 0.25s; }
+.legend.show { opacity: 1; transform: translate(-50%, 0); }
+.legend b { font: 13px 'Lilita One', sans-serif; color: rgba(255, 210, 26, 0.95); letter-spacing: 0.5px; }
+.legend span { white-space: nowrap; }
+.legend .pad-ico, .legend .key-cap, .legend .pad-pill { margin: 0 1px; opacity: 0.95; }
+.legend .lg-sp { color: var(--sun); animation: blink 1.2s infinite; }
+
+/* calibração */
+.calib-box { display: flex; flex-direction: column; align-items: center; gap: 10px; margin: 16px 0 6px; padding: 18px 28px; border-radius: 16px; background: rgba(0, 0, 0, 0.35); border: 3px solid rgba(255, 210, 26, 0.5); min-width: min(360px, calc(100vw - 32px)); }
+.calib-box.deny { animation: deny 0.3s; }
+.calib-ask { margin: 0; font-size: 18px; font-weight: 800; text-align: center; }
+.calib-ask b { color: var(--sun); }
+.calib-ask small { display: block; font-size: 13px; opacity: 0.75; }
+.calib-steps { display: flex; gap: 6px; }
+.calib-steps i { width: 12px; height: 12px; border-radius: 50%; background: rgba(255, 255, 255, 0.2); }
+.calib-steps i.on { background: var(--good); }
+.calib-steps i.cur { background: var(--sun); animation: blink 0.8s infinite; }
+.calib-ok { font: 40px 'Lilita One', sans-serif; color: var(--good); }
+.calib-pills { display: flex; gap: 8px; }
+.calib-pills .pad-pill { font-size: 14px; line-height: 22px; padding: 2px 10px; opacity: 0.5; }
+.calib-pills .pad-pill.hot { background: var(--sun); color: var(--ink); opacity: 1; }
+.pads-status { font-size: 12px; opacity: 0.8; margin: 0 0 4px; }
+.pads-status b { color: var(--sun); }
+.pad-test { font-weight: 900; font-size: 15px; margin: 4px 0; padding: 6px 14px; border-radius: 10px; background: rgba(0, 0, 0, 0.3); }
+.row-label small { display: block; font-size: 11px; opacity: 0.75; font-weight: 700; }
+
+/* etiqueta de jogador (J1 / J2) */
+.ptag { display: inline-block; vertical-align: middle; padding: 0 7px; margin-right: 5px; border-radius: 7px; background: var(--pc, #888); color: #fff; font: 900 12px/18px 'Nunito', sans-serif; border: 2px solid var(--ink); }
+.ptag.cpu { background: #5b556e; }
+
+.slow { position: absolute; left: 50%; transform: translateX(-50%); top: 150px; padding: 8px 12px; font-weight: 900; font-size: 14px; color: var(--ink); background: var(--sun); border: 3px solid var(--ink); border-radius: 12px; box-shadow: 0 4px 0 var(--ink); display: none; }
+.slow.show { display: block; animation: blink 1.6s infinite; }
+.slow b { background: var(--ink); color: var(--sun); border-radius: 5px; padding: 0 5px; }
+
+/* telas */
+.overlay { position: absolute; inset: 0; display: none; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 16px; background: radial-gradient(ellipse at center, rgba(34, 20, 51, 0.55), rgba(34, 20, 51, 0.85)); overflow-y: auto; }
+.overlay.show { display: flex; }
+.overlay h1 { font-family: 'Lilita One', sans-serif; font-size: clamp(48px, 10vw, 120px); margin: 0; line-height: 0.95; color: var(--sun); -webkit-text-stroke: 4px var(--ink); text-shadow: 0 8px 0 var(--ink); transform: rotate(-3deg); }
+.overlay h1 span { color: var(--pink); }
+.overlay h2 { font-family: 'Lilita One', sans-serif; font-size: clamp(40px, 8vw, 80px); margin: 0; color: var(--sun); -webkit-text-stroke: 3px var(--ink); text-shadow: 0 6px 0 var(--ink); }
+.overlay .sub { font-weight: 900; opacity: 0.9; margin: 14px 0 4px; }
+.overlay .press { font-family: 'Lilita One', sans-serif; font-size: 22px; color: var(--sun); animation: blink 1s infinite; margin: 10px 0 18px; }
+@keyframes blink { 50% { opacity: 0.35; } }
+.controls { display: grid; grid-template-columns: repeat(4, minmax(0, 170px)); gap: 8px; }
+.controls div { position: relative; text-align: left; background: rgba(255, 255, 255, 0.1); border: 2px solid rgba(255, 255, 255, 0.2); border-radius: 10px; padding: 8px 56px 8px 10px; }
+.controls b { display: block; font-size: 13px; color: var(--sun); }
+.controls span { font-size: 14px; }
+.controls i { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); font-style: normal; }
+
+/* ícones do controle */
+.pad-ico { display: inline-block; vertical-align: middle; }
+.pad-pill { display: inline-block; vertical-align: middle; min-width: 26px; padding: 1px 6px; border-radius: 8px; background: #1d1a2b; color: #fff; border: 2px solid rgba(255, 255, 255, 0.55); font: 900 12px/16px 'Nunito', sans-serif; text-align: center; }
+.formation .pad-ico, .formation .pad-pill, .slow .pad-ico, .slow .pad-pill { margin: 0 2px; }
+.key-cap { display: inline-block; vertical-align: middle; min-width: 22px; padding: 0 6px; border-radius: 6px; background: #f4f1ff; color: var(--ink); border: 2px solid var(--ink); border-bottom-width: 4px; font: 900 15px/19px 'Nunito', sans-serif; text-align: center; margin: 0 2px; } /* 5.0: mínimo de 14 px (mesmo nas caixas encolhidas) */
+.ticker .key-cap { font-size: 16px; line-height: 20px; } /* o letreiro fica em 90% no estilo Colagem */
+
+/* menu de pausa */
+.overlay.menu { pointer-events: auto; }
+.menu-list { display: flex; flex-direction: column; gap: 10px; margin: 18px 0 8px; min-width: min(320px, calc(100vw - 32px)); }
+.menu-btn { position: relative; display: flex; align-items: center; justify-content: center; gap: 10px; min-height: 52px; padding: 8px 20px; font: 22px 'Lilita One', sans-serif; color: #fff; background: rgba(255, 255, 255, 0.1); border: 3px solid rgba(255, 255, 255, 0.25); border-radius: 14px; cursor: pointer; transition: transform 0.1s, background 0.1s; }
+.menu-btn.focus { background: var(--sun); color: var(--ink); border-color: var(--ink); box-shadow: 0 5px 0 var(--ink); transform: translateY(-2px) scale(1.03); }
+.menu-btn.on { border-color: var(--good); }
+.menu-btn em { position: absolute; right: 14px; font-style: normal; color: var(--good); font-size: 24px; }
+.menu-btn.focus em { color: var(--ink); }
+.menu-hint { font-size: 13px; opacity: 0.8; margin: 4px 0 14px; }
+.menu-btn small { display: block; font: 700 13px 'Nunito', sans-serif; opacity: 0.8; margin-top: 2px; }
+.menu-btn { flex-direction: column; }
+.menu-btn.go { background: var(--good); border-color: var(--ink); }
+/* 4.0: dica (tooltip) do botão do menu inicial — aparece no botão em foco (controle) e no mouse */
+.menu-btn .tip { position: absolute; left: calc(100% + 14px); top: 50%; transform: translateY(-50%); width: max-content; max-width: 260px; padding: 7px 11px; font: 800 13px/1.3 'Nunito', sans-serif; text-align: left; color: #fff; background: rgba(29, 26, 43, 0.92); border: 2px solid var(--sun); border-radius: 10px; opacity: 0; pointer-events: none; transition: opacity 0.12s; z-index: 2; }
+.menu-btn .tip::before { content: ''; position: absolute; right: 100%; top: 50%; transform: translateY(-50%); border: 7px solid transparent; border-right-color: var(--sun); }
+.menu-btn.focus .tip, .menu-btn:hover .tip { opacity: 1; }
+@media (max-width: 760px) {
+  .menu-btn .tip { left: 50%; top: calc(100% + 8px); transform: translateX(-50%); }
+  .menu-btn .tip::before { right: auto; left: 50%; top: auto; bottom: 100%; transform: translateX(-50%); border-right-color: transparent; border-bottom-color: var(--sun); }
+  .menu-btn:not(.focus) .tip { display: none; }
+}
+.menu-btn.off { opacity: 0.6; }
+/* 4.0: clima no placar e condições de cada atleta */
+.wx { position: absolute; top: 14px; right: 16px; display: none; gap: 6px; flex-direction: column; align-items: flex-end; font: 900 13px 'Nunito', sans-serif; }
+.wx.show { display: flex; }
+.wx span { padding: 3px 9px; border-radius: 8px; background: rgba(34, 20, 51, 0.7); }
+.pm .cd { display: inline-flex; gap: 1px; font-size: 12px; min-width: 0; }
+.pm .cd b { font-weight: 400; }
+/* 4.0: Tutorial — caixa do treinador */
+.coach { position: absolute; left: 16px; top: 96px; display: flex; gap: 10px; align-items: flex-start; max-width: min(460px, calc(100vw - 32px)); padding: 10px 14px 12px 10px; color: #fff; background: rgba(29, 26, 43, 0.9); border: 3px solid #1d5cff; border-radius: 14px; pointer-events: none; }
+.coach img { width: 64px; height: 64px; object-fit: cover; object-position: 50% 10%; border-radius: 10px; background: #1d5cff; flex: none; }
+.coach b { font: 18px 'Lilita One', sans-serif; color: #9fc2ff; }
+.coach p { margin: 2px 0 6px; font: 800 15px/1.35 'Nunito', sans-serif; }
+.coach p svg, .coach p img { vertical-align: middle; }
+.coach-steps { display: flex; gap: 4px; }
+.coach-steps i { width: 14px; height: 6px; border-radius: 3px; background: rgba(255, 255, 255, 0.25); }
+.coach-steps i.on { background: var(--good); }
+.coach-steps i.cur { background: var(--sun); }
+.coach-ok { margin-left: 8px; font: 900 13px 'Nunito', sans-serif; color: var(--good); font-style: normal; }
+.menu-btn.go.focus { background: var(--sun); }
+.menu-list.wide { min-width: min(560px, calc(100vw - 32px)); }
+
+/* linhas com escolha (←/→) */
+.menu-row { display: flex; align-items: center; gap: 10px; padding: 8px 12px; min-height: 52px; background: rgba(255, 255, 255, 0.1); border: 3px solid rgba(255, 255, 255, 0.25); border-radius: 14px; cursor: pointer; }
+.menu-row.focus { border-color: var(--sun); background: rgba(255, 210, 26, 0.18); box-shadow: 0 5px 0 var(--ink); }
+.row-label { min-width: 118px; text-align: left; font-weight: 900; }
+.opts { display: flex; gap: 8px; flex: 1; justify-content: flex-end; flex-wrap: wrap; }
+.opt { display: flex; align-items: center; gap: 3px; min-height: 40px; padding: 4px 10px; color: #fff; font: 900 14px 'Nunito', sans-serif; border-radius: 10px; background: rgba(0, 0, 0, 0.25); border: 3px solid transparent; cursor: pointer; opacity: 0.55; }
+.opt.on { border-color: var(--sun); background: rgba(0, 0, 0, 0.45); opacity: 1; }
+.slot img { width: 64px; height: 64px; margin: -8px 0; }
+.slot .who { flex: 1; display: flex; flex-direction: column; text-align: left; font-family: 'Lilita One', sans-serif; font-size: 20px; }
+.slot .who small { font: 700 12px 'Nunito', sans-serif; opacity: 0.85; }
+.arrow { width: 34px; height: 34px; border-radius: 50%; border: 2px solid rgba(255, 255, 255, 0.5); background: rgba(0, 0, 0, 0.3); color: #fff; font-size: 14px; cursor: pointer; }
+.menu-row.focus .arrow { border-color: var(--sun); color: var(--sun); }
+@media (max-width: 640px) { .row-label { min-width: 0; } .slot img { width: 48px; height: 48px; } }
+.tips { max-width: 600px; text-align: left; font-size: 14px; line-height: 1.5; margin: 14px 0 6px; }
+.tips b { color: var(--sun); }
+.pad { font-size: 12px; opacity: 0.7; margin: 4px 0 0; }
+@media (max-width: 900px) { .controls { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 640px) { .team { width: 34vw; } .ticker { top: 96px; } }
+
+/* ============ estilo "papel e caneta" (body.art-caneta) ============ */
+body.art-caneta {
+  --ink: #1d3fa0; --pen-red: #c21f2e; --pen-green: #1e7a3c; --pen-black: #1c1b26; --paper: #f7f2e4;
+  background: #3a2c24;
+}
+body.art-caneta #hud { font-family: 'Patrick Hand', 'Nunito', sans-serif; color: var(--ink); }
+body.art-caneta .team, body.art-caneta .formation, body.art-caneta .ticker {
+  background: rgba(247, 242, 228, 0.92); color: var(--ink); border: 2px solid var(--ink); box-shadow: 2px 3px 0 rgba(29, 63, 160, 0.25);
+  border-radius: 14px 9px 16px 8px / 9px 15px 8px 14px;
+}
+body.art-caneta .team .name, body.art-caneta .ticker { font-family: 'Caveat', cursive; font-size: 22px; letter-spacing: 0; }
+body.art-caneta .score { background: var(--paper); color: var(--pen-red); border: 2px solid var(--pen-red); box-shadow: 2px 3px 0 rgba(194, 31, 46, 0.25); font-family: 'Caveat', cursive; border-radius: 12px 18px 10px 16px / 16px 10px 18px 12px; }
+body.art-caneta .score em { color: var(--ink); }
+body.art-caneta .touches b { border-color: var(--ink); }
+body.art-caneta .touches b.on { background: var(--pen-red); border-color: var(--pen-red); }
+body.art-caneta .pm .bar { background: rgba(29, 63, 160, 0.12); }
+body.art-caneta .formation b, body.art-caneta .formation small { color: var(--ink); }
+body.art-caneta .callout { font-family: 'Caveat', cursive; font-size: clamp(56px, 10vw, 120px); -webkit-text-stroke: 0; text-shadow: 3px 3px 0 rgba(247, 242, 228, 0.9); color: var(--ink); }
+body.art-caneta .callout.good { color: var(--pen-green); }
+body.art-caneta .callout.bad { color: var(--pen-red); }
+body.art-caneta .callout.swap { color: var(--ink); }
+body.art-caneta .legend { background: rgba(247, 242, 228, 0.78); color: var(--ink); font-family: 'Patrick Hand', sans-serif; font-size: 14px; }
+body.art-caneta .legend b { font-family: 'Caveat', cursive; font-size: 18px; color: var(--pen-red); }
+body.art-caneta .slow { background: var(--paper); color: var(--pen-red); border-color: var(--pen-red); box-shadow: none; }
+/* menus: folha de caderno */
+body.art-caneta .overlay { background:
+  repeating-linear-gradient(180deg, transparent 0 31px, rgba(29, 63, 160, 0.16) 31px 32px),
+  linear-gradient(90deg, transparent 0 7%, rgba(194, 31, 46, 0.35) 7% calc(7% + 2px), transparent calc(7% + 2px)),
+  rgba(247, 242, 228, 0.93); color: var(--ink); }
+body.art-caneta .overlay h1, body.art-caneta .overlay h2 { font-family: 'Caveat', cursive; -webkit-text-stroke: 0; text-shadow: none; color: var(--ink); transform: rotate(-2deg); }
+body.art-caneta .overlay h1 { font-size: clamp(64px, 12vw, 150px); }
+body.art-caneta .overlay h1 span { color: var(--pen-red); }
+body.art-caneta .overlay .sub, body.art-caneta .menu-hint, body.art-caneta .pad-test, body.art-caneta .pads-status { color: var(--ink); }
+body.art-caneta .menu-btn, body.art-caneta .menu-row { background: transparent; color: var(--ink); border: 2px solid rgba(29, 63, 160, 0.55); font-family: 'Caveat', cursive; font-size: 28px;
+  border-radius: 16px 10px 18px 9px / 10px 18px 9px 16px; box-shadow: none; }
+body.art-caneta .menu-btn small, body.art-caneta .row-label small { font-family: 'Patrick Hand', sans-serif; }
+body.art-caneta .menu-btn.focus, body.art-caneta .menu-row.focus { background: rgba(255, 236, 90, 0.55); color: var(--ink); border-color: var(--ink); transform: rotate(-0.6deg); box-shadow: none; }
+body.art-caneta .row-label { font-family: 'Patrick Hand', sans-serif; font-size: 20px; }
+body.art-caneta .opt { color: var(--ink); background: transparent; font-family: 'Patrick Hand', sans-serif; font-size: 17px; }
+body.art-caneta .opt.on { border-color: var(--pen-red); background: rgba(194, 31, 46, 0.08); }
+body.art-caneta .controls div { background: transparent; border-color: rgba(29, 63, 160, 0.4); }
+body.art-caneta .controls b, body.art-caneta .tips b { color: var(--pen-red); }
+body.art-caneta .calib-box { background: transparent; border-color: var(--ink); }
+body.art-caneta .calib-ask b { color: var(--pen-red); }
+/* seleção: folha de caderno */
+body.art-caneta .select { background:
+  repeating-linear-gradient(180deg, transparent 0 31px, rgba(29, 63, 160, 0.16) 31px 32px),
+  linear-gradient(90deg, transparent 0 5%, rgba(194, 31, 46, 0.35) 5% calc(5% + 2px), transparent calc(5% + 2px)),
+  var(--paper); color: var(--ink); }
+body.art-caneta .select::before { display: none; }
+body.art-caneta .sel-title { font-family: 'Caveat', cursive; -webkit-text-stroke: 0; text-shadow: none; color: var(--ink); font-size: clamp(44px, 6vw, 72px); transform: rotate(-1.5deg); }
+body.art-caneta .card { background: rgba(255, 255, 255, 0.5); border: 2px solid rgba(29, 63, 160, 0.45); box-shadow: 2px 3px 0 rgba(29, 63, 160, 0.18); border-radius: 16px 10px 18px 9px / 10px 18px 9px 16px; }
+body.art-caneta .card.picked { background: rgba(255, 236, 90, 0.35); }
+body.art-caneta .card-name { font-family: 'Caveat', cursive; -webkit-text-stroke: 0; font-size: clamp(28px, 2.8vw, 40px); }
+body.art-caneta .st b { color: var(--pen-red); font-family: 'Caveat', cursive; font-size: 20px; }
+body.art-caneta .segs i { background: rgba(29, 63, 160, 0.1); }
+body.art-caneta .segs i.on, body.art-caneta .st .segs i.on { background: var(--ink); box-shadow: none; }
+body.art-caneta .st:nth-child(2) .segs i.on { background: var(--pen-green); }
+body.art-caneta .st:nth-child(3) .segs i.on { background: var(--pen-black); }
+body.art-caneta .st:nth-child(4) .segs i.on { background: var(--pen-red); }
+body.art-caneta .grid { background: rgba(255, 255, 255, 0.4); border: 2px dashed rgba(29, 63, 160, 0.5); }
+body.art-caneta .sl { background: var(--paper); border-color: rgba(29, 63, 160, 0.3); }
+body.art-caneta .sl span { background: rgba(247, 242, 228, 0.85); color: var(--ink); font-family: 'Patrick Hand', sans-serif; font-size: 12px; }
+body.art-caneta .sl.locked { background: repeating-linear-gradient(45deg, var(--paper) 0 5px, rgba(29, 63, 160, 0.18) 5px 6px); }
+body.art-caneta .sl.locked b { color: rgba(29, 63, 160, 0.4); font-family: 'Caveat', cursive; }
+body.art-caneta .sl.boss { background: repeating-linear-gradient(45deg, var(--paper) 0 5px, rgba(194, 31, 46, 0.25) 5px 6px); }
+body.art-caneta .vs-mid b { font-family: 'Caveat', cursive; -webkit-text-stroke: 0; color: var(--pen-red); text-shadow: 4px 4px 0 rgba(29, 63, 160, 0.3); }
+body.art-caneta .vs-f b { font-family: 'Caveat', cursive; -webkit-text-stroke: 0; }
+
+/* ============ estilo "Pincel" (body.art-pincel): letreiro de pincel, telas limpas ============ */
+body.art-pincel { --ink: #1a1622; --brush: 'Permanent Marker', 'Lilita One', cursive; --wash: #ffffff; }
+body.art-pincel .team, body.art-pincel .formation, body.art-pincel .ticker, body.art-pincel .score, body.art-pincel .slow, body.art-pincel .legend {
+  background: rgba(255, 255, 255, 0.94); color: var(--ink); border: 3px solid var(--ink); box-shadow: 3px 4px 0 rgba(26, 22, 34, 0.85);
+  border-radius: 16px 11px 18px 10px / 11px 18px 10px 16px; }
+body.art-pincel .team .name, body.art-pincel .ticker, body.art-pincel .legend b { font-family: var(--brush); letter-spacing: 0.5px; }
+body.art-pincel .score { font-family: var(--brush); color: var(--ink); background: var(--sun); }
+body.art-pincel .score em { color: var(--ink); }
+body.art-pincel .touches b { border-color: var(--ink); }
+body.art-pincel .touches b.on { background: #ff5a3c; border-color: var(--ink); }
+body.art-pincel .pm .bar { background: rgba(26, 22, 34, 0.12); }
+body.art-pincel .legend { font-weight: 800; }
+body.art-pincel .legend b { color: #ff5a3c; }
+body.art-pincel .formation small { color: var(--ink); }
+body.art-pincel .callout { font-family: var(--brush); -webkit-text-stroke: 3px var(--ink); text-shadow: 4px 5px 0 var(--ink); }
+body.art-pincel .overlay { background: rgba(255, 255, 255, 0.86); color: var(--ink); backdrop-filter: blur(2px); }
+body.art-pincel .overlay h1, body.art-pincel .overlay h2 { font-family: var(--brush); -webkit-text-stroke: 0; color: var(--ink); text-shadow: 4px 5px 0 var(--sun); }
+body.art-pincel .overlay h1 span { color: #ff5a3c; }
+body.art-pincel .overlay .sub, body.art-pincel .menu-hint, body.art-pincel .pad-test, body.art-pincel .pads-status, body.art-pincel .tips { color: var(--ink); }
+body.art-pincel .menu-btn, body.art-pincel .menu-row { background: #fff; color: var(--ink); border: 3px solid var(--ink); box-shadow: 3px 4px 0 var(--ink);
+  border-radius: 16px 11px 18px 10px / 11px 18px 10px 16px; font-family: var(--brush); }
+body.art-pincel .menu-btn small, body.art-pincel .row-label small { font-family: 'Nunito', sans-serif; }
+body.art-pincel .menu-btn.focus, body.art-pincel .menu-row.focus { background: var(--sun); color: var(--ink); transform: translate(-1px, -2px); box-shadow: 5px 6px 0 var(--ink); }
+body.art-pincel .opt { color: var(--ink); background: transparent; }
+body.art-pincel .opt.on { border-color: var(--ink); background: rgba(255, 207, 46, 0.5); }
+body.art-pincel .controls div { background: #fff; border-color: var(--ink); }
+body.art-pincel .controls b, body.art-pincel .tips b { color: #ff5a3c; }
+body.art-pincel .calib-box { background: #fff; border-color: var(--ink); }
+body.art-pincel .select, body.art-pincel .creator { background: linear-gradient(180deg, #bfe8ff 0%, #ffffff 55%, #ffe9c4 100%); color: var(--ink); }
+body.art-pincel .select::before { display: none; }
+body.art-pincel .sel-title, body.art-pincel .cr-title, body.art-pincel .card-name, body.art-pincel .cr-name, body.art-pincel .vs-mid b, body.art-pincel .vs-f b { font-family: var(--brush); -webkit-text-stroke: 0; text-shadow: 3px 4px 0 var(--sun); color: var(--ink); }
+body.art-pincel .card, body.art-pincel .cr-preview { background: #fff; border: 3px solid var(--ink); box-shadow: 4px 5px 0 var(--ink); border-radius: 16px 11px 18px 10px / 11px 18px 10px 16px; }
+body.art-pincel .card.picked { background: #fff6cf; }
+body.art-pincel .st b, body.art-pincel .cr-row.stat b { color: #ff5a3c; font-family: var(--brush); }
+body.art-pincel .segs i, body.art-pincel .cr-row.stat .segs i { background: rgba(26, 22, 34, 0.1); }
+body.art-pincel .grid { background: #fff; border: 3px solid var(--ink); }
+body.art-pincel .sl { background: #f2f7ff; border-color: rgba(26, 22, 34, 0.25); }
+body.art-pincel .sl span { background: rgba(255, 255, 255, 0.9); color: var(--ink); }
+body.art-pincel .sl.locked { background: repeating-linear-gradient(45deg, #f2f2f6 0 6px, #e4e3ec 6px 12px); }
+body.art-pincel .sl.locked b { color: rgba(26, 22, 34, 0.3); font-family: var(--brush); }
+body.art-pincel .sl.boss { background: repeating-linear-gradient(45deg, #fff0f0 0 6px, #ffd9de 6px 12px); }
+body.art-pincel .cr-row { background: #fff; border: 2px solid rgba(26, 22, 34, 0.25); }
+body.art-pincel .cr-row.focus { background: #fff6cf; border-color: var(--ink); }
+body.art-pincel .cr-row input { background: #fff; color: var(--ink); border-color: var(--ink); font-family: var(--brush); }
+body.art-pincel .cr-row .val { font-family: var(--brush); }
+body.art-pincel .cr-small, body.art-pincel .cr-btn { color: var(--ink); border-color: var(--ink); background: #fff; font-family: var(--brush); }
+body.art-pincel .cr-btn.save { background: #7ee2a8; }
+body.art-pincel .cr-btn.focus { background: var(--sun); }
+body.art-pincel .arrow { color: var(--ink); border-color: var(--ink); background: #fff; }
+
+/* ============ criador de atleta ============ */
+.creator { position: absolute; inset: 0; display: none; pointer-events: auto; overflow: hidden; color: #fff;
+  background: radial-gradient(ellipse at 30% 40%, #3a1f6e 0%, #1a0f33 60%, #0c0718 100%); }
+.creator.show { display: block; }
+.cr-screen { height: 100%; display: flex; flex-direction: column; align-items: center; padding: 12px 16px; }
+.cr-title { margin: 0; font: clamp(28px, 4vw, 48px) 'Lilita One', sans-serif; color: var(--sun); -webkit-text-stroke: 3px var(--ink); text-shadow: 0 5px 0 var(--ink); }
+.cr-main { flex: 1; min-height: 0; width: 100%; max-width: 1100px; display: grid; grid-template-columns: minmax(220px, 360px) 1fr; gap: 18px; margin-top: 10px; }
+.cr-preview { display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: 16px; background: rgba(255, 255, 255, 0.08); border: 3px solid rgba(255, 255, 255, 0.15); padding: 10px; }
+.cr-preview canvas { width: 100%; max-width: 320px; aspect-ratio: 1; }
+.cr-pose { font-weight: 900; font-size: 12px; opacity: 0.7; text-transform: uppercase; letter-spacing: 2px; }
+.cr-stats { text-align: center; margin-top: 6px; }
+.cr-name { display: block; font: 30px 'Lilita One', sans-serif; -webkit-text-stroke: 1.5px var(--ink); }
+.cr-stats small { font-weight: 800; opacity: 0.85; }
+.cr-form { overflow-y: auto; padding-right: 6px; display: flex; flex-direction: column; gap: 5px; }
+.cr-row { display: flex; align-items: center; gap: 8px; min-height: 42px; padding: 4px 10px; border-radius: 10px; background: rgba(255, 255, 255, 0.07); border: 2px solid transparent; cursor: pointer; }
+.cr-row.tall { padding: 6px 10px; }
+.cr-row.focus { border-color: var(--sun); background: rgba(255, 210, 26, 0.14); }
+.cr-row .lbl { width: 150px; flex: none; font-weight: 900; font-size: 14px; }
+.cr-row .val { flex: 1; text-align: center; font: 18px 'Lilita One', sans-serif; }
+.cr-desc { display: block; font: 700 12px/1.35 'Nunito', sans-serif; opacity: 0.85; margin-top: 2px; }
+.cr-row input { flex: 1; min-width: 0; font: 20px 'Lilita One', sans-serif; padding: 4px 10px; border-radius: 8px; border: 2px solid rgba(255, 255, 255, 0.3); background: rgba(0, 0, 0, 0.3); color: #fff; }
+.cr-small { padding: 4px 10px; border-radius: 8px; border: 2px solid rgba(255, 255, 255, 0.4); background: transparent; color: #fff; font-weight: 900; cursor: pointer; }
+.swatches { flex: 1; display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
+.sw { width: 26px; height: 26px; border-radius: 50%; background: var(--c); border: 3px solid rgba(0, 0, 0, 0.4); cursor: pointer; }
+.sw.on { border-color: var(--sun); box-shadow: 0 0 0 2px var(--ink), 0 0 10px var(--sun); transform: scale(1.12); }
+.cr-row.stat .segs { flex: 1; display: grid; grid-template-columns: repeat(10, 1fr); gap: 3px; }
+.cr-row.stat .segs i { height: 12px; border-radius: 2px; background: rgba(255, 255, 255, 0.12); transform: skewX(-12deg); }
+.cr-row.stat .segs i.on { background: linear-gradient(180deg, #ffe45c, #ff8a1f); }
+.cr-row.stat b { width: 22px; text-align: right; font: 18px 'Lilita One', sans-serif; color: var(--sun); }
+.cr-points { margin: 4px 0; font-weight: 900; text-align: center; }
+.cr-points.warn b { color: var(--bad); }
+.cr-msg { margin: 0; text-align: center; color: var(--bad); font-weight: 900; }
+.cr-btn { min-height: 46px; border-radius: 12px; border: 3px solid rgba(255, 255, 255, 0.25); background: rgba(255, 255, 255, 0.1); color: #fff; font: 20px 'Lilita One', sans-serif; cursor: pointer; }
+.cr-btn.save { background: var(--good); border-color: var(--ink); }
+.cr-btn.delete { background: rgba(255, 77, 109, 0.35); }
+.cr-btn.focus { background: var(--sun); color: var(--ink); border-color: var(--ink); }
+.cr-hint { margin: 6px 0 0; font-size: 12px; font-weight: 800; opacity: 0.8; }
+.cr-li { display: inline-flex; align-items: center; gap: 8px; }
+.cr-li img { width: 40px; height: 40px; margin: -8px 0; object-fit: cover; object-position: 50% 15%; }
+@media (max-width: 760px) { .cr-main { grid-template-columns: 1fr; } .cr-preview canvas { max-width: 200px; } .cr-row .lbl { width: 110px; } }
+body.art-caneta .creator { color: var(--ink); background:
+  repeating-linear-gradient(180deg, transparent 0 31px, rgba(29, 63, 160, 0.16) 31px 32px),
+  linear-gradient(90deg, transparent 0 5%, rgba(194, 31, 46, 0.35) 5% calc(5% + 2px), transparent calc(5% + 2px)), var(--paper); }
+body.art-caneta .cr-title, body.art-caneta .cr-name { font-family: 'Caveat', cursive; -webkit-text-stroke: 0; text-shadow: none; color: var(--ink); }
+body.art-caneta .cr-title { font-size: clamp(44px, 6vw, 68px); transform: rotate(-1.5deg); }
+body.art-caneta .cr-preview { background: rgba(255, 255, 255, 0.5); border: 2px solid rgba(29, 63, 160, 0.4); border-radius: 16px 10px 18px 9px / 10px 18px 9px 16px; }
+body.art-caneta .cr-row { background: transparent; border: 2px solid rgba(29, 63, 160, 0.18); font-family: 'Patrick Hand', sans-serif; }
+body.art-caneta .cr-row .lbl { font-size: 17px; font-weight: 400; }
+body.art-caneta .cr-row .val { font-family: 'Caveat', cursive; font-size: 26px; }
+body.art-caneta .cr-row.focus { background: rgba(255, 236, 90, 0.5); border-color: var(--ink); }
+body.art-caneta .cr-row input { background: rgba(255, 255, 255, 0.6); color: var(--ink); border-color: rgba(29, 63, 160, 0.5); font-family: 'Caveat', cursive; font-size: 26px; }
+body.art-caneta .cr-small { color: var(--ink); border-color: rgba(29, 63, 160, 0.5); }
+body.art-caneta .cr-row.stat .segs i { background: rgba(29, 63, 160, 0.1); }
+body.art-caneta .cr-row.stat .segs i.on { background: var(--ink); }
+body.art-caneta .cr-row.stat b, body.art-caneta .cr-points b { color: var(--pen-red); font-family: 'Caveat', cursive; font-size: 22px; }
+body.art-caneta .cr-btn { background: transparent; color: var(--ink); border: 2px solid rgba(29, 63, 160, 0.55); font-family: 'Caveat', cursive; font-size: 28px; }
+body.art-caneta .cr-btn.save { border-color: var(--pen-green); color: var(--pen-green); }
+body.art-caneta .cr-btn.delete { border-color: var(--pen-red); color: var(--pen-red); }
+body.art-caneta .cr-btn.focus { background: rgba(255, 236, 90, 0.55); }
+body.art-caneta .sw { border-color: rgba(29, 63, 160, 0.4); }
+body.art-caneta .sw.on { border-color: var(--pen-red); box-shadow: none; }
+
+/* ============ seleção de atletas (estilo MK2 / Tekken Tag) ============ */
+.select { position: absolute; inset: 0; display: none; pointer-events: auto; overflow: hidden;
+  background: radial-gradient(ellipse at 50% 40%, #3a1f6e 0%, #1a0f33 55%, #0c0718 100%); }
+.select.show { display: block; }
+.select::before { content: ''; position: absolute; inset: 0; opacity: 0.18; pointer-events: none;
+  background: repeating-linear-gradient(115deg, transparent 0 22px, rgba(255, 210, 26, 0.35) 22px 24px); }
+.sel-screen { position: relative; height: 100%; display: flex; flex-direction: column; align-items: center; padding: 14px 16px; }
+.select.vs .sel-screen { display: none; }
+.sel-title { margin: 0; font: clamp(28px, 4.2vw, 52px) 'Lilita One', sans-serif; color: var(--sun); -webkit-text-stroke: 3px var(--ink); text-shadow: 0 5px 0 var(--ink), 0 0 24px rgba(255, 90, 60, 0.6); letter-spacing: 2px; }
+.sel-sub { margin: 2px 0 10px; font-weight: 900; opacity: 0.85; text-transform: uppercase; letter-spacing: 3px; font-size: 13px; }
+.sel-main { flex: 1; width: 100%; max-width: 1400px; display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); gap: 16px; align-items: center; min-height: 0; }
+.side { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+/* 1 contra 1: uma carta centralizada · 3 contra 3: três cartas mais compactas */
+.side[data-n="1"] { grid-template-columns: minmax(0, 250px); justify-content: center; }
+.side[data-n="3"] { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.side[data-n="3"] .card { padding: 6px 6px 8px; }
+.side[data-n="3"] .card-name { font-size: clamp(16px, 1.6vw, 22px); }
+.side[data-n="3"] .card-sp { font-size: 10px; }
+.side[data-n="3"] .st { grid-template-columns: 1fr; gap: 1px; font-size: 9px; }
+.side[data-n="3"] .st b { display: none; }
+.side[data-n="3"] .segs i { height: 7px; }
+
+/* carta do atleta */
+.card { position: relative; padding: 8px 10px 10px; border-radius: 14px; background: linear-gradient(180deg, rgba(255, 255, 255, 0.12), rgba(0, 0, 0, 0.35)); border: 3px solid rgba(255, 255, 255, 0.15); box-shadow: 0 6px 0 rgba(0, 0, 0, 0.45); min-width: 0; }
+.card.hover { border-color: var(--pc); box-shadow: 0 0 0 2px var(--pc), 0 0 26px var(--pc), 0 6px 0 rgba(0, 0, 0, 0.45); animation: cardPulse 0.9s infinite alternate; }
+.card.picked { border-color: var(--pc); background: linear-gradient(180deg, color-mix(in srgb, var(--pc) 45%, transparent), rgba(0, 0, 0, 0.35)); }
+@keyframes cardPulse { to { box-shadow: 0 0 0 2px var(--pc), 0 0 8px var(--pc), 0 6px 0 rgba(0, 0, 0, 0.45); } }
+.card-top { display: flex; justify-content: space-between; align-items: center; }
+.card-who { padding: 0 8px; border-radius: 7px; background: var(--pc); font: 900 12px/20px 'Nunito', sans-serif; border: 2px solid var(--ink); }
+.card-num { font: 18px 'Lilita One', sans-serif; opacity: 0.6; }
+.card canvas { display: block; width: 100%; max-width: 190px; aspect-ratio: 1; margin: -4px auto -8px; }
+.side.right .card canvas { transform: scaleX(-1); }
+.card.empty canvas { opacity: 0; }
+.card-name { font: clamp(20px, 2.2vw, 30px) 'Lilita One', sans-serif; text-align: center; -webkit-text-stroke: 1.5px var(--ink); line-height: 1.1; min-height: 1.1em; }
+.card.empty .card-name { opacity: 0.35; }
+.card-sp { text-align: center; font-size: 11px; font-weight: 800; opacity: 0.85; min-height: 1.3em; margin-bottom: 4px; }
+.stats { display: flex; flex-direction: column; gap: 3px; }
+.st { display: grid; grid-template-columns: 64px 1fr 18px; align-items: center; gap: 5px; font-size: 11px; font-weight: 900; }
+.st em { font-style: normal; text-transform: uppercase; letter-spacing: 0.5px; opacity: 0.9; }
+.st b { font: 15px 'Lilita One', sans-serif; text-align: right; color: var(--sun); }
+.segs { display: grid; grid-template-columns: repeat(10, 1fr); gap: 2px; }
+.segs i { height: 10px; border-radius: 2px; background: rgba(255, 255, 255, 0.12); transform: skewX(-12deg); }
+.segs i.on { background: linear-gradient(180deg, #ffe45c, #ff8a1f); box-shadow: 0 0 6px rgba(255, 170, 40, 0.6); }
+.st:nth-child(2) .segs i.on { background: linear-gradient(180deg, #7dffb0, #19c26b); box-shadow: 0 0 6px rgba(40, 220, 120, 0.5); }
+.st:nth-child(3) .segs i.on { background: linear-gradient(180deg, #8fd0ff, #2d6ee0); box-shadow: 0 0 6px rgba(60, 140, 255, 0.5); }
+.st:nth-child(4) .segs i.on { background: linear-gradient(180deg, #ff9ad0, #e2236f); box-shadow: 0 0 6px rgba(255, 60, 140, 0.5); }
+
+/* grade de retratos */
+.grid-wrap { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.grid { display: grid; grid-template-columns: repeat(6, clamp(52px, 5.6vw, 82px)); gap: 5px; padding: 8px; background: rgba(0, 0, 0, 0.35); border: 3px solid rgba(255, 210, 26, 0.35); border-radius: 12px; }
+.grid.boss-row { grid-template-columns: repeat(2, clamp(52px, 5.6vw, 82px)); border-color: rgba(255, 45, 77, 0.55); }
+/* 4.0: fileira própria dos jogadores criados (6 vagas) */
+.grid.own-row { border-color: rgba(61, 139, 255, 0.6); }
+.grid-label { margin: 2px 0 -4px; font: 900 11px 'Nunito', sans-serif; letter-spacing: .8px; text-transform: uppercase; color: rgba(255, 255, 255, 0.8); text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6); }
+.sl.own { background: repeating-linear-gradient(45deg, #13233f 0 6px, #182c4f 6px 12px); }
+.sl.own b { color: rgba(120, 180, 255, 0.55); }
+.sl.own span { color: rgba(255, 255, 255, 0.7); }
+.sl { position: relative; aspect-ratio: 1; border-radius: 8px; overflow: hidden; cursor: pointer; background: linear-gradient(160deg, #4b2c86, #22123f); border: 3px solid rgba(255, 255, 255, 0.12); }
+.sl img { width: 150%; margin: -2% -25% 0; }
+.sl span { position: absolute; left: 0; right: 0; bottom: 0; font: 900 10px/14px 'Nunito', sans-serif; text-align: center; background: rgba(0, 0, 0, 0.55); }
+.sl.locked { background: repeating-linear-gradient(45deg, #1d1433 0 6px, #241a3d 6px 12px); cursor: not-allowed; }
+.sl.locked b { position: absolute; inset: 0; display: grid; place-items: center; font: 30px 'Lilita One', sans-serif; color: rgba(255, 255, 255, 0.25); }
+.sl.boss { background: repeating-linear-gradient(45deg, #3a0d1a 0 6px, #4a1122 6px 12px); }
+.sl.boss b { color: rgba(255, 60, 90, 0.6); }
+.sl.chosen img { filter: saturate(0.4) brightness(0.7); }
+.sl.c1 { border-color: #ff4d6d; box-shadow: inset 0 0 0 2px #ff4d6d, 0 0 16px #ff4d6d; z-index: 1; }
+.sl.c2 { border-color: #3d8bff; box-shadow: inset 0 0 0 2px #3d8bff, 0 0 16px #3d8bff; z-index: 1; }
+.sl.c1.c2 { border-color: #ff4d6d; box-shadow: inset 0 0 0 3px #3d8bff, 0 0 16px #b06bff; }
+.sl.ccpu { border-color: #fff; box-shadow: inset 0 0 0 2px #fff, 0 0 16px #fff; }
+.sl.deny { animation: deny 0.3s; }
+@keyframes deny { 25% { transform: translateX(-4px); } 75% { transform: translateX(4px); } }
+/* dificuldade da CPU (12 níveis, cor por faixa) */
+.diff { width: 100%; max-width: 520px; padding: 8px 12px; border-radius: 12px; background: rgba(0, 0, 0, 0.35); border: 3px solid rgba(255, 255, 255, 0.18);
+  --tc: #7ee2a8; }
+.diff[data-tier="1"] { --tc: #ffd84d; } .diff[data-tier="2"] { --tc: #ff9a3c; } .diff[data-tier="3"] { --tc: #ff4d6d; } .diff[data-tier="4"] { --tc: #b06bff; }
+.diff-head { display: flex; justify-content: space-between; align-items: center; font-size: 13px; }
+.diff-head b { text-transform: uppercase; letter-spacing: 1px; font-weight: 900; }
+.diff-row { display: flex; align-items: center; gap: 8px; margin: 6px 0 4px; }
+.diff-pips { flex: 1; display: grid; grid-template-columns: repeat(12, 1fr); gap: 3px; }
+.diff-pips i { height: 14px; border-radius: 3px; background: rgba(255, 255, 255, 0.14); cursor: pointer; transform: skewX(-12deg); }
+.diff-pips i.on { background: var(--tc); box-shadow: 0 0 6px var(--tc); }
+.diff-pips i:nth-child(3), .diff-pips i:nth-child(6), .diff-pips i:nth-child(9), .diff-pips i:nth-child(11) { margin-right: 4px; }
+.diff-name { text-align: center; font: 18px 'Lilita One', sans-serif; }
+.diff-name b { color: var(--tc); }
+.diff-name small { display: inline-block; margin-left: 6px; padding: 0 8px; border-radius: 999px; background: var(--tc); color: #1a1622; font: 900 11px/18px 'Nunito', sans-serif; text-transform: uppercase; letter-spacing: 1px; vertical-align: middle; }
+body.art-pincel .diff { background: #fff; border-color: var(--ink); color: var(--ink); box-shadow: 3px 4px 0 var(--ink); }
+body.art-pincel .diff-pips i { background: rgba(26, 22, 34, 0.12); }
+body.art-pincel .diff-name { font-family: var(--brush); }
+body.art-pincel .diff-name b { color: var(--ink); text-shadow: 2px 2px 0 var(--tc); }
+body.art-caneta .diff { background: rgba(255, 255, 255, 0.5); border: 2px dashed rgba(29, 63, 160, 0.5); color: var(--ink); }
+body.art-caneta .diff-pips i { background: rgba(29, 63, 160, 0.1); }
+body.art-caneta .diff-name { font-family: 'Caveat', cursive; font-size: 24px; }
+body.art-pincel .diff-pips i.on, body.art-caneta .diff-pips i.on { background: var(--tc); box-shadow: inset 0 0 0 2px rgba(26, 22, 34, 0.55); }
+/* nível de cada atleta da CPU, no cartão dele (cor pela faixa, como na barra de dificuldade) */
+.card { --tc: #7ee2a8; }
+.card[data-tier="1"] { --tc: #ffd84d; } .card[data-tier="2"] { --tc: #ff9a3c; } .card[data-tier="3"] { --tc: #ff4d6d; } .card[data-tier="4"] { --tc: #b06bff; }
+.card-lv { display: flex; align-items: center; gap: 4px; margin-top: 6px; padding: 3px; border-radius: 9px; background: rgba(0, 0, 0, 0.3); border: 2px solid var(--tc); }
+.card-lv .arrow { flex: none; width: 24px; height: 24px; padding: 0; font-size: 11px; }
+.card-lv .lv-txt { flex: 1 1 auto; min-width: 20px; display: flex; flex-direction: column; align-items: center; font: 900 10px/1.1 'Nunito', sans-serif; overflow: hidden; }
+.card-lv .lv-txt b { font: 18px/1 'Lilita One', sans-serif; color: var(--tc); }
+.card-lv .lv-txt small { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 10px; }
+/* trinca em tela estreita: setas menores, só o número */
+.side[data-n="3"] .card-lv { gap: 1px; padding: 2px; }
+.side[data-n="3"] .card-lv .arrow { width: 18px; height: 18px; font-size: 9px; }
+@media (max-width: 1100px) { .side[data-n="3"] .card-lv .lv-txt small { display: none; } }
+.card.lv-focus { outline: 4px solid var(--tc); outline-offset: 2px; animation: cardPulse 0.9s infinite alternate; --pc: var(--tc); }
+.lv-help { margin: 4px 0 0; font-size: 12px; opacity: 0.85; }
+.lv-go { display: block; width: 100%; margin-top: 8px; padding: 6px; border-radius: 10px; border: 3px solid var(--ink); background: var(--sun); color: var(--ink); font: 18px 'Lilita One', sans-serif; cursor: pointer; }
+.lv-go[hidden] { display: none; }
+/* Modo Tilt: especial de ataque e de defesa de cada atleta */
+.card-tsp { display: flex; flex-direction: column; gap: 3px; margin-top: 6px; }
+.card-tsp[hidden] { display: none; }
+.tsp-row { display: flex; align-items: center; gap: 3px; padding: 2px; border-radius: 9px; background: rgba(0, 0, 0, 0.3); border: 2px solid transparent; }
+.tsp-row.focus { border-color: #ffc21a; animation: cardPulse 0.9s infinite alternate; }
+.tsp-row .arrow { flex: none; width: 22px; height: 22px; padding: 0; font-size: 10px; }
+.tsp-txt { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; align-items: center; font: 900 9px/1.1 'Nunito', sans-serif; overflow: hidden; }
+.tsp-txt b { font: 13px/1.1 'Lilita One', sans-serif; color: #ffc21a; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+body.art-pincel .tsp-row, body.art-caneta .tsp-row { background: rgba(255, 255, 255, 0.6); color: var(--ink); }
+body.art-pincel .tsp-txt b, body.art-caneta .tsp-txt b { color: var(--ink); }
+body.art-pincel .card-lv, body.art-caneta .card-lv { background: rgba(255, 255, 255, 0.6); color: var(--ink); }
+body.art-pincel .card-lv .lv-txt b, body.art-caneta .card-lv .lv-txt b { color: var(--ink); text-shadow: 1px 1px 0 var(--tc); }
+.sel-hint { margin: 8px 0 0; font-size: 13px; font-weight: 800; opacity: 0.9; }
+
+/* VS */
+.vs-screen { position: absolute; inset: 0; display: none; align-items: center; justify-content: space-between; padding: 0 4vw; }
+.select.vs .vs-screen { display: flex; }
+.vs-team { display: flex; gap: 1vw; }
+.vs-team.left { animation: vsL 0.35s cubic-bezier(.2, 1.4, .4, 1); }
+.vs-team.right { animation: vsR 0.35s cubic-bezier(.2, 1.4, .4, 1); }
+.vs-team.right img { transform: scaleX(-1); }
+@keyframes vsL { from { transform: translateX(-60vw); } }
+@keyframes vsR { from { transform: translateX(60vw); } }
+.vs-f { display: flex; flex-direction: column; align-items: center; }
+.vs-f img { width: clamp(120px, 17vw, 260px); filter: drop-shadow(0 8px 0 rgba(0, 0, 0, 0.5)); }
+.vs-f b { font: clamp(22px, 2.6vw, 38px) 'Lilita One', sans-serif; -webkit-text-stroke: 2px var(--ink); }
+.vs-mid { display: flex; flex-direction: column; align-items: center; }
+.vs-mid b { font: clamp(80px, 14vw, 200px)/1 'Lilita One', sans-serif; color: var(--sun); -webkit-text-stroke: 5px var(--ink); text-shadow: 0 10px 0 var(--ink), 0 0 50px #ff5a3c; animation: vsPop 0.5s cubic-bezier(.2, 1.8, .4, 1); }
+.vs-mid span { font: 900 clamp(14px, 1.6vw, 20px) 'Nunito', sans-serif; letter-spacing: 6px; opacity: 0.9; }
+@keyframes vsPop { from { transform: scale(3) rotate(-12deg); opacity: 0; } }
+@media (max-width: 900px) {
+  .sel-main { grid-template-columns: 1fr; overflow-y: auto; }
+  .side { grid-template-columns: 1fr 1fr; }
+  .side[data-n="3"] { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .side[data-n="1"] { grid-template-columns: minmax(0, 250px); }
+  .grid-wrap { order: -1; }
+}
+body.art-pincel .grid-label { color: var(--ink); text-shadow: none; }
+body.art-pincel .sl.own { background: repeating-linear-gradient(45deg, #eef4ff 0 6px, #dfe9ff 6px 12px); border-color: rgba(29, 92, 255, 0.35); }
+body.art-pincel .sl.own b { color: rgba(29, 92, 255, 0.45); }
+body.art-pincel .sl.own span { color: var(--ink); background: rgba(255, 255, 255, 0.7); }
+
+/* ================= 4.0 Modo História ================= */
+#hud.story-on > :not(.story):not(.overlay) { display: none !important; }
+.story { position: absolute; inset: 0; display: none; pointer-events: none; color: #fff; font-family: 'Nunito', sans-serif; }
+.story.show { display: block; }
+.st-night { position: absolute; inset: 0; background: #0b0a2a; opacity: 0; pointer-events: none; }
+.st-bar { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 6px 12px; max-width: calc(100vw - 24px); padding: 7px 14px; font-weight: 800; font-size: 15px; background: rgba(29, 26, 43, 0.82); border: 3px solid var(--ink, #1d1a22); border-radius: 14px; }
+.st-bar b { font-family: 'Lilita One', sans-serif; font-weight: 400; font-size: 18px; }
+.st-clock { color: var(--sun, #ffd21a); }
+.st-money { color: #7dff9c; }
+.st-c { display: inline-flex; align-items: center; gap: 4px; }
+.st-m { display: inline-block; width: 54px; height: 8px; border-radius: 5px; background: rgba(255, 255, 255, 0.2); overflow: hidden; }
+.st-m i { display: block; height: 100%; background: #7dd3ff; }
+.st-m.f i { background: #ffb347; } .st-m.s i { background: #5ab8ff; } .st-m.p i { background: #7dff9c; }
+.st-m.hot i { background: #ff4d6d; }
+.st-bar em { font-style: normal; font-size: 12px; padding: 1px 7px; border-radius: 8px; background: #ff4d6d; }
+.st-goal { position: absolute; top: 64px; left: 50%; transform: translateX(-50%); display: none; max-width: calc(100vw - 24px); padding: 5px 12px; font-weight: 800; font-size: 14px; text-align: center; background: rgba(255, 210, 26, 0.92); color: #1d1a22; border-radius: 10px; }
+.st-goal.show { display: block; }
+.st-prompt { position: absolute; left: 50%; bottom: 120px; transform: translateX(-50%); display: none; padding: 7px 14px; font: 18px 'Lilita One', sans-serif; background: rgba(29, 26, 43, 0.88); border: 3px solid var(--sun, #ffd21a); border-radius: 12px; }
+.st-prompt.show { display: block; }
+.st-prompt svg, .st-prompt img { vertical-align: middle; }
+.st-dialog { position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%); display: none; gap: 12px; align-items: flex-start; width: min(760px, calc(100vw - 24px)); padding: 12px 16px; background: rgba(255, 255, 255, 0.96); color: #1d1a22; border: 4px solid #1d1a22; border-radius: 16px; box-shadow: 4px 6px 0 #1d1a22; pointer-events: auto; cursor: pointer; }
+.st-dialog.show { display: flex; }
+.st-dialog img { width: 86px; height: 86px; object-fit: cover; object-position: 50% 10%; border-radius: 12px; background: #ffe7a3; flex: none; }
+.st-dialog b { font: 22px 'Lilita One', sans-serif; }
+.st-dialog p { margin: 2px 0 6px; font: 800 18px/1.35 'Nunito', sans-serif; }
+.st-dialog small { font-weight: 800; font-size: 12px; opacity: 0.6; }
+.st-dialog small svg, .st-dialog small img { width: auto; height: 16px; vertical-align: middle; background: none; }
+.st-dialog.narr { background: rgba(29, 26, 43, 0.94); color: #fff; border-color: var(--sun, #ffd21a); }
+.st-dialog.narr p { font-style: italic; }
+.st-panel { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); display: none; flex-direction: column; width: min(560px, calc(100vw - 24px)); max-height: calc(100vh - 110px); padding: 14px 16px; background: rgba(255, 255, 255, 0.97); color: #1d1a22; border: 4px solid #1d1a22; border-radius: 16px; box-shadow: 5px 7px 0 #1d1a22; pointer-events: auto; }
+.st-panel.show { display: flex; }
+.st-panel.grid { width: min(820px, calc(100vw - 24px)); }
+.st-panel h3 { margin: 0; font: 26px 'Lilita One', sans-serif; }
+.st-panel .sub { margin: 2px 0 8px; font-weight: 800; font-size: 14px; opacity: 0.75; }
+.st-items { display: flex; flex-direction: column; gap: 6px; overflow-y: auto; padding: 4px; }
+.st-panel.grid .st-items { display: grid; grid-template-columns: repeat(5, 1fr); }
+.st-item { text-align: left; padding: 8px 12px; font: 18px 'Lilita One', sans-serif; color: #1d1a22; background: #f2f7ff; border: 3px solid rgba(29, 26, 34, 0.25); border-radius: 12px; cursor: pointer; }
+.st-panel.grid .st-item { text-align: center; padding: 6px; font-size: 15px; }
+.st-item small { display: block; font: 800 12px/1.3 'Nunito', sans-serif; opacity: 0.7; }
+.st-item.focus { background: var(--sun, #ffd21a); border-color: #1d1a22; box-shadow: 3px 4px 0 #1d1a22; }
+.st-item.on { border-color: #1fbf6a; }
+.st-item.off { opacity: 0.4; cursor: default; }
+.st-hint { margin: 8px 0 0; font-weight: 800; font-size: 12px; opacity: 0.6; }
+.st-hint svg, .st-hint img { height: 15px; width: auto; vertical-align: middle; }
+.st-fade { position: absolute; inset: 0; display: grid; place-items: center; background: #0b0a1a; opacity: 0; transition: opacity 0.6s; pointer-events: none; }
+.st-fade.show { opacity: 1; }
+.st-fade p { font: clamp(26px, 5vw, 46px) 'Lilita One', sans-serif; color: #fff; }
+/* 4.0 etapa 3: interior do lugar atrás do menu; quantidade na mochila */
+.st-bg { position: absolute; inset: 0; background: center / cover no-repeat; opacity: 0; transition: opacity 0.25s; pointer-events: none; }
+.st-bg.show { opacity: 1; }
+.st-item .qty { float: right; margin-left: 10px; padding: 2px 8px; font: 900 12px 'Nunito', sans-serif; font-style: normal; color: #fff; background: #1d5cff; border-radius: 8px; }
+.st-item .qty.zero { background: rgba(29, 26, 34, 0.35); }
+/* 4.0: tela de versus do Modo História */
+.svs { display: flex; align-items: center; justify-content: center; gap: clamp(10px, 3vw, 40px); margin-top: 6px; }
+.svs-team { display: flex; gap: 8px; }
+.svs figure { margin: 0; text-align: center; }
+.svs img { width: clamp(70px, 11vw, 140px); height: clamp(70px, 11vw, 140px); object-fit: cover; object-position: 50% 12%; border-radius: 14px; background: linear-gradient(160deg, #4b2c86, #22123f); border: 3px solid var(--ink, #1d1a22); }
+.svs-team.r img { background: linear-gradient(160deg, #8a1f2c, #3a0d1a); }
+.svs figcaption { font: 900 13px 'Nunito', sans-serif; }
+.svs-mid { display: flex; flex-direction: column; align-items: center; max-width: 260px; text-align: center; }
+.svs-mid b { font: clamp(40px, 7vw, 80px) 'Lilita One', sans-serif; color: var(--sun, #ffd21a); -webkit-text-stroke: 3px var(--ink, #1d1a22); }
+.svs-mid span { font: 18px 'Lilita One', sans-serif; }
+.svs-mid small { font: 800 12px 'Nunito', sans-serif; opacity: 0.85; }
+
+/* 4.0: ícone dos itens (emoji ou imagem enviada no editor de itens) nas lojas, na mochila e nas pausas */
+.it-ico { display: inline-block; width: 1.5em; height: 1.5em; margin-right: 0.35em; vertical-align: -0.35em; text-align: center; line-height: 1.5em; font-style: normal; object-fit: contain; }
+
+/* ================= 5.0: painel dos especiais na seleção ================= */
+.grid-wrap { position: relative; }
+.select.sp-phase .grid-wrap > .grid, .select.sp-phase .grid-wrap > .grid-label, .select.sp-phase .grid-wrap > .lv-panel { visibility: hidden; }
+.sp-panel { position: absolute; inset: 0; z-index: 5; display: flex; flex-direction: column; gap: 8px; padding: 14px 16px; overflow: auto;
+  background: rgba(20, 16, 34, 0.94); color: #fff; border: 4px solid var(--pc, #ffc21a); border-radius: 18px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45); }
+.sp-panel.left { right: 50%; margin-right: 4px; }
+.sp-panel.right { left: 50%; margin-left: 4px; }
+.sp-panel.done { opacity: 0.7; }
+.spp-head { display: flex; align-items: center; gap: 12px; }
+.spp-head img { width: 64px; height: 64px; border-radius: 12px; background: rgba(255, 255, 255, 0.12); object-fit: cover; flex: none; }
+.spp-head small { font: 900 12px 'Nunito', sans-serif; letter-spacing: 1px; text-transform: uppercase; opacity: 0.8; }
+.spp-head h3 { margin: 0; font: 28px/1 'Lilita One', sans-serif; }
+.spp-head h3 small { font: 800 14px 'Nunito', sans-serif; text-transform: none; letter-spacing: 0; opacity: 0.8; }
+.spp-row { display: grid; grid-template-columns: minmax(130px, 34%) auto minmax(0, 1fr) auto; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 12px;
+  background: rgba(255, 255, 255, 0.08); border: 3px solid transparent; cursor: pointer; }
+.spp-row.on { background: #ffc21a; color: #1a1622; border-color: #fff; box-shadow: 0 0 0 3px #ffc21a, 0 0 18px rgba(255, 194, 26, 0.6); }
+.spp-row.ataque .spp-lbl::before { content: '⚔ '; }
+.spp-row.defesa .spp-lbl::before { content: '🛡 '; }
+.spp-lbl { font: 900 15px/1.15 'Nunito', sans-serif; display: flex; flex-direction: column; }
+.spp-lbl small { font: 800 11px/1.2 'Nunito', sans-serif; opacity: 0.85; display: inline-flex; flex-wrap: wrap; gap: 3px; align-items: center; }
+.spp-val { font: 22px/1.05 'Lilita One', sans-serif; text-align: center; display: flex; flex-direction: column; gap: 3px; }
+.spp-val small { font: 700 12px/1.25 'Nunito', sans-serif; }
+.spp-row .arrow { width: 34px; height: 34px; font-size: 14px; }
+.spp-foot { margin: auto 0 0; font: 800 13px 'Nunito', sans-serif; opacity: 0.9; display: flex; gap: 4px; align-items: center; flex-wrap: wrap; }
+@keyframes sppPulse { to { box-shadow: 0 0 0 3px #ffc21a, 0 0 4px rgba(255, 194, 26, 0.3); } }
+@media (prefers-reduced-motion: no-preference) { .spp-row.on { animation: sppPulse 0.8s infinite alternate; } }
+
+/* 5.0: diagnóstico da CPU */
+.cpu-debug { position: fixed; inset: 0; pointer-events: none; z-index: 50; font: 800 11px/1.25 'Nunito', sans-serif; }
+.cpu-debug .cd-top { position: absolute; left: 8px; bottom: 8px; background: rgba(0, 0, 0, 0.75); color: #9bffb0; padding: 4px 8px; border-radius: 6px; }
+.cpu-debug .cd-tag { position: absolute; transform: translate(-50%, -100%); background: rgba(0, 0, 0, 0.72); color: #fff; padding: 3px 6px; border-radius: 6px; white-space: nowrap; text-align: center; }
+
+/* ============ 5.0 estilo "Colagem" (body.art-colagem): recortes de revista ============ */
+/* cada peça de interface é um papel recortado colado: borda branca de tesoura, sombra curta,
+   cores de tinta de revista (vermelho, rosa-choque, laranja, ouro velho, azul-marinho, amarelo-neon) */
+body.art-colagem {
+  --c-red: #d9261c; --c-pink: #ff3d8b; --c-orange: #ff7a2e; --c-gold: #b8952a; --c-navy: #1f2a66; --c-neon: #e3f230;
+  --c-paper: #f4ecd8; --c-ink: #1a1622; --c-cut: #fbf6e8;
+  background: var(--c-navy);
+}
+body.art-colagem #hud { font-family: 'Lilita One', 'Nunito', sans-serif; }
+body.art-colagem .team, body.art-colagem .formation, body.art-colagem .ticker, body.art-colagem .legend, body.art-colagem .slow {
+  background: var(--c-paper); color: var(--c-ink); border: 4px solid var(--c-cut); border-radius: 2px;
+  box-shadow: 4px 5px 0 rgba(40, 18, 10, 0.45); transform: rotate(-0.8deg);
+}
+body.art-colagem .t1 { transform: rotate(0.9deg); }
+body.art-colagem .score { background: var(--c-red); color: var(--c-cut); border: 4px solid var(--c-cut); border-radius: 2px; box-shadow: 4px 5px 0 rgba(40, 18, 10, 0.45); transform: rotate(-1.5deg); }
+body.art-colagem .score em { color: var(--c-neon); }
+body.art-colagem .touches b { border-color: var(--c-ink); }
+body.art-colagem .touches b.on { background: var(--c-pink); border-color: var(--c-ink); }
+body.art-colagem .formation b, body.art-colagem .formation small { color: var(--c-ink); }
+body.art-colagem .legend b { color: var(--c-red); }
+body.art-colagem .callout { color: var(--c-neon); -webkit-text-stroke: 3px var(--c-ink); text-shadow: 5px 6px 0 var(--c-red), 9px 11px 0 var(--c-ink); transform: rotate(-4deg); }
+body.art-colagem .callout.bad { color: var(--c-pink); }
+/* menus: retícula de gráfica por cima de uma folha creme */
+body.art-colagem .overlay { color: var(--c-ink); background:
+  radial-gradient(circle, rgba(31, 42, 102, 0.16) 1.4px, transparent 1.8px) 0 0 / 9px 9px,
+  linear-gradient(160deg, rgba(244, 236, 216, 0.9), rgba(233, 207, 154, 0.88)); }
+body.art-colagem .overlay h1, body.art-colagem .overlay h2 {
+  font-family: 'Lilita One', sans-serif; color: var(--c-ink); -webkit-text-stroke: 3px var(--c-red); text-shadow: 6px 6px 0 var(--c-red);
+  letter-spacing: 1px; transform: rotate(-2deg);
+}
+/* a primeira palavra vira etiqueta preta de capa de revista */
+body.art-colagem .overlay h1 span, body.art-colagem .overlay h2.vis-title span {
+  display: inline-block; background: var(--c-ink); color: var(--c-cut); -webkit-text-stroke: 0; text-shadow: none;
+  padding: 0 0.18em; margin-right: 0.1em; border-radius: 0.12em; transform: rotate(3deg); box-shadow: 5px 6px 0 var(--c-gold);
+}
+body.art-colagem .overlay .sub, body.art-colagem .menu-hint, body.art-colagem .pad-test, body.art-colagem .pads-status, body.art-colagem .tips { color: var(--c-ink); }
+body.art-colagem .overlay .sub { display: inline-block; background: var(--c-neon); padding: 3px 10px; transform: rotate(-1deg); box-shadow: 3px 3px 0 rgba(40, 18, 10, 0.35); }
+body.art-colagem .menu-btn, body.art-colagem .menu-row {
+  color: var(--c-ink); background: var(--c-paper); border: 5px solid var(--c-cut); border-radius: 2px;
+  box-shadow: 3px 4px 0 rgba(40, 18, 10, 0.3); font-family: 'Lilita One', sans-serif; transform: rotate(-0.4deg);
+}
+body.art-colagem .menu-list > :nth-child(even) { transform: rotate(0.4deg); }
+body.art-colagem .menu-list > :nth-child(6n+1) { background: var(--c-paper); }
+body.art-colagem .menu-list > :nth-child(6n+2) { background: #ffd3b0; }
+body.art-colagem .menu-list > :nth-child(6n+3) { background: #e9cf9a; }
+body.art-colagem .menu-list > :nth-child(6n+4) { background: #ffc2d6; }
+body.art-colagem .menu-list > :nth-child(6n+5) { background: #c9cbf2; }
+body.art-colagem .menu-list > :nth-child(6n+6) { background: #e8d08a; }
+body.art-colagem .menu-btn small, body.art-colagem .row-label small { font-family: 'Nunito', sans-serif; }
+body.art-colagem .menu-btn.focus, body.art-colagem .menu-row.focus {
+  background: var(--c-neon); color: var(--c-ink); border-color: var(--c-cut); transform: rotate(-1.5deg) scale(1.04); box-shadow: 7px 8px 0 var(--c-ink);
+}
+body.art-colagem .menu-btn.go { background: var(--c-red); color: var(--c-cut); }
+body.art-colagem .menu-btn.go.focus { background: var(--c-neon); color: var(--c-ink); }
+body.art-colagem .opt { color: var(--c-ink); background: transparent; border-radius: 2px; }
+body.art-colagem .opt.on { border-color: var(--c-ink); background: var(--c-cut); }
+body.art-colagem .menu-btn .tip { background: var(--c-ink); border-color: var(--c-neon); border-radius: 2px; }
+body.art-colagem .menu-btn .tip::before { border-right-color: var(--c-neon); }
+/* tela do Visual Colagem */
+.vis-cast { text-align: left; gap: 12px; }
+.vis-cast img { width: 76px; height: 96px; margin: -10px 0; object-fit: none; object-position: 50% 22%; background: #fbf6e8; border: 3px solid #fbf6e8; box-shadow: 3px 4px 0 rgba(40, 18, 10, 0.35); transform: rotate(-3deg); }
+.vis-cast small { max-width: 420px; }
+.menu-btn.vis-idea { align-items: flex-start; text-align: left; }
+.menu-btn.vis-idea small { line-height: 1.35; }
+.menu-btn.vis-idea em { position: static; color: inherit; font-size: inherit; font-style: italic; }
+
+/* ============ 5.0 menus: navegação separada e nada de rolagem ============ */
+.overlay { overflow: hidden !important; }
+.menu-fit { display: flex; flex-direction: column; align-items: center; transform-origin: center center; max-width: 100%; }
+.menu-nav { display: flex; justify-content: space-between; align-items: center; gap: 16px; width: min(560px, calc(100vw - 32px)); margin: 6px 0 2px; padding-top: 10px; border-top: 2px dashed rgba(255, 255, 255, 0.25); }
+.menu-nav > span { display: flex; gap: 10px; }
+.menu-nav .menu-btn { min-height: 46px; padding: 6px 22px; }
+.menu-nav .nav-next { background: var(--good, #1fbf6a); border-color: var(--ink); color: #fff; }
+.menu-nav .nav-next.focus { background: var(--sun); color: var(--ink); }
+.menu-nav .nav-back { opacity: 0.92; }
+.menu-list.grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.menu-list.grid2 .menu-btn { min-height: 44px; padding: 6px 12px; font-size: 18px; }
+.menu-list.grid2 .menu-btn small { font-size: 11px; }
+.overlay .sub.tw-who { display: inline-flex; align-items: center; gap: 8px; }
+.overlay .sub.tw-who img { width: 42px; height: 42px; object-fit: none; object-position: 50% 22%; border-radius: 50%; background: rgba(255,255,255,.15); }
+body.art-colagem .menu-nav { border-top-color: rgba(26, 22, 34, 0.35); }
+body.art-colagem .menu-nav .nav-next { background: var(--c-red); color: var(--c-cut); }
+body.art-colagem .menu-nav .nav-next.focus { background: var(--c-neon); color: var(--c-ink); }
+/* grades (consumíveis, pausa técnica, atletas): botões em linha, compactos, 3 colunas */
+.menu-list.grid2 { grid-template-columns: repeat(3, minmax(0, 1fr)); min-width: min(780px, calc(100vw - 32px)); }
+.menu-list.grid2 .menu-btn { flex-direction: row; flex-wrap: wrap; align-items: center; justify-content: flex-start; text-align: left; gap: 2px 8px; min-height: 40px; padding: 5px 10px; font-size: 17px; line-height: 1.1; }
+.menu-list.grid2 .menu-btn small { flex-basis: 100%; margin: 0; }
+.menu-list.grid2 .menu-btn img, .menu-list.grid2 .menu-btn svg { width: 26px; height: 26px; }
+.menu-list.grid2 .vis-cast small, .menu-list.grid2.vis small { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+/* 5.0: barra de especial em duas partes: 50% (mais grossa; marcada quando enche) e 100% */
+.pm img.face { width: 26px; height: 26px; margin: -5px 0; object-fit: cover; object-position: center; border-radius: 50%; background: rgba(255, 255, 255, 0.85); border: 2px solid rgba(26, 22, 34, 0.7); }
+.pm .bar2 { flex: 1; display: flex; align-items: center; gap: 4px; }
+.t1 .pm .bar2, .board.swapped .t0 .pm .bar2 { flex-direction: row-reverse; }
+.board.swapped .t1 .pm .bar2 { flex-direction: row; }
+.pm .seg { flex: 1; display: flex; background: rgba(255, 255, 255, 0.2); border-radius: 6px; overflow: hidden; }
+.t1 .pm .seg, .board.swapped .t0 .pm .seg { justify-content: flex-end; }
+.board.swapped .t1 .pm .seg { justify-content: flex-start; }
+.pm .seg.s50 { height: 11px; }
+.pm .seg.s100 { height: 7px; }
+.pm .seg i { display: block; height: 100%; width: 0; transition: width 0.2s; }
+.pm.half .seg.s50 { box-shadow: 0 0 0 2px #fff, 0 0 8px #ffd21a; }
+.pm.full .seg i { animation: glow 0.5s infinite alternate; }
+body.art-colagem .pm .seg { background: rgba(26, 22, 34, 0.14); }
+body.art-colagem .pm.half .seg.s50 { box-shadow: 0 0 0 2px var(--c-ink, #1a1622); }
+
+/* ============ 5.0 Modo História: legenda de narração e balões de fala (quadrinho) ============ */
+.st-dialog.narr, .st-dialog.bal { background: none; border: 0; box-shadow: none; padding: 0; color: #1d1a22; }
+/* narração: legenda retangular no centro de baixo, como num gibi */
+.st-dialog.narr { justify-content: center; width: min(680px, calc(100vw - 24px)); bottom: 22px; }
+.st-dialog.narr .st-cap { background: #ffe66d; border: 3px solid #1d1a22; box-shadow: 4px 5px 0 #1d1a22; padding: 10px 22px 8px; text-align: center; transform: rotate(-0.6deg); }
+.st-dialog.narr .st-cap p { margin: 0 0 4px; font: italic 800 18px/1.35 'Nunito', sans-serif; color: #1d1a22; }
+/* fala: rosto de quem fala no canto e o balão com o rabinho apontando para ele */
+.st-dialog.bal { width: min(820px, calc(100vw - 24px)); align-items: flex-end; gap: 4px; bottom: 14px; }
+.st-dialog.bal.r { flex-direction: row-reverse; }
+.st-dialog.bal .st-face { width: 92px; height: 92px; flex: none; border-radius: 50%; background: #fff7e0; border: 3px solid #1d1a22; box-shadow: 3px 4px 0 #1d1a22; object-fit: contain; }
+.st-dialog.bal .st-bubble { position: relative; flex: 1; margin: 0 14px 46px; background: #fff; border: 3px solid #1d1a22; border-radius: 32px; padding: 12px 24px 8px; box-shadow: 4px 5px 0 rgba(29, 26, 34, 0.85); }
+.st-dialog.bal .st-bubble::before, .st-dialog.bal .st-bubble::after { content: ''; position: absolute; bottom: -26px; width: 0; height: 0; border-style: solid; }
+.st-dialog.bal.l .st-bubble::before { left: 18px; border-width: 26px 30px 0 0; border-color: #1d1a22 transparent transparent transparent; transform: skewX(-25deg); }
+.st-dialog.bal.l .st-bubble::after { left: 23px; bottom: -19px; border-width: 20px 22px 0 0; border-color: #fff transparent transparent transparent; transform: skewX(-25deg); }
+.st-dialog.bal.r .st-bubble::before { right: 18px; border-width: 26px 0 0 30px; border-color: #1d1a22 transparent transparent transparent; transform: skewX(25deg); }
+.st-dialog.bal.r .st-bubble::after { right: 23px; bottom: -19px; border-width: 20px 0 0 22px; border-color: #fff transparent transparent transparent; transform: skewX(25deg); }
+.st-dialog.bal b { font: 20px 'Lilita One', sans-serif; }
+.st-dialog.bal p { margin: 2px 0 4px; font: 800 18px/1.35 'Nunito', sans-serif; }
+.st-dialog.narr small, .st-dialog.bal small { font-weight: 800; font-size: 12px; opacity: 0.6; }
+/* 5.0: painel de especiais — Voltar e Avançar/Pronto! separados das escolhas */
+.spp-nav { display: flex; justify-content: space-between; align-items: center; margin-top: 10px; padding-top: 8px; border-top: 2px dashed rgba(255, 255, 255, 0.25); }
+.spp-nb { display: inline-flex; align-items: center; gap: 6px; font: 18px 'Lilita One', sans-serif; padding: 6px 14px; border-radius: 10px; border: 3px solid rgba(255, 255, 255, 0.35); }
+.spp-nb.next { background: var(--good, #1fbf6a); border-color: var(--ink, #1d1a2b); color: #fff; }
+.spp-wait { font: 18px 'Lilita One', sans-serif; color: var(--sun, #ffd21a); margin: 0 auto; }
+
+/* ============ 5.0: nome do golpe no lado do time · títulos centralizados · ordem das camadas ============ */
+.team .mvname { margin-top: 5px; min-height: 22px; font: clamp(13px, 1.5vw, 17px) 'Lilita One', sans-serif; color: var(--sun, #ffd21a); letter-spacing: 0.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; opacity: 0; transform: translateY(-4px); transition: opacity 0.15s, transform 0.15s; }
+.team .mvname.show { opacity: 1; transform: none; }
+body.art-colagem .team .mvname { color: var(--c-red, #d9261c); }
+body.art-caneta .team .mvname { color: var(--pen-red); font-family: 'Caveat', cursive; font-size: 20px; }
+/* camadas da partida: placar em cima, título no meio por cima de tudo do jogo, legendas embaixo */
+.board { z-index: 3; }
+.callout { z-index: 6; text-align: center; }
+.ticker { z-index: 4; }
+.legend, .formation { z-index: 2; }
+/* o visual Colagem inclina os papéis; a inclinação não pode tirar o título do centro */
+body.art-colagem .callout { transform: translate(-50%, -50%) rotate(-4deg); }
+body.art-colagem .ticker { transform: translateX(-50%) scale(0.9) rotate(-0.8deg); }
+body.art-colagem .ticker.show { transform: translateX(-50%) rotate(-0.8deg); }
+body.art-colagem .legend { transform: translate(-50%, 6px) rotate(-0.5deg); }
+body.art-colagem .legend.show { transform: translate(-50%, 0) rotate(-0.5deg); }
+
+/* ============ 5.0 menus: o item escolhido fica por cima e quase reto; os outros voltam ao normal ============ */
+.menu-btn, .menu-row { position: relative; z-index: 1; transition: transform 0.12s, box-shadow 0.12s; }
+.menu-btn.focus, .menu-row.focus { z-index: 5; }
+body.art-colagem .menu-btn.focus, body.art-colagem .menu-row.focus { transform: rotate(-0.4deg) scale(1.04); }
+body.art-pincel .menu-btn.focus, body.art-pincel .menu-row.focus { transform: translate(-1px, -2px) rotate(-0.3deg); }
+body.art-colagem .slow { transform: translateX(-50%) rotate(-0.8deg); }
+/* avisos (pausa técnica, ajudas…) logo abaixo do placar, sem cobrir o nome dos golpes dos times */
+.ticker { top: auto; bottom: 22%; max-width: min(720px, calc(100vw - 32px)); text-align: center; white-space: normal; }
+
+/* ============ 5.0: nada de rolagem em nenhuma tela ============ */
+.sp-panel, .st-panel, .cr-form { overflow: hidden !important; }
+.st-items { overflow: visible !important; }
+.fit-in { display: flex; flex-direction: column; gap: 8px; }
+.st-panel .fit-in { gap: 0; }
+.select.sp-phase .grid-wrap { align-self: stretch; }
+.select.sp-phase .sel-hint, .select.sp-phase .sel-sub { display: none; }
+@media (max-width: 900px) { .sel-main { overflow: hidden !important; } }
+/* Criar Jogador: etapa e barra Voltar / Avançar / Pronto! */
+.cr-step { margin: 0 0 2px; font: 800 13px 'Nunito', sans-serif; letter-spacing: 1px; text-transform: uppercase; opacity: 0.85; }
+.cr-step b { color: var(--sun); }
+.cr-nav { display: flex; justify-content: space-between; gap: 12px; margin-top: 6px; padding-top: 8px; border-top: 2px dashed rgba(255, 255, 255, 0.25); }
+.cr-nav > span { display: flex; gap: 8px; }
+.cr-nav .cr-next { background: var(--good, #1fbf6a); color: #fff; border-color: var(--ink); }
+/* 5.0: na escolha dos especiais, o painel ocupa a tela toda abaixo do título (dois jogadores = metade cada) */
+.select.sp-phase .grid-wrap { position: static; }
+.select.sp-phase .side { visibility: hidden; }
+.select.sp-phase .sp-panel { inset: 64px 16px 10px 16px; padding: 10px 16px; }
+.select.sp-phase .sp-panel.left { right: 50%; margin-right: 4px; }
+.select.sp-phase .sp-panel.right { left: 50%; margin-left: 4px; }
+.sp-panel .fit-in { gap: 6px; }
+.spp-head img { width: 52px; height: 52px; }
+.spp-head h3 { font-size: 24px; }
+.spp-row { padding: 5px 10px; }
+.spp-row .arrow { width: 30px; height: 30px; }
+.spp-val { font-size: 20px; }
+.spp-nav { margin-top: 4px; padding-top: 6px; }
+/* camadas: telas cheias (seleção, criador, menus) sempre por cima do placar e dos avisos da partida */
+.select, .creator { z-index: 20; }
+.overlay { z-index: 30; }
+
+/* ============ 5.0: tela própria de especiais e níveis (sem rolagem, texto ≥ 14 px) ============ */
+.select.sp-phase .sel-screen { visibility: hidden; }
+.sp-screen { position: absolute; inset: 0; z-index: 6; display: flex; flex-direction: column; align-items: center; padding: 12px 16px; }
+.sp-screen .sel-sub { margin-bottom: 8px; }
+.sp-panels { flex: 1; min-height: 0; width: 100%; max-width: 1200px; display: flex; gap: 12px; }
+.select .sp-screen .sp-panel { position: relative !important; inset: auto !important; margin: 0 !important; flex: 1; min-width: 0; padding: 10px 14px; }
+.spp-row { grid-template-columns: minmax(150px, 34%) auto minmax(0, 1fr) auto; } /* 5.0: sem a coluna das barrinhas */
+.spp-lbl { font-size: 16px; }
+.spp-lbl small { font-size: 14px; }
+.spp-val { font-size: 21px; }
+.spp-bars { display: flex; flex-direction: column; gap: 3px; }
+.lvb { display: grid; grid-template-columns: 70px 1fr; align-items: center; gap: 6px; }
+.lvb em { font: 800 14px 'Nunito', sans-serif; font-style: normal; opacity: 0.9; }
+.lvb i { display: block; height: 8px; border-radius: 4px; background: rgba(255, 255, 255, 0.18); overflow: hidden; }
+.lvb b { display: block; height: 100%; background: linear-gradient(90deg, #39ff88, #ffd21a); }
+.spp-row.on .lvb i { background: rgba(26, 22, 34, 0.2); }
+.spp-row.on .lvb b { background: #1a1622; }
+.spp-desc { margin: 2px 0 0; min-height: 44px; padding: 8px 12px; border-radius: 10px; background: rgba(255, 255, 255, 0.08); font: 700 15px/1.35 'Nunito', sans-serif; }
+.spp-note { align-self: center; font: 16px 'Lilita One', sans-serif; color: #39ff88; }
+.spp-hold { position: relative; align-self: center; padding: 3px 12px; border-radius: 8px; overflow: hidden; font: 800 14px 'Nunito', sans-serif; background: rgba(255, 255, 255, 0.1); }
+.spp-hold i { position: absolute; left: 0; top: 0; bottom: 0; background: rgba(57, 255, 136, 0.35); }
+.spp-head small, .spp-head h3 small { font-size: 14px; }
+
+/* ============ 5.0: ergonomia dos menus ============ */
+/* texto mínimo de 14 px em todas as telas */
+.menu-btn small, .row-label small, .menu-list.grid2 .menu-btn small, .menu-hint, .overlay .sub, .pad-test, .pads-status, .tips, .cr-desc, .cr-hint, .cr-step, .st-item small, .st-hint, .st-panel .sub, .sel-sub, .sel-hint, .spp-head small, .formation small, .formation { font-size: max(14px, 1em) !important; }
+.menu-btn small, .row-label small, .menu-list.grid2 .menu-btn small { font-size: 14px !important; }
+.menu-hint, .overlay .sub, .cr-hint, .st-hint, .sel-hint { font-size: 14px !important; }
+/* aviso "✔ salvo" ao mudar uma opção */
+.row-note { margin-left: 8px; font: 800 14px 'Nunito', sans-serif; font-style: normal; color: #39ff88; animation: noteFade 1.2s forwards; }
+@keyframes noteFade { 0%, 60% { opacity: 1; } 100% { opacity: 0; } }
+.menu-nav .menu-btn { display: inline-flex; flex-direction: row; align-items: center; gap: 6px; }
+/* ============ 5.0: texto mínimo de 14 px (seleção, ícones de botões, dicas, criador) ============ */
+.ptag { font-size: 14px; line-height: 20px; }
+.pad-pill { font-size: 14px; line-height: 18px; }
+.menu-btn .tip { font-size: 14px; }
+.cr-pose, .cr-stats small, .cr-row .lbl { font-size: 14px; }
+.cr-small { font-size: 14px; }
+.st em { font-size: 14px; }
+.grid-label { font-size: 14px; }
+.sl span { font-size: 14px; line-height: 18px; }
+.diff-head, .lv-help { font-size: 14px; }
+.card-lv .arrow, .spp-row .arrow, .tsp-row .arrow { font-size: 14px; }
+.card-lv .lv-txt, .card-lv .lv-txt small { font-size: 14px; }
+/* os especiais agora têm tela própria: os cartões da seleção não repetem a lista (menos coisa na tela) */
+.card-tsp { display: none !important; }
+/* telas baixas (celular deitado): títulos e botões mais compactos, para caber sem encolher o texto */
+@media (max-height: 520px) {
+  .overlay h1 { font-size: 40px; -webkit-text-stroke-width: 2px; text-shadow: 0 4px 0 var(--ink); }
+  .overlay h2 { font-size: 30px; -webkit-text-stroke-width: 2px; text-shadow: 0 3px 0 var(--ink); }
+  .overlay .sub { margin: 4px 0 2px; }
+  .menu-list { gap: 5px; margin: 6px 0 4px; }
+  .menu-btn, .menu-row { min-height: 34px; padding: 3px 14px; font-size: 18px; }
+  .menu-nav { margin: 2px 0 0; padding-top: 4px; }
+  .menu-nav .menu-btn { min-height: 34px; }
+  .menu-hint { display: none; }
+  .menu-btn .tip { display: none; }
+  .sel-title, .cr-title { font-size: 26px !important; }
+  .sel-sub { margin: 0 0 4px; }
+}
+
+.pad-pill { font-size: 14px !important; }
+.controls b { font-size: 14px; }
+.opt-cur { display: inline-block; min-width: 150px; text-align: center; font: 18px 'Lilita One', sans-serif; padding: 0 6px; }
+.opt.cyc { min-width: 34px; }
+@media (max-height: 520px) {
+  .controls { grid-template-columns: repeat(4, minmax(0, 170px)); gap: 4px; }
+  .controls div { padding: 4px 50px 4px 8px; }
+  .select .sp-screen .sel-title { font-size: 22px !important; margin: 0; }
+  .sp-screen { padding: 6px 12px; }
+  .spp-head img { width: 36px; height: 36px; }
+  .spp-head h3 { font-size: 18px; }
+  .spp-row { padding: 2px 8px; grid-template-columns: minmax(120px, 34%) auto minmax(0, 1fr) auto; }
+  .spp-bars { flex-direction: row; gap: 6px; }
+  .lvb { grid-template-columns: auto 30px; gap: 3px; }
+  .spp-desc { min-height: 0; padding: 4px 10px; }
+  .spp-row .arrow { width: 26px; height: 26px; }
+  .cr-main { margin-top: 4px; }
+  .cr-row { min-height: 32px; padding: 2px 8px; }
+  .cr-hint, .cr-pose { display: none; }
+  .cr-preview canvas { max-width: 200px; }
+  .cr-nav { margin-top: 2px; padding-top: 4px; }
+}
+
+/* ============ 5.0: clima e status acima do placar · efeitos de consumível nos cantos com timer ============ */
+.board { top: 44px; }
+.topstatus { position: absolute; top: 8px; left: 50%; transform: translateX(-50%); display: none; gap: 8px; align-items: center; justify-content: center; flex-wrap: nowrap; max-width: 60vw; z-index: 3; font: 900 14px 'Nunito', sans-serif; white-space: nowrap; }
+.topstatus.show { display: flex; }
+.topstatus > span { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border-radius: 10px; background: rgba(34, 20, 51, 0.78); color: #fff; }
+.topstatus img { width: 22px; height: 22px; }
+.buffs { position: absolute; top: 8px; display: flex; gap: 8px; z-index: 4; }
+.buffs.left { left: 12px; }
+.buffs.right { right: 12px; flex-direction: row-reverse; }
+.bf { position: relative; display: flex; flex-direction: column; align-items: center; font: 900 14px 'Nunito', sans-serif; color: #fff; text-shadow: 0 1px 2px #000; }
+.bf-in { position: relative; width: 50px; height: 50px; border-radius: 50%; padding: 4px; background: conic-gradient(var(--c, #ffd21a) calc(var(--p) * 360deg), rgba(255, 255, 255, 0.18) 0); }
+.bf-in img { width: 100%; height: 100%; border-radius: 50%; background: #fff7e0; display: block; }
+.bf-in i { position: absolute; right: -6px; bottom: -4px; font-style: normal; font-size: 18px; line-height: 1; background: #1a1622; border-radius: 50%; padding: 3px; }
+.bf-in i .it-ico, .bf-in i img { width: 18px; height: 18px; }
+.bf b { margin-top: 2px; color: #39ff88; }
+.bf small { font-size: 14px; opacity: 0.85; }
+body.art-colagem .topstatus > span { background: var(--c-paper, #f4ecd8); color: var(--c-ink, #1a1622); border: 3px solid var(--c-cut, #fbf6e8); border-radius: 2px; }
+.topstatus { max-width: calc(100vw - 2 * 190px); flex-wrap: wrap; row-gap: 4px; }
+.topstatus > span.ts-pl { padding: 2px 6px; gap: 2px; }
+
+.card-who { font-size: 14px; }
+.ticker .pad-pill { font-size: 16px !important; }
+.menu-list.grid2 > .menu-row { grid-column: 1 / -1; }
+/* 5.0: tela baixa — linha do especial em 3 andares (rótulo / ◀ especial ▶ / barras) em vez de encolher */
+@media (max-height: 520px) {
+  .spp-row { grid-template-columns: 30px minmax(0, 1fr) 30px; row-gap: 2px; padding: 3px 8px; }
+  .spp-row .spp-lbl { grid-column: 1 / -1; flex-direction: row; flex-wrap: wrap; gap: 4px 8px; align-items: center; }
+  .spp-row .spp-bars { grid-column: 1 / -1; }
+  .spp-row .spp-val { text-align: center; }
+  .spp-head { margin-bottom: 2px; }
+}
+@media (max-height: 520px) {
+  .sp-panel { padding: 6px 10px; }
+  .sp-panel .fit-in { gap: 4px; }
+  .spp-desc { font-size: 14px; line-height: 1.25; padding: 2px 8px; margin: 0; }
+  .spp-nav { padding-top: 2px; margin-top: 0; }
+  .spp-nb { padding: 3px 12px; font-size: 16px; }
+  .spp-row .spp-val { line-height: 1.1; }
+}
+/* 5.0: descrição do especial no criador em linha própria, largura toda */
+.cr-row.tall { flex-wrap: wrap; }
+.cr-row.tall .cr-desc { flex-basis: 100%; text-align: center; font-size: 14px; margin-top: 0; }
+/* 5.0: pausa técnica em tela baixa — 4 colunas em vez de encolher */
+@media (max-height: 520px) {
+  .menu-list.grid2.tpick { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+  .menu-list.grid2.tpick .menu-btn { padding: 4px 8px; min-height: 0; }
+  .menu-list.grid2.tpick .menu-btn small { line-height: 1.15; }
+  .tw-who { margin: 2px 0 !important; }
+}
+/* 5.0: tela estreita — efeitos dos cantos numa linha só (anel menor, valor e tempo ao lado), sem cobrir o placar */
+@media (max-width: 1000px) {
+  .bf { flex-direction: row; gap: 4px; }
+  .bf-in { width: 38px; height: 38px; padding: 3px; }
+  .bf-in i { font-size: 14px; right: -5px; bottom: -3px; padding: 2px; }
+  .bf b { margin: 0; }
+  .buffs { gap: 6px; }
+  .board { top: 54px; }
+}
+
+/* ============ 5.0: Modo Campeonato, par ou ímpar e sets ============ */
+.score .setinfo { display: block; font: 900 14px 'Nunito', sans-serif; letter-spacing: .5px; opacity: .9; text-align: center; }
+.score .setinfo:empty { display: none; }
+.cp-face { width: 26px; height: 26px; border-radius: 50%; background: #fff7e0; vertical-align: middle; margin-right: 2px; }
+.opt-face { width: 24px; height: 24px; border-radius: 50%; background: #fff7e0; vertical-align: middle; margin-right: 6px; }
+.menu-btn.off { opacity: .55; }
+.toss-hands { display: flex; align-items: center; justify-content: center; gap: 18px; margin: 4px 0; }
+.toss-hands .hand { width: 90px; height: 108px; }
+.toss-hands .hand.flip { transform: scaleX(-1); }
+.toss-hands figure { margin: 0; display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.toss-hands figcaption { font: 900 16px 'Nunito', sans-serif; }
+.toss-n { font: 48px 'Lilita One', sans-serif; }
+.toss-sum { font: 28px 'Lilita One', sans-serif; white-space: nowrap; }
+.toss-coin { display: flex; justify-content: center; margin: 4px 0; perspective: 400px; }
+.toss-coin .coin { width: 104px; height: 104px; }
+.toss-coin .coin.spin { animation: coinSpin .9s linear infinite; }
+@keyframes coinSpin { from { transform: rotateY(0deg); } to { transform: rotateY(360deg); } }
+.toss-coin .coin:not(.spin) { animation: coinLand .6s ease-out; }
+@keyframes coinLand { from { transform: rotateY(720deg) scale(.7); } to { transform: rotateY(0deg) scale(1); } }
+.camp-groups { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin: 6px 0; text-align: left; }
+.camp-tbl { width: 100%; border-collapse: collapse; font: 800 15px 'Nunito', sans-serif; background: rgba(0, 0, 0, .25); border-radius: 10px; overflow: hidden; }
+.camp-tbl caption { font: 18px 'Lilita One', sans-serif; text-align: left; padding: 0 4px 2px; }
+.camp-tbl th { font: 900 14px 'Nunito', sans-serif; opacity: .8; padding: 3px 6px; text-align: center; }
+.camp-tbl th:first-child, .camp-tbl td:first-child { text-align: left; }
+.camp-tbl td { padding: 3px 6px; text-align: center; white-space: nowrap; }
+.camp-tbl td:first-child span { display: inline-block; max-width: 170px; overflow: hidden; text-overflow: ellipsis; vertical-align: middle; }
+.camp-tbl tr.up td:first-child { box-shadow: inset 4px 0 0 #39ff88; }
+.camp-tbl tr.me td { background: rgba(255, 210, 26, .28); }
+.camp-ko { display: flex; flex-direction: column; gap: 6px; margin: 6px 0; }
+.ko { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 8px; padding: 6px 10px; border-radius: 10px; background: rgba(0, 0, 0, .25); font: 800 15px 'Nunito', sans-serif; position: relative; }
+.ko small { position: absolute; left: 10px; top: -8px; font: 900 14px 'Nunito', sans-serif; }
+.ko span:last-child { text-align: right; }
+.ko b { font: 20px 'Lilita One', sans-serif; white-space: nowrap; }
+.ko.me { background: rgba(255, 210, 26, .28); }
+.camp-next { font: 800 16px 'Nunito', sans-serif; margin: 4px 0; }
+.camp-sets { display: flex; justify-content: center; gap: 14px; flex-wrap: wrap; font: 800 18px 'Nunito', sans-serif; }
+.camp-rules { text-align: left; margin: 6px auto; max-width: 760px; font: 800 15px/1.35 'Nunito', sans-serif; padding-left: 20px; }
+.podium { display: flex; align-items: flex-end; justify-content: center; gap: 10px; margin: 6px 0; }
+.pod { display: flex; flex-direction: column; align-items: center; gap: 2px; width: 180px; font: 800 15px 'Nunito', sans-serif; }
+.pod .pod-medal { font-size: 36px; line-height: 1; }
+.pod .cp-face { width: 40px; height: 40px; }
+.pod b { text-align: center; }
+.pod .pod-step { width: 100%; display: block; text-align: center; font: 30px 'Lilita One', sans-serif; background: rgba(255, 255, 255, .18); border-radius: 8px 8px 0 0; }
+.pod.p1 .pod-step { height: 80px; background: rgba(255, 210, 26, .55); }
+.pod.p2 .pod-step { height: 56px; }
+.pod.p3 .pod-step { height: 40px; }
+.pod.me b { color: #ffd21a; }
+.trophies { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 6px 0; }
+.tro { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 6px; border-radius: 10px; background: rgba(0, 0, 0, .25); font: 800 15px 'Nunito', sans-serif; }
+.tro.gold { background: rgba(255, 210, 26, .3); }
+.tro .tro-ico { font-size: 28px; line-height: 1; }
+.tro small { font-size: 14px; opacity: .85; }
+body.art-colagem .camp-tbl, body.art-colagem .ko, body.art-colagem .tro { background: rgba(26, 22, 34, .08); }
+@media (max-height: 520px) {
+  .toss-hands .hand { width: 60px; height: 72px; }
+  .toss-coin .coin { width: 64px; height: 64px; }
+  .toss-n { font-size: 34px; }
+  .camp-tbl td, .camp-tbl th { padding: 1px 4px; }
+  .camp-tbl .cp-face { width: 20px; height: 20px; }
+  .pod .pod-medal { font-size: 26px; }
+  .pod.p1 .pod-step { height: 50px; } .pod.p2 .pod-step { height: 36px; } .pod.p3 .pod-step { height: 26px; }
+  .camp-rules { font-size: 14px; line-height: 1.25; }
+}
+/* pódio legível em todos os estilos: ouro, prata e bronze com contorno; a sua dupla com fundo amarelo */
+.pod .pod-step { border: 3px solid var(--ink); border-bottom: 0; color: var(--ink); }
+.pod.p1 .pod-step { background: #ffd21a; }
+.pod.p2 .pod-step { background: #d7dde6; }
+.pod.p3 .pod-step { background: #e0a066; }
+.pod.me b { color: var(--ink); background: #ffd21a; padding: 0 6px; border-radius: 6px; }
+.pod small { font-size: 15px; font-weight: 900; }
+/* tela baixa: opções (Sim / Não) em duas colunas em vez de encolher */
+.menu-list.rows2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 10px; }
+.menu-list.rows2 .menu-row { min-width: 0; }
+.menu-list.rows2 .opts { flex-wrap: nowrap; flex: none; }
+.menu-list.rows2 .opt { padding-left: 10px; padding-right: 10px; }
+.menu-list.rows2 .row-label { min-width: 0; }
+/* 5.0 modo de controle Novo: anel do especial equipado (gira ao trocar: o novo vem na face de baixo) */
+.pm { flex-wrap: wrap; }
+.pm .spr { flex-basis: 100%; display: flex; flex-direction: column; gap: 2px; margin-top: 2px; }
+.pm .spr[hidden] { display: none; }
+@media (max-height: 520px) { .pm .spr { flex-direction: row; gap: 3px; } .spf { padding: 0 3px; gap: 2px; } } /* tela baixa: os dois anéis lado a lado (nome longo termina em …) */
+.sprg { flex: 1; min-width: 0; height: 22px; perspective: 260px; }
+.sprot { position: relative; display: block; height: 22px; transform-style: preserve-3d; transform: translateZ(-11px) rotateX(0deg); }
+.sprot.spin { transition: transform .52s cubic-bezier(.3, 1.45, .5, 1); transform: translateZ(-11px) rotateX(90deg); }
+.sprot.still { transition: none !important; }
+.spf { position: absolute; inset: 0; display: flex; align-items: center; gap: 4px; padding: 0 5px; overflow: hidden; white-space: nowrap; backface-visibility: hidden;
+  font: 800 14px 'Nunito', sans-serif; color: #fff; background: rgba(0, 0, 0, .45); border: 2px solid rgba(255, 210, 26, .7); border-radius: 7px; }
+.spf b { overflow: hidden; text-overflow: ellipsis; font-weight: 900; }
+.spf.spa { transform: rotateX(0deg) translateZ(11px); }
+.spf.spb { transform: rotateX(-90deg) translateZ(11px); background: rgba(255, 210, 26, .35); }
+/* 5.0: tela Jogadores — tipo de botões do controle */
+.jn-pst { display: flex; align-items: center; justify-content: center; gap: 4px; margin-top: 4px; font: 800 14px 'Nunito', sans-serif; }
+.jn-pst button { font: 800 14px 'Nunito', sans-serif; padding: 2px 8px; border-radius: 8px; border: 2px solid transparent; background: rgba(0, 0, 0, .2); color: inherit; cursor: pointer; opacity: .6; }
+.jn-pst button.on { border-color: var(--pc, #ffd21a); opacity: 1; background: rgba(0, 0, 0, .35); }
+/* 5.0: seleção — Y troca os especiais */
+.sel-hint .wsp { font: inherit; color: inherit; background: rgba(0, 0, 0, .25); border: 2px solid transparent; border-radius: 8px; padding: 0 6px; cursor: pointer; }
+.sel-hint .wsp.on { border-color: var(--sun); background: rgba(0, 0, 0, .45); }
+/* 5.0: Exibição (Partida / Mais opções) em tela baixa: 2 colunas, sem as descrições (o texto não encolhe) */
+@media (max-height: 520px) { .menu-list.compact .row-label small, .menu-list.compact .menu-btn small { display: none; } .menu-list.compact .opt-cur { min-width: 96px; } .menu-list.compact .menu-row, .menu-list.compact .menu-btn { min-height: 44px; } }
+/* 5.0: resumo do Novo campeonato */
+.camp-sum { list-style: none; margin: 8px auto 2px; padding: 0; display: flex; flex-direction: column; gap: 4px; font: 800 18px 'Nunito', sans-serif; text-align: center; }
+.camp-sum b { font-weight: 900; }
+@media (max-height: 520px) { .camp-sum { font-size: 15px; margin: 4px auto 0; gap: 2px; } }
+@media (max-height: 520px) { .menu-list.rows2.wide { gap: 4px 10px; } .menu-list.rows2.wide .opt { min-height: 32px; padding-top: 1px; padding-bottom: 1px; } } /* 5.0: Novo campeonato com 4 jogadores + Pontos do set: cabe sem encolher */
+
+/* ============ 5.0: tela Jogadores (J1 a J4) e anel de quem recebe ============ */
+.join { position: absolute; inset: 0; display: none; z-index: 40; pointer-events: auto; overflow: hidden; color: #fff;
+  background: radial-gradient(ellipse at center, rgba(34, 20, 51, 0.6), rgba(34, 20, 51, 0.9)); }
+.join.show { display: flex; align-items: center; justify-content: center; padding: 12px 16px; }
+.jn-box { width: min(1080px, 100%); max-height: 100%; display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center; }
+.jn-box h2 { font-family: 'Lilita One', sans-serif; font-size: clamp(34px, 6vw, 64px); margin: 0; color: var(--sun); -webkit-text-stroke: 3px var(--ink); text-shadow: 0 5px 0 var(--ink); }
+.jn-box .sub { font: 900 16px 'Nunito', sans-serif; margin: 0; opacity: .92; }
+.jn-cards { width: 100%; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+.jn-card { display: flex; flex-direction: column; gap: 6px; padding: 10px; border-radius: 14px; background: rgba(255, 255, 255, .08); border: 3px dashed rgba(255, 255, 255, .3); min-height: 132px; }
+.jn-card.on { background: color-mix(in srgb, var(--pc) 30%, rgba(20, 12, 36, .85)); border: 3px solid var(--pc); }
+.jn-top { display: flex; align-items: center; justify-content: space-between; }
+.jn-top .ptag { font-size: 18px; line-height: 26px; padding: 0 10px; }
+.jn-x { font: 900 14px 'Nunito', sans-serif; color: #fff; background: rgba(0, 0, 0, .35); border: 2px solid rgba(255, 255, 255, .5); border-radius: 8px; padding: 2px 8px; cursor: pointer; }
+.jn-body { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font: 800 15px 'Nunito', sans-serif; }
+.jn-dev { font: 900 17px 'Nunito', sans-serif; }
+.jn-body small { font-size: 14px; opacity: .85; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+.jn-wait { opacity: .8; font-size: 14px; }
+.jn-mv { display: flex; align-items: center; justify-content: center; gap: 8px; font: 800 14px 'Nunito', sans-serif; }
+.jn-mv button { font: 900 16px 'Nunito', sans-serif; color: #fff; background: rgba(0, 0, 0, .35); border: 2px solid rgba(255, 255, 255, .5); border-radius: 8px; width: 34px; height: 28px; cursor: pointer; }
+.jn-mv button:disabled { opacity: .3; cursor: default; }
+.jn-free, .jn-help { font: 800 15px 'Nunito', sans-serif; margin: 0; opacity: .92; }
+.jn-help { font-size: 14px; opacity: .8; }
+.jn-kb { font: 900 14px 'Nunito', sans-serif; color: #fff; background: rgba(255, 255, 255, .15); border: 2px solid rgba(255, 255, 255, .5); border-radius: 8px; padding: 2px 8px; margin-left: 6px; cursor: pointer; }
+.jn-foot { display: flex; align-items: center; gap: 14px; }
+.jn-note { font: 900 15px 'Nunito', sans-serif; color: var(--sun); min-width: 120px; }
+.jn-go { min-width: 160px; }
+@media (max-width: 760px), (max-height: 520px) {
+  .jn-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+  .jn-card { min-height: 0; padding: 6px 8px; gap: 3px; }
+  .jn-box { gap: 4px; }
+  .jn-box h2 { font-size: 30px; }
+}
+/* 5.0: seleção multi — escolha do lado */
+.sd-screen { justify-content: center; gap: 10px; }
+.sd-teams { display: grid; grid-template-columns: repeat(2, minmax(0, 320px)); gap: 18px; width: 100%; justify-content: center; }
+.sd-team { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 12px; border-radius: 14px; background: rgba(255, 255, 255, .08); border: 2px solid rgba(255, 255, 255, .25); color: #fff; font: 900 18px 'Nunito', sans-serif; }
+.sd-col { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; min-height: 40px; align-items: center; }
+.sd-p { font: 900 16px 'Nunito', sans-serif; color: #fff; background: rgba(0, 0, 0, .3); border: 2px solid rgba(255, 255, 255, .4); border-radius: 10px; padding: 4px 10px; cursor: pointer; }
+.sd-p .ptag { font-size: 16px; line-height: 24px; }
+.sd-p.ok { border-color: #39ff88; }
+.sd-cpu { font: 900 16px 'Nunito', sans-serif; opacity: .7; }
+.sd-note { font: 900 16px 'Nunito', sans-serif; color: var(--sun); min-height: 20px; margin: 0; }
+.sd-go { min-width: 160px; }
+/* 5.0: 3 ou 4 jogadores escolhendo especiais ao mesmo tempo: em vez de encolher, a linha vira 2 andares */
+.sp-panels.many .spp-row { grid-template-columns: 30px minmax(0, 1fr) 30px; row-gap: 2px; padding: 4px 8px; }
+.sp-panels.many .spp-row .spp-lbl { grid-column: 1 / -1; flex-direction: row; flex-wrap: wrap; gap: 4px 8px; align-items: center; }
+.sp-panels.many .spp-row .spp-val { text-align: center; font-size: 19px; }
+.sp-panels.many .sp-panel { padding: 8px 10px; }
+.sp-panels.many .spp-nav { flex-wrap: wrap; justify-content: center; gap: 4px; }
+.sp-panels.many .spp-head h3 { white-space: normal; }
+.sp-panels.many .spp-lbl, .sp-panels.many .spp-lbl small { min-width: 0; flex-wrap: wrap; }
+.sp-panels.many .spp-row, .sp-panels.many .spp-desc { min-width: 0; }
+@media (max-height: 520px) { .sp-panels.many .sp-panel { padding: 6px 6px; } .sp-panels.many { gap: 6px; } }
+@media (max-height: 520px) {
+  .sp-panels.many .spp-head h3 { font-size: 16px; line-height: 1.1; }
+  .sp-panels.many .spp-desc { padding: 2px 6px; margin: 2px 0; line-height: 1.2; }
+  .sp-panels.many .spp-nav { margin-top: 2px; padding-top: 2px; }
+  .sp-panels.many .spp-nb { padding: 2px 10px; }
+  .sp-panels.many .sp-panel { gap: 4px; }
+}
+/* celular deitado com 3 ou 4 jogadores: sem a descrição do especial (não cabe sem encolher) */
+@media (max-height: 520px) { .sp-panels.many .spp-desc { display: none; } }
+
+/* 5.0 Campeonato: chave do mata-mata (src/ui/campUI.js → bracketHTML). Coordenadas em % da área. */
+.bk { position: relative; width: min(94vw, 1080px); height: clamp(170px, 42vh, 360px); margin: 8px 0 4px; }
+.bk-ln { position: absolute; display: block; pointer-events: none; }
+.bk-ln.h { height: 0; border-top: 3px solid rgba(26, 22, 34, .55); margin-top: -1.5px; }
+.bk-ln.v { width: 0; border-left: 3px solid rgba(26, 22, 34, .55); margin-left: -1.5px; }
+.bk-ln.win.h { border-top-color: #ff4d6d; border-top-width: 4px; }
+.bk-ln.win.v { border-left-color: #ff4d6d; border-left-width: 4px; }
+/* vencedor seguindo a linha: cada segmento cresce a partir do começo (0,6 s no caminho todo) */
+.bk-ln.an { animation: bk-grow .2s linear var(--d, 0s) both; }
+.bk-ln.an.h { --sx: 0; --sy: 1; }
+.bk-ln.an.v { --sx: 1; --sy: 0; }
+.bk-ln.o-l { transform-origin: left center; } .bk-ln.o-r { transform-origin: right center; }
+.bk-ln.o-t { transform-origin: center top; } .bk-ln.o-b { transform-origin: center bottom; }
+@keyframes bk-grow { from { transform: scale(var(--sx), var(--sy)); } to { transform: none; } }
+.bk-box { position: absolute; width: 17%; display: flex; align-items: center; gap: 4px; padding: 0 6px; box-sizing: border-box; border-radius: 10px;
+  background: rgba(0, 0, 0, .35); border: 2px solid rgba(255, 255, 255, .25); font: 800 14px/1.1 'Nunito', sans-serif; overflow: hidden; white-space: nowrap; text-align: left; }
+.bk-box .cp-face { width: 22px; height: 22px; margin-right: 0; flex: none; }
+.bk-box .ptag { flex: none; }
+.bk-n { overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.bk-q { opacity: .5; margin: auto; }
+.bk-box.me, .bk-row.me { border-color: #ffd34d; color: #ffe9a8; }
+.bk-box.lost, .bk-row.lost { opacity: .45; }
+.bk-box.pop, .bk-row.pop { animation: bk-pop .2s ease-out var(--d, 0s) both; }
+@keyframes bk-pop { from { opacity: 0; } to { opacity: 1; } }
+.bk-final, .bk-third, .bk-champ { width: 18%; flex-direction: column; align-items: stretch; justify-content: space-evenly; gap: 0; overflow: visible; padding-top: 6px; }
+.bk-champ { flex-direction: row; align-items: center; border-color: #ffd34d; }
+.bk-final .bk-row, .bk-third .bk-row { display: flex; align-items: center; gap: 4px; min-width: 0; border: 0; overflow: hidden; }
+.bk-tag { position: absolute; left: 8px; top: -11px; font: 900 14px/1 'Nunito', sans-serif; background: #1a1622; padding: 1px 6px; border-radius: 6px; color: #ffd34d; }
+.bk-sc { position: absolute; right: 6px; bottom: -11px; font: 900 14px/1 'Nunito', sans-serif; background: #1a1622; padding: 1px 6px; border-radius: 6px; }
+@media (max-height: 520px) { .bk-box .cp-face { width: 18px; height: 18px; } .bk-box .cp-face + .cp-face { display: none; } }
+/* 5.0 Campeonato: seleção normal só com a dupla dos jogadores (o adversário vem da chave) */
+.select.camp .side.right { visibility: hidden; }
+.cw { display: flex; align-items: center; justify-content: center; gap: 6px; flex-wrap: wrap; } .cw .cp-face { display: inline-block; margin: 0; }
+.bk-final .cp-face, .bk-third .cp-face { width: 18px; height: 18px; }
+/* 5.0: chave no celular deitado — mais baixa e o botão Assistir numa linha (em vez de encolher a tela) */
+@media (max-height: 520px) {
+  .bk { height: 140px; margin: 2px 0; }
+  .camp-tl .menu-btn small { display: none; }
+  .camp-tl .menu-btn { padding-top: 4px; padding-bottom: 4px; min-height: 0; }
+  .bk-box { padding: 0 4px; }
+}
+
+/* 5.0: Comandos e Dicas (pausa) num painel de papel claro — legível em qualquer estilo e fundo */
+body .overlay .controls, body .overlay .tips { background: #fff8ea; border: 3px solid #241a33; border-radius: 14px; box-shadow: 0 4px 0 #241a33; padding: 10px; color: #241a33; }
+body .overlay .controls div { background: #ffffff; border: 2px solid #241a33; color: #241a33; }
+body .overlay .controls b, body .overlay .tips b { color: #c2185b; text-shadow: none; -webkit-text-stroke: 0; }
+body .overlay .tips { padding: 10px 14px 10px 30px; }
+body .overlay .tips li { color: #241a33; }

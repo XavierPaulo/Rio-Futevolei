@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Teaser Rio Futevôlei 5.0</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Nunito:wght@600;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="editores.css">
+<style>
+.player { background: #0e0c12; border-radius: 16px; padding: 10px; display: flex; flex-direction: column; gap: 10px; }
+.screen { position: relative; width: 100%; aspect-ratio: 16 / 9; border-radius: 10px; overflow: hidden; background: #000; }
+.screen iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+.screen .hit { position: absolute; inset: 0; border: 0; padding: 0; background: transparent; cursor: pointer; } /* clicar no vídeo toca/pausa */
+.ctrl { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.ctrl button { min-width: 44px; }
+.time { color: #f4ecd8; font-weight: 900; font-size: 13px; font-variant-numeric: tabular-nums; margin-left: auto; }
+.track { display: flex; gap: 3px; height: 26px; }
+.track button { position: relative; flex: none; padding: 0; height: 26px; border-radius: 6px; border: 0; background: #2a2533; color: #f4ecd8; font: 800 11px 'Nunito', sans-serif; overflow: hidden; white-space: nowrap; }
+.track button i { position: absolute; left: 0; top: 0; bottom: 0; background: #ff7a2e; opacity: .55; }
+.track button span { position: relative; padding: 0 6px; }
+.track button[aria-current="true"] { outline: 2px solid #e3f230; outline-offset: -2px; }
+.sl { display: flex; gap: 8px; align-items: center; min-width: 0; }
+.sl input[type="range"] { flex: 1; min-width: 0; accent-color: var(--zone); }
+.sl input[type="number"] { width: 76px; flex: none; }
+.versions { display: flex; gap: 8px; flex-wrap: wrap; }
+.versions a { text-decoration: none; font: 800 14px 'Nunito', sans-serif; padding: 7px 14px; border-radius: 10px; border: 2px solid var(--line); background: var(--surface); color: var(--fg); }
+.versions a[aria-current="true"] { background: var(--zone); border-color: var(--zone); color: #fff; }
+.export { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; color: #f4ecd8; font-weight: 800; font-size: 13px; }
+.export progress { width: min(320px, 100%); accent-color: #e3f230; }
+.export a { color: #e3f230; font-weight: 900; }
+.screen.exporting { position: fixed !important; left: 0; top: 0; width: 1280px !important; height: 720px !important; aspect-ratio: auto; z-index: -1; opacity: 0; pointer-events: none; }
+.cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr)); gap: 14px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <a class="back" href="index.html">← Editores</a>
+      <h1>Teaser <span>5.0</span></h1>
+      <p class="kicker">Clipe de rock dos anos 90 com 1:30, feito com o próprio jogo: os melhores lances e especiais, cortes no tempo da música, câmeras de clipe, câmera lenta, carimbos, tela dividida, caleidoscópio e fita VHS. A trilha é um rock anos 80/90 com tempero de ska, tocado pelo navegador (nada de arquivo de áudio). Aperte ▶ Tocar (ou clique no vídeo) para começar.</p>
+    </div>
+    <div class="tools">
+      <span class="status" id="status"><i></i><span>carregando…</span></span>
+      <button id="undo" type="button" disabled>Desfazer tudo</button>
+      <button id="save" class="primary" type="button" disabled>Gravar no jogo</button>
+    </div>
+  </header>
+  <nav class="versions" aria-label="Versão do clipe">
+    <a href="teaser.html" id="v90">🎸 Clipe completo · 1:30</a>
+    <a href="teaser.html?v=30" id="v30">⚡ Versão rock · 0:30</a>
+  </nav>
+  <section class="player" aria-label="Clipe">
+    <div class="screen" id="screen">
+      <iframe id="film" src="about:blank" title="Teaser do Rio Futevôlei 5.0" allow="fullscreen"></iframe>
+      <button type="button" class="hit" id="hit" aria-label="Tocar ou pausar o clipe"></button>
+    </div>
+    <div class="track" id="track" aria-label="Partes da música"></div>
+    <div class="ctrl">
+      <button type="button" id="play" class="primary" title="Tocar / pausar (espaço)">▶ Tocar</button>
+      <button type="button" id="restart" title="Do começo">↺ Do começo</button>
+      <button type="button" id="prev" title="Parte anterior">⏮</button>
+      <button type="button" id="next" title="Próxima parte">⏭</button>
+      <button type="button" id="full" title="Tela cheia">⛶ Tela cheia</button>
+      <button type="button" id="mp4" title="Gera um arquivo .mp4 (1280×720, com som) para encaminhar e abrir fora do programa">⬇ Gerar MP4</button>
+      <span class="time" id="time">0:00</span>
+    </div>
+  </section>
+  <div class="export" id="export" hidden></div>
+  <div class="cols" id="cards"></div>
+</div>
+<script type="module">
+import DATA from '../src/data/teaser.js';
+import { SkaTrack, ARRANGEMENTS } from '../src/teaserMusic.js';
+// versão: completo (1:30) ou rock (0:30)
+const VERSION = new URLSearchParams(location.search).get('v') === '30' ? '30' : '90', SECTIONS = ARRANGEMENTS[VERSION];
+document.getElementById('film').src = `../?teaser&slave${VERSION === '30' ? '&v=30' : ''}`;
+document.getElementById('v' + VERSION).setAttribute('aria-current', 'true');
+import { clone, saver, row, text } from './editores.js';
+
+const original = JSON.stringify(DATA);
+let data = clone(DATA);
+const track = new SkaTrack(data, SECTIONS); // a música toca aqui; o clipe (no quadro) segue o relógio dela
+const S = saver({
+  kind: 'teaser', original, get: () => data,
+  statusEl: document.getElementById('status'), saveBtn: document.getElementById('save'), undoBtn: document.getElementById('undo'),
+  onRestore: d => { data = d; track.data = data; render(); },
+  onUndo: () => { data = JSON.parse(original); track.data = data; render(); },
+});
+const changed = () => S.dirty();
+
+// ---------- player ----------
+const film = document.getElementById('film'), BEAT = 60 / (data.bpm || 160);
+const parts = SECTIONS.map(s => ({ name: s.name, start: s.from * 4 * BEAT, dur: (s.to - s.from) * 4 * BEAT }));
+const total = track.total;
+const fmt = s => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
+const tr = document.getElementById('track');
+parts.forEach((p, i) => {
+  const b = document.createElement('button'); b.type = 'button'; b.style.width = `calc(${(p.dur / total) * 100}% - 3px)`;
+  b.innerHTML = `<i></i><span>${p.name}</span>`; b.title = `${p.name} (${fmt(p.start)})`;
+  b.onclick = () => go(p.start);
+  tr.append(b);
+});
+function go(at) { track.play(at); }
+window.teaserGo = go; // pular para um segundo (útil para conferir um corte)
+function partIdx(t) { return Math.max(0, parts.findIndex(p => t >= p.start && t < p.start + p.dur)); }
+document.getElementById('hit').onclick = () => document.getElementById('play').click();
+document.getElementById('play').onclick = () => { if (track.playing) track.pause(); else go(track.time >= total - 0.05 ? 0 : track.time); };
+document.getElementById('restart').onclick = () => go(0);
+document.getElementById('prev').onclick = () => go(parts[Math.max(0, partIdx(track.time) - (track.time - parts[partIdx(track.time)].start < 1.5 ? 1 : 0))].start);
+document.getElementById('next').onclick = () => go(parts[Math.min(parts.length - 1, partIdx(track.time) + 1)].start);
+document.getElementById('full').onclick = () => { const el = document.getElementById('screen'); (el.requestFullscreen || el.webkitRequestFullscreen).call(el); };
+// ---------- gerar MP4 ----------
+// O clipe é refeito quadro a quadro dentro do quadro do jogo (1280×720), com a música gravada fora do tempo real,
+// e vira um .mp4 (H.264 + AAC). O arquivo fica em "Rio Futevôlei 5.0/videos/" e também dá para baixar daqui.
+const exp = document.getElementById('export'), screenEl = document.getElementById('screen');
+document.getElementById('mp4').onclick = async () => {
+  if (track.playing) track.pause();
+  const btn = document.getElementById('mp4'); btn.disabled = true;
+  exp.hidden = false; exp.innerHTML = '<span id="expmsg">preparando…</span> <progress id="expbar" max="1" value="0"></progress>';
+  screenEl.classList.add('exporting'); // o quadro do jogo vai para 1280×720 enquanto grava
+  await new Promise(r => setTimeout(r, 900));
+  film.contentWindow.postMessage({ teaser: 'export' }, location.origin);
+};
+addEventListener('message', e => {
+  if (e.source !== film.contentWindow || !e.data) return;
+  const m = e.data;
+  if (m.teaser === 'exportProgress') { document.getElementById('expmsg').textContent = `${m.msg} · ${Math.round(m.p * 100)}%`; document.getElementById('expbar').value = m.p; }
+  else if (m.teaser === 'exportDone' || m.teaser === 'exportError') {
+    screenEl.classList.remove('exporting'); document.getElementById('mp4').disabled = false;
+    exp.innerHTML = m.teaser === 'exportDone'
+      ? `✅ Pronto (${(m.size / 1048576).toFixed(1)} MB)${m.path ? ` · salvo em <b>Rio Futevôlei 5.0/${m.path}</b>` : ''} · <a href="${m.url}" download="${m.name}">baixar ${m.name}</a>`
+      : `❌ Não gerou: ${m.msg}`;
+  }
+});
+addEventListener('keydown', e => { if (e.key === ' ' && (e.target === document.body || e.target.tagName === 'BUTTON')) { e.preventDefault(); document.getElementById('play').click(); } });
+(function loop() {
+  const t = track.time;
+  if (film.contentWindow) film.contentWindow.postMessage({ teaser: 'time', t, playing: track.playing }, location.origin);
+  document.getElementById('time').textContent = `${fmt(t)} / ${fmt(total)} · ${parts[partIdx(t)].name}`;
+  document.getElementById('play').textContent = track.playing ? '⏸ Pausar' : '▶ Tocar';
+  [...tr.children].forEach((b, i) => { const p = parts[i]; b.firstElementChild.style.width = (Math.max(0, Math.min(1, (t - p.start) / p.dur)) * 100) + '%'; b.setAttribute('aria-current', String(i === partIdx(t))); });
+  requestAnimationFrame(loop);
+})();
+
+// ---------- trilha e clipe (editáveis) ----------
+function slider(value, set, { min = 0, max = 1, step = 0.01 } = {}) {
+  const box = document.createElement('div'); box.className = 'sl';
+  const r = document.createElement('input'); r.type = 'range'; r.min = min; r.max = max; r.step = step; r.value = value;
+  const n = document.createElement('input'); n.type = 'number'; n.min = min; n.max = max; n.step = step; n.value = value;
+  const go = v => { v = Math.max(min, Math.min(max, +v || 0)); set(v); changed(); };
+  r.oninput = () => { n.value = r.value; go(r.value); }; n.oninput = () => { r.value = n.value; go(n.value); };
+  box.append(r, n); return box;
+}
+const card = (title, ...kids) => { const s = document.createElement('section'); s.className = 'card'; s.innerHTML = `<h4>${title}</h4>`; s.append(...kids); return s; };
+const hint = t => { const p = document.createElement('p'); p.className = 'kicker'; p.style.margin = '0 0 6px'; p.textContent = t; return p; };
+const VOL = [['geral', 'Geral'], ['bateria', 'Bateria'], ['baixo', 'Baixo'], ['guitarraRock', 'Guitarras rock (base e solo)'], ['guitarraSka', 'Guitarra ska (contratempo)'], ['metais', 'Metais (trompete e sax)']];
+function render() {
+  const el = document.getElementById('cards'); el.innerHTML = '';
+  el.append(
+    card('Trilha ska-rock', hint('Muda na hora, com a música tocando. Rock dos anos 80/90 com tempero de ska, Ré maior, 160 BPM: riff de guitarra na intro, verso com guitarra abafada, refrão com metais, verso 2, parte lenta com eco dub, subida, refrão 2, solo de guitarra, refrão final e paradas.'),
+      ...VOL.map(([k, n]) => row(n, slider(data.volumes[k] ?? 0.7, v => track.setVolume(k, v)))),
+      row('Eco dub (parte lenta)', slider(data.eco ?? 0.45, v => { data.eco = v; }, { max: 0.8 }))),
+    card('Clipe', hint('Carimbos e fita VHS: grave e o clipe recarrega com as mudanças.'),
+      row('Carimbos (um por linha)', text(data.carimbos.join('\n'), v => { data.carimbos = v.split('\n').map(s => s.trim()).filter(Boolean); changed(); }, { max: 600, area: true }), true),
+      row('Chiado da fita', slider(data.vhs.chiado, v => { data.vhs.chiado = v; })),
+      row('Linhas da fita', slider(data.vhs.linhas, v => { data.vhs.linhas = v; })),
+      row('Texto do canto', text(data.vhs.canto, v => { data.vhs.canto = v; changed(); }, { max: 40 }))),
+  );
+}
+render();
+</script>
+</body>
+</html>

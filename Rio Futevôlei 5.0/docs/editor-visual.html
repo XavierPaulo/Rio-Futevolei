@@ -1,0 +1,351 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Editor do Visual Colagem 5.0</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Nunito:wght@600;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="editores.css">
+<script type="importmap">{ "imports": { "three": "../vendor/three/three.module.js" } }</script>
+<style>
+.sl { display: flex; gap: 8px; align-items: center; min-width: 0; }
+.sl input[type="range"] { flex: 1; min-width: 0; accent-color: var(--zone); }
+.sl input[type="number"] { width: 84px; flex: none; }
+.sl small { color: var(--muted); font-weight: 900; font-size: 12px; min-width: 24px; }
+.preview { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; }
+.preview canvas { display: block; width: 100%; height: auto; border-radius: 10px; background: #e9cf9a; }
+.scenewrap { position: relative; }
+.scenewrap #sceneTop { position: absolute; inset: 0; background: transparent; pointer-events: none; }
+.cast { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.cast canvas { background: #e9cf9a; }
+.preview small { color: var(--muted); font-weight: 800; font-size: 12px; }
+.inks { display: flex; flex-wrap: wrap; gap: 8px; }
+.ink { display: flex; flex-direction: column; align-items: center; gap: 4px; background: var(--surface-2); border-radius: 10px; padding: 6px; }
+.ink input[type="color"] { width: 46px; height: 40px; border: none; padding: 0; background: none; cursor: pointer; }
+.ink button { font-size: 11px; padding: 1px 8px; }
+.idea { border: 2px solid var(--line); border-radius: 12px; padding: 8px 12px; margin: 8px 0; }
+.idea .title-row { margin: 0; }
+.ath { display: flex; flex-wrap: wrap; gap: 4px 16px; }
+@media (max-width: 760px) { .main { grid-template-columns: minmax(0, 1fr); } nav { position: static; max-height: none; } .preview { position: static; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <a class="back" href="index.html">← Editores</a>
+      <h1>Visual <span>Colagem</span> 5.0</h1>
+      <p class="kicker">O estilo de recortes de revista (menu do jogo → Visual Colagem): tintas, retícula de gráfica, céu em mosaico, a borda de papel recortado dos atletas e as sugestões de atletas. A prévia muda na hora; grave e recarregue o jogo para ver lá.</p>
+    </div>
+    <div class="tools">
+      <span class="status" id="status"><i></i><span>carregando…</span></span>
+      <button id="undo" type="button" disabled>Desfazer tudo</button>
+      <button id="save" class="primary" type="button" disabled>Gravar no jogo</button>
+    </div>
+  </header>
+  <div class="main">
+    <nav id="nav" aria-label="Partes do visual"></nav>
+    <div class="editor">
+      <section class="card preview" aria-label="Prévia">
+        <div class="scenewrap">
+          <canvas id="scene" width="960" height="540" aria-label="Prévia da quadra no estilo Colagem"></canvas>
+          <canvas id="sceneTop" width="960" height="540" aria-hidden="true"></canvas>
+        </div>
+        <div class="cast" id="cast"></div>
+        <small>Uma cena de verdade do jogo (Tito e Dadá contra Rosa Choque e Seu Pé de Pato): o cenário passa pelo mesmo efeito do jogo e os atletas e a bola são desenhados com o mesmo código, nas mesmas posições</small>
+      </section>
+      <div id="editor" class="editor"></div>
+    </div>
+  </div>
+</div>
+<script type="module">
+import * as THREE from 'three';
+import COL from '../src/data/colagem.js';
+import { collageFrag, collageUniforms } from '../src/scene/penPost.js';
+import { drawCollage, drawCollageBall } from '../src/art/collage.js';
+import { CHARACTERS } from '../src/art/characters.js';
+import { poseFor } from '../src/art/poses.js';
+import { dummy } from '../src/ui/portraits.js';
+import { clone, esc, saver, row, text, num, check, button } from './editores.js';
+
+const original = JSON.stringify(COL);
+let data = clone(COL);
+let cur = 'caricatura';
+
+const S = saver({
+  kind: 'visual', original, get: () => data,
+  statusEl: document.getElementById('status'), saveBtn: document.getElementById('save'), undoBtn: document.getElementById('undo'),
+  onRestore: d => { data = d; render(); },
+  onUndo: () => { data = JSON.parse(original); render(); },
+});
+// o desenho dos atletas lê o mesmo objeto do jogo: copia as mudanças para ele e redesenha
+const changed = () => { S.dirty(); for (const k of Object.keys(data)) COL[k] = clone(data[k]); redraw(); };
+
+function slider(value, set, { min = 0, max = 10, step = 0.01, unit = '' } = {}) {
+  const box = document.createElement('div'); box.className = 'sl';
+  const r = document.createElement('input'); r.type = 'range'; r.min = min; r.max = max; r.step = step; r.value = value;
+  const n = document.createElement('input'); n.type = 'number'; n.min = min; n.max = max; n.step = step; n.value = value;
+  const u = document.createElement('small'); u.textContent = unit;
+  const go = v => { v = Math.max(min, Math.min(max, +v || 0)); set(v); changed(); };
+  r.oninput = () => { n.value = r.value; go(r.value); };
+  n.oninput = () => { r.value = n.value; go(n.value); };
+  box.append(r, n, u);
+  return box;
+}
+const card = (title, ...kids) => { const s = document.createElement('section'); s.className = 'card'; if (title) s.innerHTML = `<h4>${title}</h4>`; s.append(...kids); return s; };
+const hint = t => { const p = document.createElement('p'); p.className = 'kicker'; p.style.margin = '0 0 6px'; p.innerHTML = t; return p; };
+const fields = (...rows) => { const d = document.createElement('div'); d.className = 'fields'; d.append(...rows); return d; };
+
+// ---------- prévia do cenário (o mesmo shader do jogo, sobre uma foto da quadra) ----------
+const canvas = document.getElementById('scene');
+let gl = null;
+try {
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, preserveDrawingBuffer: true });
+  renderer.setPixelRatio(1); renderer.setSize(960, 540, false);
+  const load = (url, srgb) => new Promise(res => new THREE.TextureLoader().load(url, t => { if (srgb) t.colorSpace = THREE.SRGBColorSpace; t.minFilter = t.magFilter = THREE.NearestFilter; t.generateMipmaps = false; res(t); }));
+  const [tScene, tDepth] = await Promise.all([load('assets/visual-amostra.png', true), load('assets/visual-mascara.png', false)]);
+  const mat = new THREE.ShaderMaterial({
+    uniforms: { tScene: { value: tScene }, tDepth: { value: tDepth }, uRes: { value: new THREE.Vector2(960, 540) }, uTime: { value: 0 }, ...collageUniforms(data) },
+    vertexShader: 'varying vec2 vUv; void main() { vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }',
+    fragmentShader: collageFrag, depthTest: false, depthWrite: false,
+  });
+  const sc = new THREE.Scene(); sc.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), mat));
+  const cam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+  // a foto não tem profundidade: a máscara diz só céu × resto (recorte do cenário aparece só na borda do céu)
+  gl = () => { const u = collageUniforms(data); for (const k of Object.keys(u)) mat.uniforms[k].value = u[k].value; mat.uniforms.uNear.value = 1; mat.uniforms.uFar.value = 100; renderer.render(sc, cam); };
+} catch (e) { canvas.replaceWith(hint('Sem WebGL neste navegador: a prévia do cenário não aparece (os atletas sim).')); }
+
+// ---------- atletas e bola em cima da foto (posições gravadas junto com a foto) ----------
+const top = document.getElementById('sceneTop');
+let layout = null;
+try { layout = await (await fetch('assets/visual-amostra.json')).json(); } catch (e) { layout = null; }
+const sprite = document.createElement('canvas'); sprite.width = sprite.height = 256;
+const ballSpr = document.createElement('canvas'); ballSpr.width = ballSpr.height = 128;
+function drawLayout() {
+  const g = top.getContext('2d'); g.clearRect(0, 0, top.width, top.height);
+  if (!layout) return;
+  const sx = top.width / layout.largura, sy = top.height / layout.altura;
+  // de trás para a frente (quem está mais embaixo na tela fica por cima)
+  const list = [...layout.atletas].sort((a, b) => (a.rect[1] + a.rect[3]) - (b.rect[1] + b.rect[3]));
+  for (const a of list) {
+    const ch = CHARACTERS[a.id]; if (!ch) continue;
+    drawCollage(sprite.getContext('2d'), ch, a.pose, 1.0);
+    const [x, y, w, h] = a.rect;
+    g.save(); g.translate((x + (a.flip ? w : 0)) * sx, y * sy); g.scale(a.flip ? -1 : 1, 1);
+    g.drawImage(sprite, 0, 0, w * sx, h * sy); g.restore();
+  }
+  if (layout.bola) { drawCollageBall(ballSpr.getContext('2d')); const [x, y, w, h] = layout.bola.rect; g.drawImage(ballSpr, x * sx, y * sy, w * sx, h * sy); }
+}
+
+// ---------- prévia dos atletas e da bola ----------
+const castEl = document.getElementById('cast');
+const castCanvases = [];
+let faceId = 'tito'; // atleta escolhido na parte Caricatura (aparece primeiro na prévia)
+function castList() { return [...new Set([faceId, ...(data.atletas || []), 'giulia'])].filter(id => CHARACTERS[id]).slice(0, 3); }
+function buildCast() {
+  castEl.innerHTML = ''; castCanvases.length = 0;
+  for (const id of [...castList(), 'bola']) {
+    const c = document.createElement('canvas'); c.width = c.height = 256;
+    c.setAttribute('aria-label', id === 'bola' ? 'Bola' : CHARACTERS[id].name);
+    castEl.append(c); castCanvases.push([id, c]);
+  }
+}
+let raf = 0;
+function redraw() {
+  cancelAnimationFrame(raf);
+  raf = requestAnimationFrame(() => {
+    if (gl) gl();
+    drawLayout();
+    for (const [id, c] of castCanvases) {
+      const g = c.getContext('2d');
+      if (id === 'bola') { const b = document.createElement('canvas'); b.width = b.height = 128; drawCollageBall(b.getContext('2d')); g.clearRect(0, 0, 256, 256); g.drawImage(b, 64, 64); }
+      else drawCollage(g, CHARACTERS[id], poseFor(dummy(), 0.3), 0.3);
+    }
+  });
+}
+
+// ---------- navegação ----------
+const PARTS = [['caricatura', '😎', 'Visual dos atletas'], ['ceu', '☀️', 'Céu de cartaz'], ['tintas', '🎨', 'Tintas da revista'], ['impressao', '🖨️', 'Impressão e mosaico'], ['recorte', '✂️', 'Recortes de papel'], ['menu', '🗂️', 'Menu e atletas sugeridos']];
+function renderNav() {
+  const nav = document.getElementById('nav'); nav.innerHTML = '';
+  for (const [k, ico, name] of PARTS) {
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'it';
+    b.innerHTML = `<span class="nm">${ico} ${name}</span>`;
+    b.setAttribute('aria-current', String(cur === k));
+    b.onclick = () => { cur = k; render(); };
+    nav.append(b);
+  }
+}
+
+// ---------- partes ----------
+function partTintas() {
+  const inks = document.createElement('div'); inks.className = 'inks';
+  data.paleta.forEach((hex, i) => {
+    const w = document.createElement('div'); w.className = 'ink';
+    const p = document.createElement('input'); p.type = 'color'; p.value = hex; p.title = `Tinta ${i + 1}`; p.setAttribute('aria-label', `Tinta ${i + 1}`);
+    p.oninput = () => { data.paleta[i] = p.value; changed(); };
+    const del = button('tirar', () => { if (data.paleta.length > 2) { data.paleta.splice(i, 1); changed(); render(); } });
+    w.append(p, del); inks.append(w);
+  });
+  const add = button('+ tinta', () => { if (data.paleta.length < 16) { data.paleta.push('#888888'); changed(); render(); } }, 'add');
+  inks.append(add);
+  return [
+    card('Tintas (até 16)', hint('Cada cor do cenário puxa para a tinta mais parecida desta lista, como uma revista impressa com poucas tintas. Referências: vermelho de Natal, rosa-choque, laranja, ouro velho, azul-marinho, lavanda, amarelo-neon.'), inks),
+    card('Quanto puxar', fields(
+      row('Fidelidade às tintas', slider(data.fidelidade, v => data.fidelidade = v, { min: 0, max: 1, step: 0.01 })),
+      row('Faixas de luz', slider(data.faixas, v => data.faixas = v, { min: 2, max: 6, step: 1 })),
+    ), hint('Fidelidade 0 = cores originais do jogo; 1 = só as tintas. Menos faixas = mais chapado, como papel colorido.')),
+  ];
+}
+function partImpressao() {
+  return [
+    card('Retícula de gráfica', fields(
+      row('Tamanho do ponto', slider(data.reticula.tamanho, v => data.reticula.tamanho = v, { min: 2, max: 16, step: 0.5, unit: 'px' })),
+      row('Força', slider(data.reticula.forca, v => data.reticula.forca = v, { min: 0, max: 1, step: 0.01 })),
+      row('Ângulo', slider(data.reticula.angulo, v => data.reticula.angulo = v, { min: 0, max: 90, step: 1, unit: '°' })),
+    ), hint('Os pontinhos de impressão aparecem nas sombras, mais grossos onde é mais escuro.')),
+    card('Papel e impressão barata', fields(
+      row('Vermelho desalinhado', slider(data.desalinho, v => data.desalinho = v, { min: 0, max: 6, step: 0.1, unit: 'px' })),
+      row('Granulado do papel', slider(data.granulado, v => data.granulado = v, { min: 0, max: 0.2, step: 0.005 })),
+      row('Contorno escuro', slider(data.contorno, v => data.contorno = v, { min: 0, max: 1, step: 0.01 })),
+    )),
+    card('Céu em mosaico', fields(
+      row('Tamanho do quadrado', slider(data.mosaico, v => data.mosaico = v, { min: 0, max: 40, step: 1, unit: 'px' })),
+    ), hint('O céu vira quadradinhos, como o fundo do cartaz da girafa. 0 desliga. Só pega o céu: o que estiver na frente (mar, morros, nuvens, quadra) fica normal.')),
+  ];
+}
+function partRecorte() {
+  const R = data.recorte, H = data.reticulaAtleta, RC = data.recorteCenario;
+  const cenario = card('Recorte do cenário (palmeiras, guarda-sóis, placas, morros…)', hint('Cada objeto ganha borda de papel, contorno grosso e sombra de colado. Na prévia só aparece na borda do céu (a foto não tem profundidade); no jogo vale para tudo.'), fields(
+    row('Borda de papel', slider(RC.borda, v => RC.borda = v, { min: 0, max: 14, step: 0.5, unit: 'px' })),
+    row('Contorno', slider(RC.contorno, v => RC.contorno = v, { min: 0, max: 6, step: 0.5, unit: 'px' })),
+    row('Sombra: lado', slider(RC.sombraX, v => RC.sombraX = v, { min: -12, max: 12, step: 0.5, unit: 'px' })),
+    row('Sombra: baixo', slider(RC.sombraY, v => RC.sombraY = v, { min: -12, max: 12, step: 0.5, unit: 'px' })),
+    row('Cor do papel', (() => { const p = document.createElement('input'); p.type = 'color'; p.value = RC.cor; p.oninput = () => { RC.cor = p.value; changed(); }; return p; })()),
+  ));
+  const sombra = text(R.sombraCor, v => { R.sombraCor = v; changed(); }, { max: 40 });
+  return [
+    cenario,
+    card('Papel recortado dos atletas', fields(
+      row('Borda branca', slider(R.borda, v => R.borda = v, { min: 0, max: 14, step: 0.5, unit: 'px' })),
+      row('Lados do corte', slider(R.lados, v => R.lados = v, { min: 4, max: 24, step: 1 })),
+      row('Cor do papel', (() => { const p = document.createElement('input'); p.type = 'color'; p.value = R.cor; p.oninput = () => { R.cor = p.value; changed(); }; return p; })()),
+    ), hint('Menos lados = corte mais "na tesoura", com quinas; mais lados = borda redonda de adesivo.')),
+    card('Sombra do recorte colado', fields(
+      row('Para o lado', slider(R.sombraX, v => R.sombraX = v, { min: -12, max: 12, step: 0.5, unit: 'px' })),
+      row('Para baixo', slider(R.sombraY, v => R.sombraY = v, { min: -12, max: 12, step: 0.5, unit: 'px' })),
+      row('Cor (CSS)', sombra),
+    ), hint('Ex.: rgba(40, 18, 10, 0.45) — o último número é a transparência.')),
+    card('Impressão nos atletas', fields(
+      row('Pontinhos (força)', slider(H.forca, v => H.forca = v, { min: 0, max: 0.6, step: 0.01 })),
+      row('Pontinhos (tamanho)', slider(H.tamanho, v => H.tamanho = v, { min: 2, max: 12, step: 0.5, unit: 'px' })),
+      row('Fibra do papel', slider(data.granuladoAtleta, v => data.granuladoAtleta = v, { min: 0, max: 2, step: 0.05 })),
+    )),
+  ];
+}
+function partCaricatura() {
+  const C = data.visualAtletas;
+  const pick = document.createElement('select');
+  for (const [id, ch] of Object.entries(CHARACTERS)) if (!ch.npc && !ch.custom) pick.add(new Option(ch.name, id, false, id === faceId));
+  pick.onchange = () => { faceId = pick.value; render(); };
+  C.atletas = C.atletas || {};
+  const R = C.atletas[faceId] || {};
+  const setR = (k, v) => { C.atletas[faceId] = { ...(C.atletas[faceId] || {}), [k]: v }; changed(); };
+  const sel = (opts, k) => { const s = document.createElement('select'); const cur = R[k] || (C.padrao || {})[k]; for (const [v, t] of opts) s.add(new Option(t, v, false, v === cur)); s.onchange = () => setR(k, s.value); return s; };
+  const optColor = (k, def, label) => {
+    const box = document.createElement('div'); box.className = 'inline';
+    const p = document.createElement('input'); p.type = 'color'; p.value = R[k] || def; p.disabled = !R[k];
+    const c = check(label, !!R[k], on => { setR(k, on ? p.value : null); p.disabled = !on; });
+    p.oninput = () => setR(k, p.value);
+    box.append(c, p); return box;
+  };
+  return [
+    card('Desenho dos atletas (todos)', hint('Desenho mais humano, com vibe de praia: sarados de academia, meio punk e meio chique, estampa meio gasta. Desligado, volta ao desenho do Pincel recortado.'), fields(
+      row('Visual novo', check('Ligado', C.ligado !== false, v => { C.ligado = v; changed(); })),
+      row('Rosto de gente', check('Olhos, nariz e boca de verdade', C.rostoHumano !== false, v => { C.rostoHumano = v; changed(); })),
+      row('Tamanho da cabeça', slider(C.cabeca, v => C.cabeca = v, { min: 0.43, max: 0.8, step: 0.01 })),
+      row('Músculos (padrão)', slider(C.musculo, v => C.musculo = v, { min: 0, max: 1, step: 0.05 })),
+      row('Estampa gasta', slider(C.desgaste, v => C.desgaste = v, { min: 0, max: 0.6, step: 0.01 })),
+      row('Comprimento do corpo', slider(C.corpo, v => C.corpo = v, { min: 0.8, max: 1.1, step: 0.01 })),
+      row('Mãos', slider(C.maos, v => C.maos = v, { min: 0.8, max: 1.6, step: 0.05 })),
+      row('Pés', slider(C.pes, v => C.pes = v, { min: 0.8, max: 1.6, step: 0.05 })),
+      row('Contorno do corpo', slider(C.contorno, v => C.contorno = v, { min: 0.5, max: 4, step: 0.1, unit: 'px' })),
+      row('Contorno da cabeça', slider(C.contornoCabeca, v => C.contornoCabeca = v, { min: 0.3, max: 1.2, step: 0.05 })),
+      row('Tamanho do desenho', slider(C.escala, v => C.escala = v, { min: 0.7, max: 1.1, step: 0.01 })),
+    )),
+    card('Foto de revista impressa', hint('Como a foto do rapaz de chapéu e câmera: preto e branco com contraste, sombras na tinta escura, luzes no papel creme e um pouco da cor original por cima, como foto pintada à mão.'), fields(
+      row('Acabamento de foto', check('Ligado', (C.foto || {}).ligado !== false, v => { C.foto.ligado = v; changed(); })),
+      row('Quanto de cor', slider(C.foto.cor, v => C.foto.cor = v, { min: 0, max: 1, step: 0.01 })),
+      row('Contraste', slider(C.foto.contraste, v => C.foto.contraste = v, { min: 0.8, max: 2.2, step: 0.05 })),
+      row('Brilho', slider(C.foto.brilho, v => C.foto.brilho = v, { min: 0.7, max: 1.3, step: 0.01 })),
+      row('Tinta das sombras', (() => { const p = document.createElement('input'); p.type = 'color'; p.value = C.foto.escuro; p.oninput = () => { C.foto.escuro = p.value; changed(); }; return p; })()),
+      row('Papel (luzes)', (() => { const p = document.createElement('input'); p.type = 'color'; p.value = C.foto.claro; p.oninput = () => { C.foto.claro = p.value; changed(); }; return p; })()),
+    )),
+    card('Estilo de cada atleta', row('Atleta', pick), fields(
+      row('Olhar', sel([['relax', 'Tô nem aí (pálpebra baixa)'], ['arregalado', 'Arregalado (como na foto)'], ['intenso', 'Intenso'], ['normal', 'Normal']], 'olhar')),
+      row('Barba por fazer', check('Tem', !!R.barbaPorFazer, v => setR('barbaPorFazer', v))),
+      row('Sorriso', sel([['canto', 'De canto, debochado'], ['serio', 'Sério'], ['normal', 'Sorriso de boca fechada']], 'sorriso')),
+      row('Músculos', slider(R.musculo ?? C.musculo, v => setR('musculo', v), { min: 0, max: 1, step: 0.05 })),
+      row('Tatuagem (punk)', optColor('tatuagem', '#1f2a66', 'Tem')),
+      row('Corrente de ouro (chique)', optColor('corrente', '#e0b030', 'Tem')),
+    ), hint('O atleta escolhido aparece primeiro na prévia. Comemorando ou gritando, todos abrem o sorriso.')),
+  ];
+}
+function partCeu() {
+  const K = data.ceu;
+  const tipo = document.createElement('select');
+  for (const [v, t] of [['raios', 'Raios de cartaz'], ['mosaico', 'Mosaico de quadradinhos'], ['normal', 'Céu normal']]) tipo.add(new Option(t, v, false, v === K.tipo));
+  tipo.onchange = () => { K.tipo = tipo.value; changed(); };
+  const col = (k) => { const p = document.createElement('input'); p.type = 'color'; p.value = K[k]; p.oninput = () => { K[k] = p.value; changed(); }; return p; };
+  return [card('Céu', hint('Fim de tarde na praia: degradê do horizonte quente ao topo lavanda, com raios suaves saindo do sol, como nos cartazes hippies dos anos 70. Só pega o céu: nuvens, morros e tudo que está na frente ficam por cima.'), fields(
+    row('Tipo', tipo),
+    row('Quantidade de raios', slider(K.raios, v => K.raios = v, { min: 4, max: 40, step: 1 })),
+    row('Sol: lado (0–1)', slider(K.solX, v => K.solX = v, { min: 0, max: 1, step: 0.01 })),
+    row('Sol: altura (0–1)', slider(K.solY, v => K.solY = v, { min: 0, max: 1.2, step: 0.01 })),
+    row('Força dos raios', slider(K.forcaRaios ?? 0.2, v => K.forcaRaios = v, { min: 0, max: 1, step: 0.01 })),
+    row('Cor do topo', col('cor1')), row('Cor do horizonte', col('cor2')), row('Cor do sol', col('sol')),
+  ))];
+}
+function partMenu() {
+  const ath = document.createElement('div'); ath.className = 'ath';
+  for (const [id, ch] of Object.entries(CHARACTERS)) {
+    if (ch.npc || ch.custom) continue;
+    ath.append(check(ch.name, data.atletas.includes(id), on => {
+      data.atletas = on ? [...data.atletas, id] : data.atletas.filter(x => x !== id);
+      changed(); buildCast(); redraw();
+    }));
+  }
+  const ideas = document.createElement('div');
+  data.sugestoes.forEach((g, i) => {
+    const box = document.createElement('div'); box.className = 'idea';
+    const tr = document.createElement('div'); tr.className = 'title-row';
+    tr.innerHTML = `<b>${esc(g.nome) || 'Sem nome'}</b>`;
+    tr.append(button('Excluir', () => { if (confirm(`Excluir a sugestão "${g.nome}"?`)) { data.sugestoes.splice(i, 1); changed(); render(); } }, 'danger'));
+    box.append(tr,
+      row('Nome', text(g.nome, v => { g.nome = v; changed(); }, { max: 40 })),
+      row('Referência', text(g.ref, v => { g.ref = v; changed(); }, { max: 80 })),
+      row('Personalidade', text(g.personalidade, v => { g.personalidade = v; changed(); }, { max: 400, area: true })),
+      row('Visual', text(g.visual, v => { g.visual = v; changed(); }, { max: 400, area: true })));
+    ideas.append(box);
+  });
+  ideas.append(button('+ Nova sugestão', () => { data.sugestoes.push({ nome: 'Novo atleta', ref: '', personalidade: '', visual: '' }); changed(); render(); }, 'add'));
+  return [
+    card('Atletas mostrados no menu Visual Colagem', hint('Aparecem com retrato, altura e personalidade (o texto "bio" do atleta). Tito Barulho e Dadá Girafa foram criados a partir das referências.'), ath),
+    card('Atletas sugeridos (Visual Colagem → Mais atletas sugeridos)', hint('A personalidade vem primeiro; o visual nasce dela. Para virar atleta jogável, peça para criar.'), ideas),
+  ];
+}
+
+function render() {
+  renderNav();
+  const ed = document.getElementById('editor'); ed.innerHTML = '';
+  const parts = { caricatura: partCaricatura, ceu: partCeu, tintas: partTintas, impressao: partImpressao, recorte: partRecorte, menu: partMenu }[cur]();
+  ed.append(...parts);
+  for (const k of Object.keys(data)) COL[k] = clone(data[k]);
+  buildCast(); redraw();
+}
+render();
+</script>
+</body>
+</html>

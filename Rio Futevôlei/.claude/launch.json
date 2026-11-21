@@ -1,0 +1,78 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "rio-futevolei",
+      "runtimeExecutable": "powershell",
+      "runtimeArgs": [
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "serve.ps1",
+        "-Port",
+        "8765"
+      ],
+      "port": 8765
+    },
+    {
+      "name": "rio-futevolei-2",
+      "runtimeExecutable": "powershell",
+      "runtimeArgs": [
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "..\\Rio Futevôlei 2.0\\serve.ps1",
+        "-Port",
+        "8766"
+      ],
+      "port": 8766
+    },
+    {
+      "name": "rio-futevolei-3",
+      "runtimeExecutable": "powershell",
+      "runtimeArgs": [
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "..\\Rio Futevôlei 3.0\\serve.ps1",
+        "-Port",
+        "8767"
+      ],
+      "port": 8767,
+      "autoPort": false
+    },
+    {
+      "name": "rio-futevolei-4",
+      "runtimeExecutable": "powershell",
+      "runtimeArgs": [
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "..\\Rio Futevôlei 4.0\\serve.ps1",
+        "-Port",
+        "8768"
+      ],
+      "port": 8768,
+      "autoPort": false
+    },
+    {
+      "name": "rio-futevolei-5",
+      "runtimeExecutable": "powershell",
+      "runtimeArgs": [
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "..\\Rio Futevôlei 5.0\\serve.ps1",
+        "-Port",
+        "8769"
+      ],
+      "port": 8769,
+      "autoPort": false
+    }
+  ]
+}

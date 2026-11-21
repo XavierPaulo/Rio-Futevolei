@@ -1,0 +1,761 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Editor da Partida 5.0</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Nunito:wght@600;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="editores.css">
+<style>
+.sl { display: flex; gap: 8px; align-items: center; min-width: 0; }
+.sl input[type="range"] { flex: 1; min-width: 0; accent-color: var(--zone); }
+.sl input[type="number"] { width: 84px; flex: none; }
+.sl small { color: var(--muted); font-weight: 900; font-size: 12px; min-width: 24px; }
+.figs { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); gap: 12px; }
+.fig { background: var(--surface-2); border-radius: 12px; padding: 10px; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.fig canvas { width: 100%; height: auto; border-radius: 8px; display: block; }
+.fig b { font-size: 13px; color: var(--muted); font-weight: 900; }
+.zone-card { border-left: 6px solid var(--c); padding-left: 12px; }
+.mtab { width: 100%; border-collapse: separate; border-spacing: 0 6px; }
+.mtab th { text-align: left; font: 900 11px var(--body); letter-spacing: 1px; text-transform: uppercase; color: var(--muted); padding: 0 6px; }
+.mtab td { vertical-align: top; padding: 6px; background: var(--surface-2); }
+.mtab td:first-child { border-radius: 10px 0 0 10px; font-weight: 900; border-left: 6px solid var(--c); }
+.mtab td:last-child { border-radius: 0 10px 10px 0; }
+.mv { display: grid; grid-template-columns: minmax(0, 1fr) 96px 64px 28px; gap: 4px; margin-bottom: 4px; align-items: center; }
+.mv input, .mv select { min-width: 0; width: 100%; padding: 4px 6px; font-size: 13px; }
+.mv button { padding: 2px 0; }
+.mv-pct { font-size: 11px; color: var(--muted); font-weight: 900; }
+.scroll-x { overflow-x: auto; }
+.slots { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr)); gap: 10px; }
+.slot { background: var(--surface-2); border-radius: 12px; padding: 10px; }
+.slot h5 { margin: 0 0 6px; font: 900 14px var(--body); }
+.slot h5 small { color: var(--muted); font-weight: 800; }
+.slot ul { margin: 0; padding-left: 18px; font-weight: 800; font-size: 14px; }
+.slot .none { color: var(--warn); font-weight: 900; font-size: 13px; }
+.sp-row { display: grid; grid-template-columns: minmax(140px, 1.4fr) minmax(90px, 1fr) minmax(80px, 0.8fr) auto; gap: 8px; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--line); }
+.sp-row.off { opacity: .55; }
+.sp-row b small { display: block; color: var(--muted); font-size: 11px; font-weight: 800; }
+.form-head { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; justify-content: space-between; }
+.xz { display: grid; grid-template-columns: auto minmax(0, 1fr) auto minmax(0, 1fr); gap: 6px; align-items: center; }
+.xz input { width: 100%; min-width: 0; }
+.xz span { font-weight: 900; color: var(--muted); font-size: 12px; }
+.paddia svg { width: 100%; height: auto; display: block; max-width: 900px; margin: 0 auto; }
+.paddia .pdl { font: 800 13px var(--body); fill: var(--fg); }
+.paddia .pdl.off { fill: var(--muted); }
+.paddia .pdb { font: 900 11px var(--body); fill: #fff; }
+.paddia .pds { font: 800 11px var(--body); fill: var(--muted); }
+.pd-ico { display: inline-flex; vertical-align: middle; }
+.pd-ico .pad-pill { display: inline-block; min-width: 26px; padding: 1px 6px; border-radius: 8px; background: #1d1a2b; color: #fff; font: 900 13px/18px var(--body); text-align: center; }
+.act-card h4 { display: flex; align-items: center; gap: 8px; }
+@media (max-width: 560px) { .sp-row { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <a class="back" href="index.html">← Editores</a>
+      <h1>Editor da <span>Partida</span> 5.0</h1>
+      <p class="kicker">Hitbox em 3 partes, golpes de cada parte, especiais de 50% e 100%, formações, saque e o controle (qual botão faz o quê e os ajustes de cada um). Grave e recarregue o jogo para ver.</p>
+    </div>
+    <div class="tools">
+      <span id="padpick"></span>
+      <span class="status" id="status"><i></i><span>carregando…</span></span>
+      <button id="undo" type="button" disabled>Desfazer tudo</button>
+      <button id="save" class="primary" type="button" disabled>Gravar no jogo</button>
+    </div>
+  </header>
+  <div class="main">
+    <nav id="nav" aria-label="Partes"></nav>
+    <div class="editor" id="editor"></div>
+  </div>
+</div>
+<script type="module">
+import P5 from '../src/data/partida5.js';
+import TILT from '../src/data/tilt.js';
+import { MOVES } from '../src/moves.js';
+import { CHARACTERS, ROSTER, BOSSES } from '../src/art/characters.js';
+import { ROUTE, HOODS } from '../src/story/data.js'; // (também registra os atletas do Modo História)
+import { drawAthlete } from '../src/art/draw.js';
+import { poseFor } from '../src/art/poses.js';
+import { dummy } from '../src/ui/portraits.js';
+import { settings } from '../src/ui/settings.js';
+import { clone, esc, saver, row, text, num, select, check, color, button, pad, padPicker, padStyle } from './editores.js';
+import { V5, PAD_BUTTONS, PAD_ACTIONS, ACTION_DEFAULT, padIndex } from '../src/v5.js';
+import { padGlyph } from '../src/ui/padIcons.js';
+const P = a => pad(a), P2 = a => `${pad(a)} ${pad(a)}`; // nomes dos botões no controle escolhido
+
+const original = JSON.stringify(P5);
+let data = clone(P5);
+let cur = 'hitbox';
+const PARTS = [
+  ['hitbox', '🎯', 'Hitbox em 3 partes'],
+  ['alturas', '📏', 'Altura dos atletas'],
+  ['golpes', '🦶', 'Golpes de cada parte'],
+  ['especiais', '⭐', 'Especiais 50% e 100%'],
+  ['historia', '📖', 'Especiais na história'],
+  ['formacoes', '🧭', 'Formações'],
+  ['saque', '🏐', 'Saque'],
+  ['controle', '🎮', 'Controle (botões)'],
+  ['campeonato', '🏆', 'Campeonato e sorteio'],
+  ['atributos', '💪', 'Atributos (força, agilidade…)'],
+];
+const ZK = ['inferior', 'tronco', 'superior'];
+const ANIMS = [['poke', 'Toque de pé'], ['kick', 'Chute'], ['thigh', 'Coxa'], ['chest', 'Peito'], ['shoulder', 'Ombro'], ['header', 'Cabeça']];
+const SLOTS = [
+  ['a1', 'Ataque 1', 'LB LB', 'ataque', 50], ['a2', 'Ataque 2', 'X X', 'ataque', 100],
+  ['d1', 'Defesa 1', 'RB RB', 'defesa', 50], ['d2', 'Defesa 2', 'B B', 'defesa', 100],
+];
+settings.art = 'cartoon';
+
+const S = saver({
+  kind: 'partida', original, get: () => data,
+  statusEl: document.getElementById('status'), saveBtn: document.getElementById('save'), undoBtn: document.getElementById('undo'),
+  onRestore: d => { data = d; render(); },
+  onUndo: () => { data = JSON.parse(original); render(); },
+});
+const changed = () => { S.dirty(); };
+document.getElementById('padpick').append(padPicker(() => render()));
+
+// ---------- peças ----------
+function slider(value, set, { min = 0, max = 10, step = 0.01, unit = '' } = {}) {
+  const box = document.createElement('div'); box.className = 'sl';
+  const r = document.createElement('input'); r.type = 'range'; r.min = min; r.max = max; r.step = step; r.value = value;
+  const n = document.createElement('input'); n.type = 'number'; n.min = min; n.max = max; n.step = step; n.value = value;
+  const u = document.createElement('small'); u.textContent = unit;
+  const go = v => { v = Math.max(min, Math.min(max, +v || 0)); set(v); };
+  r.oninput = () => { n.value = r.value; go(r.value); };
+  n.oninput = () => { r.value = n.value; go(n.value); };
+  box.append(r, n, u);
+  return box;
+}
+const card = (title, ...kids) => { const s = document.createElement('section'); s.className = 'card'; if (title) s.innerHTML = `<h4>${title}</h4>`; s.append(...kids); return s; };
+const hint = t => { const p = document.createElement('p'); p.className = 'hint'; p.textContent = t; return p; };
+const fields = (...kids) => { const g = document.createElement('div'); g.className = 'fields'; g.append(...kids); return g; };
+const col = (...kids) => { const d = document.createElement('div'); d.append(...kids); return d; };
+const el = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; };
+const fig = (label, c) => { const d = el('div', 'fig'); d.append(el('b', '', esc(label)), c); return d; };
+const canvas = (w, h) => { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; };
+const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+const H = () => Math.max(0.5, +data.alturaAtleta || 1.85);
+function bands(h = H()) {
+  let lo = 0;
+  return ZK.map(k => { const z = data.zonas[k]; const hi = Math.max(lo + 0.05, (+z.ate || 0) * h); const o = { k, lo, hi, cor: z.cor, nome: z.nome }; lo = hi; return o; });
+}
+if (!data.alturas) data.alturas = {};
+// 5.0: aproximação, cara ou coroa, rede, opacidade e Campeonato
+data.aproximacao = { perto: 0.45, velocidade: 8, min: 0.05, max: 0.16, ...(data.aproximacao || {}) };
+data.caraOuCoroa = { cpuSaque: (data.parOuImpar && data.parOuImpar.cpuSaca) ?? 0.7, ...(data.caraOuCoroa || {}) };
+delete data.parOuImpar;
+data.rede = { limiteBola: 0.1, ...(data.rede || {}) };
+data.aposToque = { opacidade: 0.5, ...(data.aposToque || {}) };
+data.campeonato = { nome: 'Campeonato Rio Futevôlei', grupos: { pontos: 18, trocaLado: 6 }, quartas: { pontos: 18, trocaLado: 6 }, semifinal: { pontos: 18, trocaLado: 6 }, terceiro: { pontos: 18, trocaLado: 6 },
+  final: { sets: [18, 18, 15], trocaLado: [6, 6, 5] }, temposTecnicos: 1, pontosTabela: { vitoria: 3, derrota: 1 }, premios: [300, 150, 80], arena: 'copacabana', clima: 'aleatorio', nivelVariacao: 2, ...(data.campeonato || {}) };
+data.campeonato.quartas = data.campeonato.quartas || { ...data.campeonato.grupos };
+data.campeonato.dificuldades = { facil: [1, 3, 5], medio: [3, 6, 9], dificil: [4, 8, 12], ...(data.campeonato.dificuldades || {}) };
+// 5.0: efeitos dos atributos (valor = base com o atributo em 5 + (atributo − 5) × porPonto)
+{ const D = { forca: { velocidadeBola: [1, 0.05] }, agilidade: { velocidadeQuadra: [1, 0.03], recuperacao: [1.05, -0.05] }, precisao: { erroMira: [0.5556, -0.1111] }, pique: { barraEspecial: [1, 0.08], notaRuim: [1, -0.08] } };
+  data.atributos = data.atributos || {};
+  for (const [a, ks] of Object.entries(D)) { data.atributos[a] = data.atributos[a] || {}; for (const [k, [b, p]] of Object.entries(ks)) data.atributos[a][k] = { base: b, porPonto: p, ...(data.atributos[a][k] || {}) }; } }
+// 5.0: aba Controle
+if (!data.controle) data.controle = {};
+{ const C = data.controle;
+  C.botoes = { ...ACTION_DEFAULT, ...(C.botoes || {}) };
+  C.andar = { velocidade: 5.4, aceleracao: 38, ...(C.andar || {}) };
+  C.pulo = { forca: 5.4, ...(C.pulo || {}) };
+  C.carrinho = { velocidade: 7.4, duracao: 0.42, recuperacao: 0.6, ...(C.carrinho || {}) };
+  C.mira = { modo: 'giro', giro: 360, pausaMax: 3, andarSegurando: 0.75, alcance: 1.35, ...(TILT.controle || {}), ...(C.mira || {}) }; }
+const heightOf = id => +data.alturas[id] || H();
+const spName = id => (TILT.specialDefs[id] && TILT.specialDefs[id].name) || (MOVES[id] ? MOVES[id].name.replace('!', '') : id);
+
+// ---------- lista ----------
+function renderNav() {
+  const nav = document.getElementById('nav');
+  nav.innerHTML = '';
+  nav.append(el('h3', '', '<span>Partida 5.0</span>'));
+  for (const [id, ico, name] of PARTS) {
+    const b = el('button', 'it', `<span class="nm">${ico} ${esc(name)}</span>`); b.type = 'button';
+    b.setAttribute('aria-current', String(id === cur));
+    b.onclick = () => { cur = id; render(); };
+    nav.append(b);
+  }
+}
+
+// ---------- animação das prévias ----------
+let anim = null, painters = [];
+function loop(t) { for (const p of painters) p(t / 1000); anim = requestAnimationFrame(loop); }
+function startPainters(list) { cancelAnimationFrame(anim); painters = list; anim = requestAnimationFrame(loop); }
+
+// atleta com a hitbox: 1 m = 102,4 px no desenho (sprite de 2,5 m em 256 px, pé a 10 px do fundo)
+const PX = 256 / 2.5, FEET = 10;
+function athleteFig({ zones = true, special = false, anim: an = null, who = null } = {}) {
+  const c = canvas(400, 300), g = c.getContext('2d');
+  const off = canvas(256, 256), og = off.getContext('2d');
+  return { c, paint: t => {
+    const id = (typeof who === 'function' ? who() : who) || ROSTER.find(Boolean), ch = CHARACTERS[id];
+    const hh = who ? heightOf(id) : H(), k = hh / H();
+    const pose = an ? poseFor({ ...dummy(), swing: { anim: an, t: (t % 1.2) * 0.42, kind: 'hit' }, state: 'ground' }, t) : poseFor(dummy(), t);
+    og.clearRect(0, 0, 256, 256);
+    drawAthlete(og, ch, pose, t);
+    g.clearRect(0, 0, 400, 300);
+    g.fillStyle = css('--sky') || '#bfe6f7'; g.fillRect(0, 0, 400, 300);
+    g.fillStyle = css('--sand') || '#f4dfae'; g.fillRect(0, 300 - FEET - 12, 400, FEET + 12);
+    const foot = 300 - FEET - 12, cx = 160;
+    g.drawImage(off, cx - 128 * k, foot - (256 - FEET) * k, 256 * k, 256 * k); // tamanho pela altura do atleta
+    const W = 150; // largura da hitbox desenhada
+    if (zones) {
+      for (const b of bands(hh)) {
+        const y0 = foot - b.hi * PX, y1 = foot - b.lo * PX;
+        g.fillStyle = b.cor + '44'; g.fillRect(cx - W / 2, y0, W, y1 - y0);
+        g.strokeStyle = b.cor; g.lineWidth = 3; g.strokeRect(cx - W / 2, y0, W, y1 - y0);
+        g.fillStyle = b.cor; g.fillRect(cx + W / 2 + 14, y0 + 4, 10, 10);
+        g.fillStyle = '#10233d'; g.font = "900 13px Nunito, sans-serif"; g.fillText(b.nome, cx + W / 2 + 28, y0 + 14);
+        g.font = "800 12px Nunito, sans-serif"; g.fillText(`${b.lo.toFixed(2)}–${b.hi.toFixed(2)} m`, cx + W / 2 + 28, y0 + 29);
+      }
+    }
+    if (special) {
+      const top = Math.max(0.5, (+data.hitboxEspecial.ate || 1.4) * hh);
+      g.setLineDash([7, 5]); g.strokeStyle = '#d99a00'; g.lineWidth = 3;
+      g.strokeRect(cx - W / 2 - 8, foot - top * PX, W + 16, top * PX);
+      g.setLineDash([]); g.fillStyle = '#7a5400'; g.font = "900 12px Nunito, sans-serif";
+      g.fillText(`Especial · 0–${top.toFixed(2)} m`, cx - W / 2 - 4, foot - top * PX - 6);
+    }
+    // régua da altura do atleta
+    g.strokeStyle = '#10233d'; g.lineWidth = 2; g.beginPath(); g.moveTo(30, foot); g.lineTo(30, foot - hh * PX); g.stroke();
+    g.fillStyle = '#10233d'; g.font = "900 12px Nunito, sans-serif"; g.fillText(`${hh.toFixed(2)} m`, 6, foot - hh * PX - 6);
+    if (who) g.fillText(ch ? ch.name : '', 6, 16);
+  } };
+}
+
+// ---------- seções ----------
+function secHitbox(ed) {
+  const a = athleteFig({ zones: true, special: true });
+  const figs = el('div', 'figs'); figs.append(fig(`Hitbox de ${P('A')} e ${P('B')} (3 partes) e a do especial (tracejada)`, a.c));
+  ed.append(card('', el('div', 'title-row', '<h2>🎯 Hitbox em 3 partes</h2>'), figs,
+    hint(`Segurando ${P('A')} (ataque) ou ${P('B')} (defesa), a hitbox aparece com as 3 partes, cada uma na sua cor. A parte em que a bola entra escolhe o golpe (aba "Golpes de cada parte"). Os especiais usam a hitbox inteira, do pé até o topo tracejado.`)));
+  ed.append(card('Atleta', row('Altura do atleta', slider(data.alturaAtleta, v => { data.alturaAtleta = v; changed(); }, { min: 1.4, max: 2.2, step: 0.01, unit: 'm' })),
+    hint('Altura padrão (quem não tem altura própria; veja "Altura dos atletas"). As partes são frações da altura de cada atleta. A largura e o alcance para frente/trás continuam os do editor de golpes (hitbox e alcance).')));
+  const COLORS = [['#3d8bff', 'Azul'], ['#ffc21a', 'Amarelo'], ['#ff3b4f', 'Vermelho'], ['#39ff88', 'Verde'], ['#b45cff', 'Roxo'], ['#ff8a1f', 'Laranja'], ['#ffffff', 'Branco']];
+  for (const k of [...ZK].reverse()) {
+    const z = data.zonas[k], i = ZK.indexOf(k);
+    const minAte = i ? (+data.zonas[ZK[i - 1]].ate || 0) + 0.02 : 0.1;
+    // 5.0: o que a parte faz na bola (em cima: mais alta, precisa e forte; embaixo: o espelho) e o Banana Shot
+    const fx = z.efeito = z.efeito || { altura: 0, precisao: 0, forca: 0, distancia: 0, banana: 0 };
+    if (fx.distancia === undefined) fx.distancia = 0;
+    const pct = (key, label, min, max) => row(label, slider(Math.round((+fx[key] || 0) * 100), v => { fx[key] = v / 100; changed(); }, { min, max, step: 1, unit: '%' }));
+    const c = card('', fields(
+      col(row('Nome', text(z.nome, v => { z.nome = v || k; changed(); renderNav(); }, { max: 20 })),
+          row('Vai até', slider(z.ate, v => { z.ate = v; changed(); }, { min: minAte, max: 1.8, step: 0.01, unit: '× altura' }))),
+      col(row('Cor', color(COLORS, z.cor, (v, live) => { z.cor = v; changed(); if (!live) render(); }))),
+      col(pct('altura', 'Bola mais alta', -40, 40), pct('precisao', 'Mais precisa', -40, 40)),
+      col(pct('forca', 'Mais forte', -40, 40), pct('distancia', 'Mais longe (distância)', -40, 40)),
+      col(pct('banana', 'Chance de Banana Shot', 0, 100)),
+    ), hint((i === 0 ? 'Começa no pé.' : `Começa onde a parte "${data.zonas[ZK[i - 1]].nome}" acaba.`) + ' Bola mais alta / precisa / forte / longe: + deixa mais, − deixa menos (0 = sem mudança). Mais longe = a distância da bola do botão (X / B) até o centro da área onde ela cai. Banana Shot = a bola faz uma curva para o lado no caminho.'));
+    c.classList.add('zone-card'); c.style.setProperty('--c', z.cor);
+    c.prepend(el('h4', '', `Parte ${['inferior', 'do tronco', 'superior'][i]}`));
+    ed.append(c);
+  }
+  ed.append(card('Ataque depois de passes e Banana Shot', fields(
+    col(row('Bônus por passe', slider(Math.round((+data.bonusPasse || 0) * 100), v => { data.bonusPasse = v / 100; changed(); }, { min: 0, max: 60, step: 1, unit: '%' }))),
+    col(row('Curva do Banana Shot', slider(+data.bananaCurva || 1.4, v => { data.bananaCurva = v; changed(); }, { min: 0, max: 4, step: 0.1, unit: 'm' })))),
+    hint('A cada passe antes do ataque, a bola do ataque fica esta porcentagem mais precisa e mais forte, acumulando: com 25%, atacar no 2º toque dá +25% e no 3º toque +50%. Assim não compensa atacar sempre logo no 1º ou 2º toque. A curva é quanto a bola do Banana Shot desvia para o lado no meio do caminho.')));
+  { const A = data.aproximacao;
+    ed.append(card('Chegar até a bola', fields(
+      col(row('Desliza se a bola estiver a mais de', slider(+A.perto, v => { A.perto = v; changed(); }, { min: 0.1, max: 1.5, step: 0.05, unit: 'm' })),
+        row('Velocidade do deslize', slider(+A.velocidade, v => { A.velocidade = v; changed(); }, { min: 2, max: 20, step: 0.5, unit: 'm/s' }))),
+      col(row('Duração mínima', slider(+A.min, v => { A.min = v; changed(); }, { min: 0, max: 0.3, step: 0.01, unit: 's' })),
+        row('Duração máxima', slider(+A.max, v => { A.max = v; changed(); }, { min: 0.05, max: 0.5, step: 0.01, unit: 's' })))),
+      hint('Quando a bola entra na hitbox mas o corpo do atleta está longe dela, ele desliza até a bola antes do toque (a bola espera esse instante), para parecer que realmente a alcançou. Vale para todos (gente e CPU), menos no Kids Mode, que tem o deslize próprio.'))); }
+  // 5.0: rede e atleta que já tocou
+  ed.append(card('Bola do outro lado da rede', row('Pode tocar até passar', slider(Math.round(+data.rede.limiteBola * 100), v => { data.rede.limiteBola = v / 100; changed(); }, { min: 0, max: 50, step: 1, unit: '% da bola' })),
+    hint('O atleta só alcança a bola do próprio lado: se mais que esta parte da bola já passou da rede, ninguém (gente ou CPU) consegue tocar. 10% = quase nada pode passar.')));
+  ed.append(card('Depois do toque', row('Opacidade de quem já tocou', slider(Math.round(+data.aposToque.opacidade * 100), v => { data.aposToque.opacidade = v / 100; changed(); }, { min: 10, max: 100, step: 5, unit: '%' })),
+    hint('Na dupla (e na trinca), quem acabou de tocar não pode tocar de novo: fica com esta opacidade até o parceiro tocar ou a bola passar a rede. Vale para todos os atletas.')));
+  ed.append(card('Hitbox do especial', row('Vai até', slider(data.hitboxEspecial.ate, v => { data.hitboxEspecial.ate = v; changed(); }, { min: 0.6, max: 1.8, step: 0.01, unit: '× altura' })),
+    hint('Inteira, sem dividir: qualquer altura dentro dela solta o especial. O alcance para frente/trás de cada especial fica no editor de golpes (aba "Golpes do jogo").')));
+  startPainters([a.paint]);
+}
+
+function secAlturas(ed) {
+  let focus = ROSTER.find(Boolean);
+  const a = athleteFig({ zones: true, special: false, who: () => focus });
+  const figs = el('div', 'figs'); figs.append(fig('Atleta escolhido, no tamanho e com a hitbox dele', a.c));
+  ed.append(card('', el('div', 'title-row', '<h2>📏 Altura dos atletas</h2>'), figs,
+    hint('A altura muda o tamanho do desenho na quadra e a hitbox (as 3 partes e a do especial são frações dela). Quem não tem altura própria usa a padrão. Os jogadores do Criar Jogador escolhem a altura lá.')));
+  ed.append(card('Altura padrão', row('Padrão', slider(data.alturaAtleta, v => { data.alturaAtleta = v; changed(); }, { min: 1.4, max: 2.2, step: 0.01, unit: 'm' }))));
+  const ids = Object.values(CHARACTERS).filter(c => !c.custom).map(c => c.id);
+  const groups = [
+    ['Atletas da seleção', ids.filter(id => ROSTER.includes(id))],
+    ['Chefes', ids.filter(id => BOSSES.includes(id))],
+    ['Modo História', ids.filter(id => !ROSTER.includes(id) && !BOSSES.includes(id))],
+  ];
+  for (const [title, list] of groups) {
+    if (!list.length) continue;
+    const box = el('div');
+    for (const id of list) {
+      const own = data.alturas[id] != null;
+      const sl = slider(heightOf(id), v => { data.alturas[id] = v; focus = id; changed(); }, { min: 1.4, max: 2.2, step: 0.01, unit: 'm' });
+      sl.addEventListener('pointerdown', () => { focus = id; });
+      sl.addEventListener('focusin', () => { focus = id; });
+      const reset = button('Padrão', () => { delete data.alturas[id]; changed(); render(); }); reset.disabled = !own; reset.title = 'Usar a altura padrão';
+      const box2 = el('div', 'inline'); box2.style.flexWrap = 'nowrap'; box2.append(sl, reset); sl.style.flex = '1';
+      box.append(row((CHARACTERS[id] || {}).name || id, box2));
+    }
+    ed.append(card(title, box));
+  }
+  startPainters([a.paint]);
+}
+
+function secGolpes(ed) {
+  const a = athleteFig({ zones: true });
+  const figs = el('div', 'figs'); figs.append(fig('Partes da hitbox', a.c));
+  const tab = el('table', 'mtab');
+  tab.innerHTML = '<thead><tr><th>Parte</th><th>1º toque · domínio</th><th>2º toque · levantada</th><th>3º toque · ataque</th></tr></thead>';
+  const tb = el('tbody');
+  for (const k of [...ZK].reverse()) {
+    const tr = el('tr'); tr.style.setProperty('--c', data.zonas[k].cor);
+    tr.append(el('td', '', esc(data.zonas[k].nome)));
+    for (const t of ['1', '2', '3']) {
+      const td = el('td');
+      const list = data.golpesZona[k][t] || (data.golpesZona[k][t] = []);
+      const tot = list.reduce((s, g) => s + Math.max(0, +g.chance || 0), 0) || 1;
+      list.forEach((g, gi) => {
+        const r = el('div', 'mv');
+        const nm = text(g.nome, v => { g.nome = v; changed(); }, { max: 30 });
+        const an = select(ANIMS, g.anim, v => { g.anim = v; changed(); });
+        const ch = document.createElement('input'); ch.type = 'number'; ch.min = 0; ch.max = 100; ch.value = g.chance; ch.title = 'Peso do sorteio';
+        ch.oninput = () => { g.chance = Math.max(0, +ch.value || 0); changed(); };
+        ch.onchange = () => render();
+        const del = button('×', () => { list.splice(gi, 1); changed(); render(); }, 'danger'); del.title = 'Tirar este golpe'; del.disabled = list.length < 2;
+        r.append(nm, an, ch, del);
+        td.append(r);
+        td.append(el('div', 'mv-pct', `${Math.round(100 * Math.max(0, +g.chance || 0) / tot)}% de chance`));
+      });
+      td.append(button('+ golpe', () => { list.push({ nome: 'Novo golpe', anim: 'chest', chance: 50 }); changed(); render(); }, 'add'));
+      tr.append(td);
+    }
+    tb.append(tr);
+  }
+  tab.append(tb);
+  const wrap = el('div', 'scroll-x'); wrap.append(tab);
+  ed.append(card('', el('div', 'title-row', '<h2>🦶 Golpes de cada parte</h2>'), figs,
+    hint(`Na hora do toque, o jogo vê em que parte da hitbox a bola está e sorteia um golpe da lista daquela parte e daquele toque, pelos pesos. O golpe dá o nome e a animação; a bola é a do botão (${P('A')} rápida e longa, ${P('B')} alta e precisa). No ar (${P('C')} + ${P('A')} ou ${P('C')} + ${P('B')}) vale a mesma tabela.`)),
+    card('Tabela', wrap, hint('Peso: 50 e 50 = metade de chance para cada. Animações: toque de pé, chute, coxa, peito, ombro e cabeça.')));
+  startPainters([a.paint]);
+}
+
+function secEspeciais(ed) {
+  // todos os especiais do jogo (e os que já estão na lista)
+  const ids = [...new Set([...Object.keys(data.especiais), ...Object.keys(MOVES).filter(id => MOVES[id].special)])];
+  if (!data.niveis) data.niveis = { '50': { area: 0.7, velocidade: 1.15 }, '100': { area: 0.45, velocidade: 1.35 } };
+  const on = tipo => ids.filter(id => { const e = data.especiais[id]; return e && e.ativo !== false && e.tipo === tipo; });
+  const slots = el('div', 'slots');
+  for (const [tipo, label, b50, b100] of [['ataque', 'Ataque', P2('L'), P2('A')], ['defesa', 'Defesa', P2('R'), P2('B')]]) {
+    const list = on(tipo);
+    const d = el('div', 'slot', `<h5>${label} <small>· ${b50} (50%) e ${b100} (100%)</small></h5>`);
+    d.append(list.length ? el('ul', '', list.map(id => `<li>${esc(spName(id))}</li>`).join('')) : el('p', 'none', 'nenhum ativo: estes botões ficam sem especial'));
+    if (list.length === 1) d.append(el('p', 'none', 'só 1 ativo: um dos dois botões fica sem especial (não pode repetir)'));
+    slots.append(d);
+  }
+  ed.append(card('', el('div', 'title-row', '<h2>⭐ Especiais 50% e 100%</h2>'), slots,
+    hint(`Na seleção ("Escolha sua dupla"), o jogador escolhe para cada atleta qual especial de ataque vai no ${P2('L')} (50%) e qual no ${P2('A')} (100%), e qual de defesa vai no ${P2('R')} (50%) e qual no ${P2('B')} (100%). O mesmo especial não pode estar nos dois botões do mesmo tipo. A CPU recebe especiais sorteados (a parceira pode ser trocada na seleção).`)));
+
+  // força e precisão por nível, com prévia
+  const simA = (TILT.ground && TILT.ground.A && +TILT.ground.A.radius) || 1.7, simB = (TILT.ground && TILT.ground.B && +TILT.ground.B.radius) || 1.2;
+  const pv = canvas(520, 230), g = pv.getContext('2d');
+  const paint = () => {
+    g.fillStyle = css('--sand') || '#f4dfae'; g.fillRect(0, 0, 520, 230);
+    const M = 36, rows = [['Simples', 1, 1, '#8a8f99'], ['Especial 50%', +data.niveis['50'].area, +data.niveis['50'].velocidade, '#3d8bff'], ['Especial 100%', +data.niveis['100'].area, +data.niveis['100'].velocidade, '#ff3b4f']];
+    g.font = "900 13px Nunito, sans-serif";
+    rows.forEach(([nm, a, v, cor], k) => {
+      const cx = 80 + k * 170, cy = 92;
+      g.fillStyle = cor + '33'; g.strokeStyle = cor; g.lineWidth = 3;
+      g.beginPath(); g.arc(cx, cy, simA * a * M, 0, 7); g.fill(); g.stroke();
+      g.setLineDash([4, 4]); g.strokeStyle = '#10233d55'; g.beginPath(); g.arc(cx, cy, simA * M, 0, 7); g.stroke(); g.setLineDash([]);
+      g.fillStyle = '#10233d'; g.fillText(nm, cx - 40, 18);
+      g.font = "800 12px Nunito, sans-serif"; g.fillText(`raio ${(simA * a).toFixed(2)} m (X)`, cx - 44, 172);
+      // velocidade
+      g.fillStyle = '#10233d22'; g.fillRect(cx - 60, 184, 120, 12);
+      g.fillStyle = cor; g.fillRect(cx - 60, 184, Math.min(120, 120 * v / 1.8), 12);
+      g.fillStyle = '#10233d'; g.fillText(`velocidade ×${v.toFixed(2)}`, cx - 44, 214);
+      g.font = "900 13px Nunito, sans-serif";
+    });
+  };
+  const figs = el('div', 'figs'); figs.append(fig('Onde a bola cai (círculo) e a velocidade: simples × 50% × 100% · tracejado = área da bola simples', pv));
+  const lvl = n => col(el('h4', '', `Especial de ${n}%`),
+    row('Área onde cai', slider(Math.round(data.niveis[n].area * 100), v => { data.niveis[n].area = v / 100; changed(); paint(); }, { min: 10, max: 150, step: 5, unit: '% da simples' })),
+    row('Velocidade', slider(data.niveis[n].velocidade, v => { data.niveis[n].velocidade = v; changed(); paint(); }, { min: 0.8, max: 2, step: 0.05, unit: '×' })),
+    row('Hitbox do especial', slider(Math.round((data.niveis[n].hitbox ?? 1) * 100), v => { data.niveis[n].hitbox = v / 100; changed(); }, { min: 40, max: 100, step: 5, unit: '% da inteira' })),
+    row('Custo na barra', slider(data.custo[n], v => { data.custo[n] = v; changed(); }, { min: 10, max: 100, step: 5, unit: '%' })));
+  ed.append(card('Força, precisão e hitbox por nível', figs, fields(lvl('50'), lvl('100')),
+    hint(`A área onde a bola cai é uma fração da área da bola simples do tipo (ataque: a do X, raio ${simA} m; defesa: a do B, raio ${simB} m) — quanto menor, mais preciso. A velocidade multiplica a da bola (o simples é × 1). O 50% carrega mais rápido (custa menos barra), então fica entre o simples e o 100%. O custo é quanto da barra precisa ter e quanto gasta.`)));
+  paint();
+  // 5.0: levantada perfeita — a defesa especial vai direto no parceiro e melhora o toque seguinte dele
+  data.defesaEspecial = data.defesaEspecial || { 50: { bonus: 0.25, hitbox: 1.15 }, 100: { bonus: 0.5, hitbox: 1.3 } };
+  const setLv = n => { const L = data.defesaEspecial[n] = data.defesaEspecial[n] || { bonus: 0.25, hitbox: 1.15 }; return col(el('h4', '', 'Defesa de ' + n + '%'),
+    row('Precisão e força', slider(Math.round(L.bonus * 100), v => { L.bonus = v / 100; changed(); }, { min: 0, max: 150, step: 5, unit: '% a mais' })),
+    row('Hitbox do parceiro', slider(Math.round(L.hitbox * 100), v => { L.hitbox = v / 100; changed(); }, { min: 100, max: 200, step: 5, unit: '%' }))); };
+  ed.append(card('Levantada perfeita (defesa especial)', fields(setLv('50'), setLv('100')),
+    hint('No 1º ou 2º toque, o especial de defesa vai direto no parceiro, sem mira (no 3º toque passa a rede, como antes). O toque seguinte do parceiro fica mais preciso e mais forte (soma ao bônus por passe) e com a hitbox maior. Vale só nesse toque; o parceiro brilha em amarelo enquanto vale.')));
+
+  const box = el('div');
+  for (const id of ids) {
+    const e = data.especiais[id];
+    const r = el('div', 'sp-row' + (!e || e.ativo === false ? ' off' : ''));
+    r.append(el('b', '', `${esc(spName(id))}<small>${esc(id)}${TILT.specialDefs[id] ? '' : ' · sem trajetória própria'}</small>`));
+    if (!e) {
+      r.append(el('span', 'hint', 'fora da lista'), el('span'), button('Adicionar', () => { data.especiais[id] = { tipo: 'ataque', ativo: true }; changed(); render(); }));
+    } else {
+      r.append(
+        select([['ataque', 'Ataque'], ['defesa', 'Defesa']], e.tipo, v => { e.tipo = v; changed(); render(); }),
+        el('span'),
+        check('No jogo', e.ativo !== false, v => { e.ativo = v; changed(); render(); }),
+      );
+    }
+    box.append(r);
+  }
+  ed.append(card('Cada especial', box, hint('Ligue "No jogo" para o especial aparecer na seleção (e no Modo História, se aprendido). A trajetória, a distância e o alcance de cada um ficam no editor de golpes (aba "Golpes do jogo").')));
+}
+
+function secHistoria(ed) {
+  const h = data.historia || (data.historia = { inicio: { giulia: [], zefa: [] }, campeonatoUrca: [], rio: [] });
+  if (!h.inicio) h.inicio = { giulia: [], zefa: [] };
+  if (!h.campeonatoUrca) h.campeonatoUrca = [];
+  if (!h.rio) h.rio = [];
+  while (h.rio.length < ROUTE.length) h.rio.push({ quem: 'giulia', especial: null });
+  const ids = [...new Set([...Object.keys(data.especiais), ...Object.keys(MOVES).filter(id => MOVES[id].special)])];
+  const isOn = id => { const e = data.especiais[id]; return !!e && e.ativo !== false; };
+  const tipoOf = id => (data.especiais[id] || {}).tipo === 'defesa' ? 'defesa' : 'ataque';
+  const spOpts = withNone => [...(withNone ? [['', '— nenhum (a criar) —']] : []), ...ids.map(id => [id, `${spName(id)} · ${tipoOf(id)}${isOn(id) ? '' : ' (desligado no jogo)'}`])];
+  const WHO = [['giulia', 'Giulia'], ['zefa', 'Zefa']];
+  // quem sabe o quê, do início ao fim (prévia)
+  const sum = el('div', 'slots');
+  const paintSum = () => {
+    sum.innerHTML = '';
+    for (const [w, nm] of WHO) {
+      const steps = [['Início', h.inicio[w] || []], ['Campeonato da Urca', h.campeonatoUrca.filter(t => t.quem === w).map(t => t.especial)],
+        ...h.rio.map((t, i) => [`Rio ${i + 1} · ${(HOODS[ROUTE[i].hood] || {}).name || ROUTE[i].hood}`, t.quem === w && t.especial ? [t.especial] : []])].filter(([, l]) => l.filter(Boolean).length);
+      const d = el('div', 'slot', `<h5>${nm}</h5>`);
+      d.append(el('ul', '', steps.map(([q, l]) => `<li><small style="color:var(--muted)">${esc(q)}:</small> ${l.filter(Boolean).map(id => `${esc(spName(id))}${isOn(id) ? '' : ' <small style="color:var(--warn)">(desligado)</small>'}`).join(', ')}</li>`).join('') || '<li>nada</li>'));
+      const all = new Set(steps.flatMap(([, l]) => l).filter(id => id && isOn(id)));
+      const at = [...all].filter(id => tipoOf(id) === 'ataque').length, df = [...all].filter(id => tipoOf(id) === 'defesa').length;
+      d.append(el('p', 'hint', `No fim: ${at} de ataque e ${df} de defesa (cada botão precisa de um; 50% e 100% não repetem).`));
+      sum.append(d);
+    }
+  };
+  paintSum();
+  const upd = () => { changed(); paintSum(); };
+  ed.append(card('', el('div', 'title-row', '<h2>📖 Especiais na história</h2>'), sum,
+    hint('No Modo História, a Giulia e a Zefa só usam os especiais que já aprenderam (e que estão ligados no jogo, na aba "Especiais 50% e 100%"). Aqui fica o que cada uma sabe no início e o que cada etapa ensina. "Nenhum (a criar)" deixa a vitória sem especial, para os que ainda vamos criar. Vale para jogos novos; quem já tem jogo salvo aprende os novos ao vencer as etapas.')));
+  // início
+  const ini = el('div');
+  for (const [w, nm] of WHO) {
+    const list = h.inicio[w] || (h.inicio[w] = []);
+    const box = el('div', 'inline');
+    list.forEach((id, k) => box.append(button(`${spName(id)} ×`, () => { list.splice(k, 1); upd(); render(); })));
+    box.append(select([['', '+ adicionar…'], ...spOpts(false).filter(([id]) => !list.includes(id))], '', v => { if (v) { list.push(v); upd(); render(); } }));
+    ini.append(row(nm, box));
+  }
+  ed.append(card('No início do jogo', ini));
+  // campeonato da Urca
+  const ct = el('div');
+  h.campeonatoUrca.forEach((t, k) => {
+    const box = el('div', 'inline');
+    box.append(select(WHO, t.quem, v => { t.quem = v; upd(); }), select(spOpts(false), t.especial || '', v => { t.especial = v || null; upd(); }),
+      button('Tirar', () => { h.campeonatoUrca.splice(k, 1); upd(); render(); }, 'danger'));
+    ct.append(row(`Especial ${k + 1}`, box));
+  });
+  ct.append(button('+ especial no campeonato', () => { h.campeonatoUrca.push({ quem: 'giulia', especial: ids[0] }); upd(); render(); }, 'add'));
+  ed.append(card('Campeonato do CT da Urca (o Treinador Moacir ensina)', ct));
+  // Rio Futevôlei
+  const rio = el('div');
+  h.rio.slice(0, ROUTE.length).forEach((t, i) => {
+    const box = el('div', 'inline');
+    box.append(select(WHO, t.quem || 'giulia', v => { t.quem = v; upd(); }), select(spOpts(true), t.especial || '', v => { t.especial = v || null; upd(); }));
+    rio.append(row(`${i + 1}ª vitória · ${(HOODS[ROUTE[i].hood] || {}).name || ROUTE[i].hood}`, box));
+  });
+  ed.append(card('Rio Futevôlei (cada vitória pode ensinar um)', rio));
+}
+
+function courtFig(drawFn) {
+  const c = canvas(520, 300), g = c.getContext('2d');
+  const M = 26, X0 = 26, Z0 = 150; // 1 m = 26 px; nosso lado à esquerda (x = −9 a 0), rede no meio
+  const P = (x, z) => [X0 + (9 - x) * M, Z0 + z * M]; // x = distância da rede no nosso lado
+  return { c, paint: () => {
+    g.fillStyle = css('--sand') || '#f4dfae'; g.fillRect(0, 0, 520, 300);
+    g.strokeStyle = '#1d5cff'; g.lineWidth = 3;
+    g.strokeRect(X0, Z0 - 4.5 * M, 18 * M, 9 * M);
+    g.fillStyle = '#10233d'; g.fillRect(X0 + 9 * M - 2, Z0 - 4.5 * M - 8, 4, 9 * M + 16);
+    g.font = "900 12px Nunito, sans-serif"; g.fillText('rede', X0 + 9 * M + 6, Z0 - 4.5 * M - 2);
+    g.fillText('câmera ↓', 8, 292);
+    drawFn(g, P, M);
+  } };
+}
+
+function secFormacoes(ed) {
+  const list = data.formacoes;
+  ed.append(card('', el('div', 'title-row', `<h2>🧭 Formações (${P('R2')})</h2>`),
+    hint(`Na dupla, o ${P('R2')} passa para a próxima formação da lista (e volta à primeira depois da última). A partida começa na primeira. "Rede" é quem fica na frente; "fundo", o parceiro. Medidas em metros: x = distância da rede, z = posição no meio (+ = lado da câmera). "Recebendo" vale enquanto o adversário saca.`)));
+  list.forEach((f, i) => {
+    const pv = courtFig((g, P, M) => {
+      const dot = (p, cor, lbl, alpha = 1) => { const [x, y] = P(p.x, p.z); g.globalAlpha = alpha; g.fillStyle = cor; g.beginPath(); g.arc(x, y, 11, 0, 7); g.fill(); g.fillStyle = '#fff'; g.font = "900 11px Nunito, sans-serif"; g.fillText(lbl, x - 4, y + 4); g.globalAlpha = 1; };
+      if (f.recebendo) { dot(f.recebendo.rede, '#ff5a3c', 'R', 0.35); dot(f.recebendo.fundo, '#1d5cff', 'F', 0.35); }
+      dot(f.rede, '#ff5a3c', 'R'); dot(f.fundo, '#1d5cff', 'F');
+    });
+    const xz = (p, label) => {
+      const d = el('div', 'xz');
+      const nx = document.createElement('input'); nx.type = 'number'; nx.step = 0.1; nx.min = 0.6; nx.max = 9; nx.value = p.x;
+      const nz = document.createElement('input'); nz.type = 'number'; nz.step = 0.1; nz.min = -4.3; nz.max = 4.3; nz.value = p.z;
+      nx.oninput = () => { p.x = Math.max(0.6, Math.min(9, +nx.value || 0)); changed(); pv.paint(); };
+      nz.oninput = () => { p.z = Math.max(-4.3, Math.min(4.3, +nz.value || 0)); changed(); pv.paint(); };
+      d.append(el('span', '', 'x'), nx, el('span', '', 'z'), nz);
+      return row(label, d);
+    };
+    const head = el('div', 'form-head');
+    const ttl = el('h2', '', `${i + 1}. ${esc(f.nome)}`); ttl.style.cssText = 'font-family:var(--display);font-weight:400;font-size:22px;margin:0';
+    const acts = el('div', 'inline');
+    const up = button('↑', () => { list.splice(i - 1, 0, list.splice(i, 1)[0]); changed(); render(); }); up.disabled = i === 0; up.title = 'Subir';
+    const dn = button('↓', () => { list.splice(i + 1, 0, list.splice(i, 1)[0]); changed(); render(); }); dn.disabled = i === list.length - 1; dn.title = 'Descer';
+    const del = button('Excluir', () => { if (confirm(`Excluir a formação "${f.nome}"?`)) { list.splice(i, 1); changed(); render(); } }, 'danger'); del.disabled = list.length < 2;
+    acts.append(up, dn, del);
+    head.append(ttl, acts);
+    if (!f.recebendo) f.recebendo = { rede: { ...f.rede }, fundo: { ...f.fundo } };
+    const figs = el('div', 'figs'); figs.append(fig('Vermelho = rede · azul = fundo · claro = recebendo o saque', pv.c));
+    ed.append(card('', head, figs, fields(
+      col(row('Nome', text(f.nome, v => { f.nome = v || 'Formação'; ttl.textContent = `${i + 1}. ${f.nome}`; changed(); }, { max: 24 })), xz(f.rede, 'Rede'), xz(f.fundo, 'Fundo')),
+      col(el('h4', '', 'Recebendo o saque'), xz(f.recebendo.rede, 'Rede'), xz(f.recebendo.fundo, 'Fundo')),
+    )));
+    pv.paint();
+  });
+  ed.append(button('+ Nova formação', () => { list.push({ nome: 'Nova formação', rede: { x: 3, z: 0 }, fundo: { x: 6, z: 0 }, recebendo: { rede: { x: 3.5, z: 0 }, fundo: { x: 6.4, z: 0 } } }); changed(); render(); }, 'add'));
+}
+
+// 5.0: cada tipo de saque (forte X / viagem B) com profundidade, lateral, força e Banana Shot
+function fixSaque() { if (data.saque && data.saque.forte && data.saque.viagem) return; const old = data.saque || {}, base = { profundidade: +(old.profundidade ?? 3), lateral: +(old.lateral ?? 3.6), forca: 0, banana: 0 };
+  data.saque = { forte: { ...base, ...(old.forte || {}) }, viagem: { ...base, ...(old.viagem || {}) } }; }
+fixSaque();
+function secSaque(ed) {
+  fixSaque();
+  const SQ = data.saque, COR = { forte: '#ff5a3c', viagem: '#3d8bff' };
+  const pv = courtFig((g, P, M) => {
+    // alvo de cada saque no campo deles: centro + deslocamento máximo do LS
+    const cx = 520 - 26 - 4.5 * M, cy = 150; // meio do campo adversário
+    for (const t of ['viagem', 'forte']) {
+      const sq = SQ[t], c = COR[t];
+      g.fillStyle = c + '22'; g.strokeStyle = c; g.lineWidth = 2; g.setLineDash(t === 'forte' ? [6, 4] : [2, 4]);
+      g.fillRect(cx - sq.profundidade * M, cy - sq.lateral * M, 2 * sq.profundidade * M, 2 * sq.lateral * M);
+      g.strokeRect(cx - sq.profundidade * M, cy - sq.lateral * M, 2 * sq.profundidade * M, 2 * sq.lateral * M);
+    }
+    g.setLineDash([]);
+    g.fillStyle = '#10233d'; g.beginPath(); g.arc(26 - 10 + 18, 150, 7, 0, 7); g.fill();
+    g.font = "900 12px Nunito, sans-serif"; g.fillText('quem saca', 30, 176);
+    g.fillStyle = COR.forte; g.fillText('forte (X)', cx - 80, cy - SQ.forte.lateral * M - 8);
+    g.fillStyle = COR.viagem; g.fillText('viagem (B)', cx + 10, cy - SQ.viagem.lateral * M - 8);
+  });
+  const figs = el('div', 'figs'); figs.append(fig('Até onde o analógico (LS) leva cada saque (sem ajuda visual no jogo)', pv.c));
+  ed.append(card('', el('div', 'title-row', '<h2>🏐 Saque</h2>'), figs,
+    hint(`${P('A')} = saque forte e ${P('B')} = saque viagem (trajetórias no editor de golpes). Segurando o botão, o analógico (LS) escolhe para onde: inclinado todo para a frente leva o alvo "profundidade" metros para o fundo; para os lados, "lateral" metros. Solto no meio, vai no centro. Força e Banana Shot valem para o saque de todos (jogadores e CPU).`)));
+  const pct = (sq, k, label, min, max) => slider(Math.round((+sq[k] || 0) * 100), v => { sq[k] = v / 100; changed(); }, { min, max, step: 1, unit: '%' });
+  for (const [t, title, btn] of [['forte', 'Saque forte', 'A'], ['viagem', 'Saque viagem', 'B']]) {
+    const sq = SQ[t];
+    ed.append(card('', el('h4', '', `${P(btn)} ${title}`), fields(
+      col(row('Profundidade', slider(sq.profundidade, v => { sq.profundidade = v; changed(); pv.paint(); }, { min: 0, max: 6, step: 0.1, unit: 'm' })),
+        row('Força', pct(sq, 'forca', 'Força', -50, 50))),
+      col(row('Lateral', slider(sq.lateral, v => { sq.lateral = v; changed(); pv.paint(); }, { min: 0, max: 4.4, step: 0.1, unit: 'm' })),
+        row('Chance de Banana Shot', pct(sq, 'banana', 'Banana', 0, 100)))),
+      hint('Força: + bola mais rápida, − mais lenta (0 = como hoje). Banana Shot: chance de a bola fazer curva para o lado no caminho (a curva é a mesma dos golpes, "bananaCurva").')));
+  }
+  pv.paint();
+}
+
+// ---------- 5.0: aba Controle — qual botão faz cada ação e os ajustes de cada uma ----------
+const ACT_SHORT = { A: 'Ataque', B: 'Defesa', C: 'Pulo', D: 'Carrinho', L: 'Especial ataque 50%', R: 'Especial defesa 50%', L2: 'Ajudas visuais', R2: 'Formação', start: 'Pausa' };
+const padSt = () => (padStyle() === 'ps' ? 'ps' : 'xbox');
+const btnName = i => { const b = PAD_BUTTONS.find(b => b.i === i); return b ? b[padSt()] : '?'; };
+// desenho do controle com a ação de cada botão
+function padDiagram() {
+  const st = padSt(), C = data.controle;
+  const at = i => PAD_ACTIONS.filter(a => (+C.botoes[a]) === i).map(a => ACT_SHORT[a]).join(' + ') || 'sem uso';
+  // botão: [x, y, raio, rótulo x, rótulo y, lado]
+  const B = { 6: [200, 30, 0, 150, 30, 'l'], 4: [205, 54, 0, 150, 56, 'l'], 8: [287, 96, 8, 150, 88, 'l'], 10: [218, 106, 15, 150, 118, 'l'],
+    7: [420, 30, 0, 470, 30, 'r'], 5: [415, 54, 0, 470, 56, 'r'], 3: [418, 82, 11, 470, 82, 'r'], 2: [393, 106, 11, 470, 108, 'r'], 1: [443, 106, 11, 470, 134, 'r'],
+    0: [418, 130, 11, 470, 160, 'r'], 9: [333, 96, 8, 470, 186, 'r'], 11: [358, 160, 15, 470, 212, 'r'] };
+  const FACEC = { xbox: { 0: '#5dc21e', 1: '#e2231a', 2: '#2d6ee0', 3: '#f5c400' }, ps: { 0: '#7aa7ff', 1: '#ff5b6b', 2: '#ff8fd0', 3: '#3ddc97' } };
+  let g = '<path d="M190 62 Q310 44 430 62 Q482 72 494 150 Q500 232 448 232 Q418 232 398 196 L222 196 Q202 232 172 232 Q120 232 126 150 Q138 72 190 62Z" fill="var(--surface-2)" stroke="var(--line)" stroke-width="3"/>';
+  // direcional (sempre move)
+  g += '<path d="M255 150h20v-20h20v20h20v20h-20v20h-20v-20h-20z" transform="translate(-10 0)" fill="#1d1a2b"/>';
+  g += '<line x1="262" y1="170" x2="150" y2="170" stroke="var(--muted)" stroke-width="1"/><text x="146" y="174" text-anchor="end" class="pdl">Mover (direcional)</text>';
+  for (const [i, [x, y, r, lx, ly, side]] of Object.entries(B)) {
+    const used = at(+i) !== 'sem uso', label = btnName(+i);
+    if (r === 0) g += `<rect x="${x - 26}" y="${y - 11}" width="52" height="20" rx="8" fill="${used ? '#1d1a2b' : '#8a8f99'}"/><text x="${x}" y="${y + 4}" text-anchor="middle" class="pdb">${label}</text>`;
+    else g += `<circle cx="${x}" cy="${y}" r="${r}" fill="${(FACEC[st][i]) || (used ? '#1d1a2b' : '#8a8f99')}"/><text x="${x}" y="${y + 4}" text-anchor="middle" class="pdb">${r > 9 ? esc(label.replace(' (apertar)', '')) : ''}</text>`;
+    const ex = side === 'l' ? x - (r || 26) : x + (r || 26);
+    g += `<line x1="${ex}" y1="${y}" x2="${side === 'l' ? lx + 4 : lx - 4}" y2="${ly - 4}" stroke="var(--muted)" stroke-width="1"/>`;
+    g += `<text x="${lx}" y="${ly}" text-anchor="${side === 'l' ? 'end' : 'start'}" class="pdl ${used ? '' : 'off'}">${esc(label)}: ${esc(at(+i))}</text>`;
+  }
+  g += '<text x="218" y="140" text-anchor="middle" class="pds">analógico: mover</text><text x="358" y="194" text-anchor="middle" class="pds">analógico direito: sem uso</text>';
+  const box = el('div', 'paddia');
+  box.innerHTML = `<svg viewBox="-110 0 800 245" role="img" aria-label="Controle com a ação de cada botão">${g}</svg>`;
+  return box;
+}
+function secControle(ed) {
+  const C = data.controle;
+  const pick = a => {
+    const s = document.createElement('select');
+    for (const b of PAD_BUTTONS) s.add(new Option(`${b[padSt()]} · ${b.lugar}`, b.i, false, b.i === +C.botoes[a]));
+    s.onchange = () => {
+      const i = +s.value, old = +C.botoes[a];
+      const other = PAD_ACTIONS.find(o => o !== a && +C.botoes[o] === i); // botão já usado: troca os dois
+      C.botoes[a] = i; if (other) C.botoes[other] = old;
+      changed(); render();
+    };
+    return s;
+  };
+  const ico = a => `<span class="pd-ico">${padGlyph(+C.botoes[a], padSt(), 22)}</span>`;
+  const head = (a, title) => el('h4', '', `${ico(a)} ${title}`);
+  const actCard = (a, title, desc, ...extra) => { const c = card('', head(a, title), row('Botão', pick(a)), hint(desc), ...extra); c.classList.add('act-card'); return c; };
+
+  ed.append(card('', el('div', 'title-row', '<h2>🎮 Controle (botões)</h2>'),
+    hint('O que cada botão do controle faz na partida e nos menus. Para trocar, escolha outro botão no cartão da ação: se ele já tiver outra ação, as duas trocam de lugar. Os ícones do jogo (menus, tela de Comandos, calibração) e os nomes nos outros editores acompanham. O direcional e o analógico esquerdo sempre movem. Nomes do controle escolhido no alto da página (Xbox ou PlayStation).'),
+    padDiagram(),
+    row('Botões', button('Voltar os botões ao padrão', () => { C.botoes = { ...ACTION_DEFAULT }; changed(); render(); }))));
+
+  // mover
+  ed.append(card('', el('h4', '', '<span class="pd-ico"><span class="pad-pill">✥</span></span> Mover · analógico esquerdo e direcional (fixos)'),
+    fields(col(row('Velocidade de corrida', slider(+C.andar.velocidade, v => { C.andar.velocidade = v; changed(); }, { min: 2, max: 9, step: 0.1, unit: 'm/s' }))),
+      col(row('Aceleração', slider(+C.andar.aceleracao, v => { C.andar.aceleracao = v; changed(); }, { min: 8, max: 80, step: 1, unit: 'm/s²' })))),
+    hint('Vale para os atletas controlados por gente. A CPU corre conforme o nível dela. Segurando o ataque ou a defesa, o atleta anda mais devagar ("Andar segurando", logo abaixo). No saque, o analógico anda pela linha de fundo e mira.')));
+
+  // ataque e defesa (segurar e mirar)
+  ed.append(actCard('A', 'Ataque', 'Segure: a hitbox em 3 partes aparece; quando a bola entra nela o jogo para e você mira com o analógico (soltar bate). Bola rápida, longa e menos precisa. Dois toques rápidos = especial de ataque 100% (também durante a mira). Com o pulo, golpe no ar. No saque: saque forte.'));
+  ed.append(actCard('B', 'Defesa', 'Segure: igual ao ataque, mas a bola sai alta, curta e precisa (no ar vai direto para o parceiro). Dois toques rápidos = especial de defesa 100% (levantada perfeita no 1º e 2º toque). No saque: saque viagem. Nos menus: voltar.'));
+  ed.append(card('Segurar ataque / defesa e mirar', fields(
+    col(row('Modelo da mira', select([['giro', 'Giro (seta gira)'], ['direto', 'Direta (na hora)']], C.mira.modo || 'giro', v => { C.mira.modo = v; changed(); }))),
+    col()), fields(
+    col(row('Alcance da hitbox', slider(+C.mira.alcance, v => { C.mira.alcance = v; changed(); }, { min: 0.6, max: 3, step: 0.05, unit: 'm' })),
+      row('Andar segurando', slider(+C.mira.andarSegurando, v => { C.mira.andarSegurando = v; changed(); }, { min: 0, max: 1, step: 0.05, unit: '× normal' }))),
+    col(row('Giro da seta', slider(+C.mira.giro, v => { C.mira.giro = v; changed(); }, { min: 60, max: 1080, step: 10, unit: '°/s' })),
+      row('Pausa máxima mirando', slider(+C.mira.pausaMax, v => { C.mira.pausaMax = v; changed(); }, { min: 0.5, max: 8, step: 0.1, unit: 's' })))),
+    hint('Alcance: até onde, para a frente e para trás, a hitbox pega a bola. Andar segurando: velocidade enquanto segura o botão. Modelo Giro: a seta gira pelo caminho mais curto até onde o analógico aponta. Modelo Direta: a seta aponta na hora para onde o analógico está; sem direção, todo golpe (especiais também) começa reto para a rede, e soltando o analógico a seta fica na última direção. Giro da seta: quão rápido a seta gira no modelo Giro (360 = uma volta por segundo). Pausa máxima: depois disso o golpe sai sozinho. As alturas das 3 partes ficam na aba Hitbox; a trajetória de cada bola, no editor de Golpes.')));
+
+  // pulo
+  const jh = () => { const v = +C.pulo.forca; return `sobe cerca de ${(v * v / 18).toFixed(2).replace('.', ',')} m e fica ${(2 * v / 9).toFixed(2).replace('.', ',')} s no ar`; };
+  const jumpHint = hint('');
+  const jumpUpd = () => { jumpHint.textContent = 'Força = velocidade de subida. Vale para todos os atletas (gente e CPU). Agora: ' + jh() + '.'; };
+  jumpUpd();
+  ed.append(actCard('C', 'Pulo', 'Pula. Pulo + ataque / defesa = golpe no ar. Nos menus: avançar / Pronto! (segurar 1 s = Pronto! direto).',
+    row('Força do pulo', slider(+C.pulo.forca, v => { C.pulo.forca = v; changed(); jumpUpd(); }, { min: 3, max: 9, step: 0.1, unit: 'm/s' })), jumpHint));
+  data.aterrissagem = data.aterrissagem || { max: 2, porPonto: 0.2044, min: 0.16 };
+  const landTxt = () => [1, 4, 7, 10].map(a => `agilidade ${a}: ${Math.max(data.aterrissagem.min, data.aterrissagem.max - data.aterrissagem.porPonto * (a - 1)).toFixed(2).replace('.', ',')} s`).join(' · ');
+  const landHint = hint('');
+  const landUpd = () => { landHint.textContent = 'Depois de um pulo, o atleta fica parado ao tocar o chão (não anda, não pula, não arma golpe). Agilidade 1 = tempo máximo; cada ponto acima tira o valor "por ponto"; nunca abaixo do mínimo. Arredonda em 0,00 s. Agora: ' + landTxt() + '.'; };
+  landUpd();
+  ed.append(card('Pulo · parado ao aterrissar', fields(
+    col(row('Agilidade 1 (máximo)', slider(+data.aterrissagem.max, v => { data.aterrissagem.max = v; changed(); landUpd(); }, { min: 0, max: 3, step: 0.01, unit: 's' }))),
+    col(row('Menos por ponto', slider(+data.aterrissagem.porPonto, v => { data.aterrissagem.porPonto = v; changed(); landUpd(); }, { min: 0, max: 0.4, step: 0.0001, unit: 's' })),
+      row('Mínimo', slider(+data.aterrissagem.min, v => { data.aterrissagem.min = v; changed(); landUpd(); }, { min: 0, max: 1, step: 0.01, unit: 's' })))), landHint));
+
+  // carrinho
+  const dh = () => `desliza cerca de ${(+C.carrinho.velocidade * +C.carrinho.duracao).toFixed(1).replace('.', ',')} m`;
+  const diveHint = hint('');
+  const diveUpd = () => { diveHint.textContent = 'Vale para todos os atletas. Recuperação = tempo deitado depois (menor com mais agilidade). Agora: ' + dh() + '.'; };
+  diveUpd();
+  ed.append(actCard('D', 'Carrinho', 'Desliza com os pés na frente na direção do analógico (sem direção: em direção à bola) e termina deitado.',
+    fields(col(row('Velocidade', slider(+C.carrinho.velocidade, v => { C.carrinho.velocidade = v; changed(); diveUpd(); }, { min: 3, max: 14, step: 0.1, unit: 'm/s' })),
+      row('Duração', slider(+C.carrinho.duracao, v => { C.carrinho.duracao = v; changed(); diveUpd(); }, { min: 0.15, max: 1, step: 0.01, unit: 's' }))),
+      col(row('Recuperação', slider(+C.carrinho.recuperacao, v => { C.carrinho.recuperacao = v; changed(); }, { min: 0, max: 2, step: 0.05, unit: 's' })))), diveHint));
+
+  // especiais de 50%
+  ed.append(actCard('L', 'Especial de ataque 50%', 'Dois toques rápidos: especial de ataque do botão de 50% (com a barra cheia, sai o de 100%). Funciona antes da bola chegar (fica armado) ou durante a mira de um golpe normal.'));
+  ed.append(actCard('R', 'Especial de defesa 50%', 'Dois toques rápidos: especial de defesa do botão de 50% (com a barra cheia, o de 100%). No 1º e 2º toque vai direto no parceiro (levantada perfeita).'));
+  ed.append(card('Especiais · dois toques', fields(
+    col(row('Dois toques em até', slider(data.duploToque, v => { data.duploToque = v; changed(); }, { min: 0.1, max: 0.8, step: 0.01, unit: 's' })),
+      row('2º toque na mira (espera)', slider(+(data.duploMira ?? 0.25), v => { data.duploMira = v; changed(); }, { min: 0, max: 0.6, step: 0.01, unit: 's' })),
+        hint(`Tempo máximo entre o 1º e o 2º toque (${P2('L')}, ${P2('A')}, ${P2('R')}, ${P2('B')}) para valer como especial. Se o 1º toque já pegou a bola (o jogo parou para mirar o golpe normal), depois de soltar o jogo espera o "2º toque na mira": apertando de novo o mesmo botão, o golpe vira o especial dele. LB LB / RB RB durante a mira viram o especial de 50% (com a barra cheia, o de 100%).`)),
+    col(row('Fica armado por', slider(data.armado, v => { data.armado = v; changed(); }, { min: 0, max: 4, step: 0.1, unit: 's' })),
+        hint('Soltando o 2º toque, o especial espera a bola por esse tempo e sai na direção automática. Segurando, o jogo para e você mira.')),
+  )));
+
+  // outros
+  ed.append(actCard('L2', 'Ajudas visuais', 'Liga e desliga o arco da trajetória e o alvo no chão (também em Configurações → Visual).'));
+  ed.append(actCard('R2', 'Formação', 'Na dupla, passa para a próxima formação (as posições ficam na aba Formações).'));
+  ed.append(actCard('start', 'Pausa', 'Pausa a partida (Comandos, Configurações, Sair). A pausa técnica com consumíveis é automática na troca de lado.'));
+  const free = PAD_BUTTONS.filter(b => !PAD_ACTIONS.some(a => +C.botoes[a] === b.i)).map(b => b[padSt()]);
+  ed.append(card('Botões sem uso', hint((free.length ? free.join(', ') : 'nenhum') + '. O analógico direito também não é usado.')));
+}
+
+// ---------- 5.0: aba Atributos ----------
+function secAtributos(ed) {
+  ed.append(card('', el('div', 'title-row', '<h2>💪 Atributos</h2>'),
+    hint('Cada atleta tem Força, Agilidade, Precisão e Pique de 1 a 10 (editor de Atletas e Criar Jogador). Aqui fica o que cada ponto faz no jogo: o valor com o atributo em 5 e quanto muda a cada ponto acima ou abaixo de 5. Ex.: Velocidade da bola 100% e +5% por ponto = Força 10 bate 125%, Força 1 bate 80%. Vale para jogadores e CPU, em todos os modos.')));
+  const pctTxt = v => `${Math.round(v * 100)}%`;
+  // um efeito: base (atributo 5) e por ponto, com a prévia do valor no atributo 1, 5 e 10
+  const eff = (attr, key, title, what, { baseMax = 2, perMax = 0.3, clamp = [0.2, 9] } = {}) => {
+    const e = data.atributos[attr][key];
+    const prev = el('p', 'hint', '');
+    const at = v => Math.max(clamp[0], Math.min(clamp[1], e.base + (v - 5) * e.porPonto));
+    const show = () => { prev.textContent = `Atributo 1 → ${pctTxt(at(1))} · 5 → ${pctTxt(at(5))} · 10 → ${pctTxt(at(10))}`; };
+    show();
+    return card(title, fields(
+      col(row('Com o atributo em 5', slider(Math.round(e.base * 1000) / 10, v => { e.base = v / 100; changed(); show(); }, { min: 0, max: baseMax * 100, step: 0.1, unit: '%' }))),
+      col(row('A cada ponto (+ / −)', slider(Math.round(e.porPonto * 1000) / 10, v => { e.porPonto = v / 100; changed(); show(); }, { min: -perMax * 100, max: perMax * 100, step: 0.1, unit: '% por ponto' })))),
+      hint(what), prev);
+  };
+  ed.append(el('h3', '', 'Força'),
+    eff('forca', 'velocidadeBola', 'Velocidade da bola', 'Multiplica a velocidade da bola em todos os golpes e no saque (bola mais rápida = menos tempo no ar para o adversário reagir). Não muda a distância nem onde a bola cai.'));
+  ed.append(el('h3', '', 'Agilidade'),
+    eff('agilidade', 'velocidadeQuadra', 'Velocidade na quadra', 'Multiplica a velocidade da corrida do atleta.'),
+    eff('agilidade', 'recuperacao', 'Tempo de recuperação', 'Multiplica o tempo para voltar a agir depois do golpe, do carrinho e da queda. Menor = melhor (por isso o padrão é negativo por ponto).'));
+  ed.append(el('h3', '', 'Precisão'),
+    eff('precisao', 'erroMira', 'Erro da mira', 'Onde a bola cai dentro da área do golpe: 0% = sempre no centro, 100% = pode cair na borda. Menor = mais preciso (por isso o padrão é negativo por ponto). Fica entre 0% e 100%.', { baseMax: 1, perMax: 0.3, clamp: [0, 1] }));
+  ed.append(el('h3', '', 'Pique'),
+    eff('pique', 'barraEspecial', 'Barra de especial', 'Multiplica quanto a barra de especial enche a cada toque e a cada ponto.', { clamp: [0, 9] }),
+    eff('pique', 'notaRuim', 'Peso das notas ruins', 'Multiplica o empurrão (nota Ruim) e o tempo no chão (nota Pior) depois de um toque mal feito. Menor = melhor.', { clamp: [0, 9] }));
+}
+
+// ---------- 5.0: aba Campeonato e sorteio ----------
+function secCampeonato(ed) {
+  const C = data.campeonato, Q = data.caraOuCoroa;
+  const numIn = (obj, k, opts) => slider(+obj[k], v => { obj[k] = v; changed(); }, opts);
+  ed.append(card('', el('div', 'title-row', '<h2>🏆 Campeonato e sorteio</h2>'),
+    hint('Modo Campeonato com as regras oficiais do futevôlei no Brasil: mata-mata de 8 duplas em 3 chaves — quartas de final (chave 1), semifinal (chave 2), disputa de 3º lugar e final (chave 3). Vence o set quem chega aos pontos com 2 de diferença. A troca de lado é a cada N pontos somados, sem pausa; cada dupla tem tempos técnicos na partida (com consumíveis).'),
+    row('Nome do campeonato', text(C.nome, v => { C.nome = v; changed(); }, { max: 40 }))));
+  const phase = (key, title) => card(title, fields(col(row('Pontos do set', numIn(C[key], 'pontos', { min: 3, max: 30, step: 1, unit: 'pts' }))), col(row('Troca de lado a cada', numIn(C[key], 'trocaLado', { min: 2, max: 12, step: 1, unit: 'pts' })))));
+  ed.append(phase('quartas', 'Quartas de final · chave 1 (set único)'), phase('semifinal', 'Semifinal · chave 2 (set único)'), phase('terceiro', 'Disputa de 3º lugar · chave 3 (set único)'));
+  const F = C.final;
+  ed.append(card('Final (melhor de 3 sets)', fields(
+    ...[0, 1, 2].map(i => col(row(`${i + 1}º set${i === 2 ? ' (decisivo)' : ''}: pontos`, slider(+F.sets[i], v => { F.sets[i] = v; changed(); }, { min: 3, max: 30, step: 1, unit: 'pts' })),
+      row('troca de lado a cada', slider(+F.trocaLado[i], v => { F.trocaLado[i] = v; changed(); }, { min: 2, max: 12, step: 1, unit: 'pts' }))))),
+    hint('Oficial: 18, 18 e 15 pontos; troca a cada 6 (e a cada 5 no set decisivo). Intervalo entre sets; no 2º set escolhe quem perdeu o sorteio, no 3º há novo cara ou coroa.')));
+  ed.append(card('Tempos técnicos', row('Tempos técnicos por dupla', numIn(C, 'temposTecnicos', { min: 0, max: 4, step: 1, unit: 'por partida' })),
+    hint('A CPU pede o tempo técnico dela quando perde por 3 ou mais na reta final do set.')));
+  // 5.0: nível das CPUs em cada chave, por dificuldade (Escada); o Aleatório sorteia entre o menor e o maior
+  const D = C.dificuldades;
+  ed.append(card('Dificuldade das CPUs (nível 1 a 12)', fields(
+    ...[['facil', 'Fácil'], ['medio', 'Médio'], ['dificil', 'Difícil']].map(([k, nm]) => col(...[0, 1, 2].map(i => row(`${nm} · chave ${i + 1}`, slider(+D[k][i], v => { D[k][i] = v; changed(); }, { min: 1, max: 12, step: 1, unit: 'nível' })))))),
+    hint('O jogador escolhe a dificuldade e o modo ao criar o campeonato. Escada: as CPUs têm o nível da chave (sobe a cada chave). Aleatório: cada dupla da CPU sorteia um nível entre o menor e o maior da dificuldade e fica com ele no campeonato todo. O parceiro da CPU de quem joga sozinho tem o nível da chave.')));
+  ed.append(card('Premiação (R$ na carteira do Campeonato)', fields(
+    ...[0, 1, 2].map(i => col(row(`${i + 1}º lugar`, slider(+C.premios[i] || 0, v => { C.premios[i] = v; changed(); }, { min: 0, max: 5000, step: 10, unit: 'R$' }))))),
+    hint('1º lugar: troféu e medalha de ouro; 2º: prata; 3º: bronze. O dinheiro vai para a carteira do Campeonato e pode ser depositado num jogo salvo do Modo História.')));
+  const climas = [['aleatorio', 'Sorteado a cada partida'], ['nenhum', 'Sem clima'], ['chuva', 'Chuva'], ['vento', 'Vento forte'], ['sol', 'Sol forte']];
+  ed.append(card('Arena e clima', fields(
+    col(row('Arena', select(Object.keys(HOODS).map(k => [k, HOODS[k].name || k]), C.arena, v => { C.arena = v; changed(); }))),
+    col(row('Clima', select(climas, C.clima, v => { C.clima = v; changed(); })))),
+    hint('A arena é o bairro onde o campeonato acontece.')));
+  ed.append(card('Cara ou coroa (todas as partidas)', row('A CPU escolhe o saque', slider(Math.round(+Q.cpuSaque * 100), v => { Q.cpuSaque = v / 100; changed(); }, { min: 0, max: 100, step: 5, unit: '%' })),
+    hint('No início de cada partida (Exibição, História e Campeonato) há cara ou coroa: o jogador pede cara ou coroa; quem ganha escolhe o saque ou o lado da quadra, e a outra dupla escolhe o que sobrou (o lado, ou sacar / receber). Quando a CPU ganha, ela escolhe o saque com esta chance (senão, o lado); quando ela escolhe sacar ou receber, saca com esta chance.')));
+}
+function render() {
+  cancelAnimationFrame(anim); painters = [];
+  renderNav();
+  const ed = document.getElementById('editor');
+  ed.innerHTML = '';
+  V5.controle = data.controle; // os nomes dos botões (em todas as abas) seguem a troca feita aqui
+  ({ atributos: secAtributos, hitbox: secHitbox, alturas: secAlturas, golpes: secGolpes, especiais: secEspeciais, historia: secHistoria, formacoes: secFormacoes, saque: secSaque, controle: secControle, campeonato: secCampeonato })[cur](ed);
+}
+render();
+</script>
+</body>
+</html>
