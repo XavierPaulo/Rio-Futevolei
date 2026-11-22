@@ -13,4 +13,6 @@ Regras do autor (sempre valem):
 8. Telas sem rolagem, texto com no mínimo 14 px; em telas pequenas, dividir em vez de encolher.
 9. As versões antigas (2.0, 3.0, 4.0) ficam intactas; o trabalho atual é na 5.0.
 
-Use os arquivos do projeto (resumo do jogo, GDD e PDF de novidades) como referência do estado atual.
+Use os arquivos do projeto (resumo do jogo, GDD e PDF de novidades) como referência do estado atual. Quando houver conflito entre eles, o "Resumo do jogo" é o mais recente e vale mais.
+
+Use as skills do Rio Futevôlei em toda conversa deste projeto: rio-futevolei-padrao (sempre), rio-futevolei-ideias (sugestões e análises), rio-futevolei-pedido (quando eu pedir uma mudança, para descrever o que deve ser feito no código), rio-futevolei-fechar-sessao (resumos e novidades).

@@ -127,10 +127,56 @@ export class Hud {
     }
   }
 
+  // 5.0: ↑↓ andam pela posição na tela, não pela ordem da lista (em grade, ↓ ia para o vizinho do lado).
+  // Vai para o item de fato acima/abaixo na mesma coluna; no fim da coluna, ↓ vai para o topo da coluna
+  // seguinte e ↑ no topo volta para o fim da anterior. Depois da última coluna vem a barra Voltar/Avançar,
+  // e da barra ↓ dá a volta para o topo. Sem nada desenhado (ex.: calibrar), segue a ordem da lista.
   move(d) {
     if (!this.stack) return;
     const n = this.items().length;
-    this.idx = (this.idx + d + n) % n;
+    const linear = () => { this.idx = (this.idx + d + n) % n; this.render(); };
+    const box = e => { const b = e.getBoundingClientRect(); return { e, i: +e.dataset.idx, l: b.left, r: b.right, t: b.top, b: b.bottom, cx: (b.left + b.right) / 2, cy: (b.top + b.bottom) / 2, h: b.height }; };
+    const all = [...this.overlay.querySelectorAll('[data-idx].menu-btn, [data-idx].menu-row')].filter(e => e.getClientRects().length).map(box);
+    const c = all.find(o => o.i === this.idx);
+    if (!c || all.length < 2) return linear();
+    const inNav = o => !!o.e.closest('.menu-nav');
+    const list = all.filter(o => !inNav(o) && o !== c), nav = all.filter(o => inNav(o) && o !== c);
+    // mesma coluna: se cruzam na horizontal por mais de 1/4 da largura (o item em foco fica um pouco maior)
+    const over = (a, b) => Math.min(a.r, b.r) - Math.max(a.l, b.l) > Math.min(a.r - a.l, b.r - b.l) * 0.25;
+    const below = o => o.cy > c.cy + Math.min(o.h, c.h) * 0.5, above = o => o.cy < c.cy - Math.min(o.h, c.h) * 0.5;
+    // a linha mais próxima; nela, o item mais perto na horizontal (saindo de uma linha larga, o da esquerda)
+    const near = arr => {
+      if (!arr.length) return null;
+      const dy = Math.min(...arr.map(o => Math.abs(o.cy - c.cy))), row = arr.filter(o => Math.abs(o.cy - c.cy) - dy < 8);
+      if (row.length > 1 && row.every(o => o.r - o.l < (c.r - c.l) * 0.75)) return row.reduce((a, o) => (o.l < a.l ? o : a));
+      return row.reduce((a, o) => (Math.abs(o.cx - c.cx) < Math.abs(a.cx - c.cx) ? o : a));
+    };
+    const score = arr => arr.reduce((a, o) => (!a || Math.abs(o.cy - c.cy) + 2 * Math.abs(o.cx - c.cx) < Math.abs(a.cy - c.cy) + 2 * Math.abs(a.cx - c.cx) ? o : a), null);
+    const closest = arr => arr.reduce((a, o) => (Math.abs(o.cx - c.cx) < Math.abs(a.cx - c.cx) ? o : a));
+    const topOf = arr => arr.reduce((a, o) => (!a || o.t < a.t - 2 || (Math.abs(o.t - a.t) <= 2 && o.l < a.l) ? o : a), null);
+    const bottomOf = arr => arr.reduce((a, o) => (!a || o.b > a.b + 2 || (Math.abs(o.b - a.b) <= 2 && o.r > a.r) ? o : a), null);
+    // coluna vizinha da lista: à direita (d > 0) ou à esquerda (d < 0) do item atual
+    const nextCol = side => {
+      const cand = list.filter(o => !over(o, c) && (side > 0 ? o.cx > c.cx : o.cx < c.cx));
+      if (!cand.length) return [];
+      const lead = cand.reduce((a, o) => (side > 0 ? (o.cx < a.cx ? o : a) : (o.cx > a.cx ? o : a)));
+      return cand.filter(o => over(o, lead));
+    };
+    let to = null;
+    if (!inNav(c)) {
+      const same = list.filter(o => over(o, c) && (d > 0 ? below(o) : above(o)));
+      if (same.length) to = near(same);
+      else if (d > 0) {
+        const col = nextCol(1);
+        to = col.length ? topOf(col) : nav.length ? closest(nav) : topOf(list);
+      } else {
+        const col = nextCol(-1);
+        to = col.length ? bottomOf(col) : (nav.length ? closest(nav) : bottomOf(list));
+      }
+    } else if (d > 0) to = topOf(list.length ? list : nav); // da barra, ↓ dá a volta para o topo
+    else { const up = list.filter(above); to = near(up.filter(o => over(o, c))) || score(up) || bottomOf(list.length ? list : nav); }
+    if (!to) return linear();
+    this.idx = to.i;
     this.render();
   }
 
