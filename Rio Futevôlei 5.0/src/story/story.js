@@ -834,8 +834,11 @@ export class StoryMode {
     if (!this.active) return;
     if (this.flashT > 0) { this.flashT -= dt; if (this.flashT <= 0) this.prompt.classList.remove('flash', 'show'); }
     if (this.state === 'away') return;
+    // 5.0 (padrão de controle): nos painéis, A acessa · B (ou Esc) volta — o Start não fecha mais os painéis.
+    // Fora dos painéis (conversa, andar no bairro) segue como antes: A ou Enter.
+    const mk = menu.menu();
     const ok = menu.pressed('ok') || menu.pressed('C');
-    const backKey = menu.pressed('B') || menu.pressed('start');
+    const backKey = mk.b;
     if (this.state === 'dialog') { if (ok) this.advance(); }
     else if (this.state === 'fade') {
       this.fadeT += dt;
@@ -846,7 +849,7 @@ export class StoryMode {
       const mv = d => { let i = this.pi; for (let k = 0; k < n; k++) { i = (i + d + n) % n; if (!this.p.items[i].disabled) break; } this.pi = i; this.renderPanel(); };
       if (menu.pressed('up')) mv(-cols); else if (menu.pressed('down')) mv(cols);
       else if (cols > 1 && menu.pressed('left')) mv(-1); else if (cols > 1 && menu.pressed('right')) mv(1);
-      if (ok) this.choose();
+      if (mk.a) this.choose();
       else if (backKey) this.closePanel();
     } else if (this.state === 'walk') this.updateWalk(dt, menu, pad, ok);
     // cena

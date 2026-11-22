@@ -197,12 +197,27 @@ export class Hud {
       if (last) return;
     }
   }
-  // 5.0: botão A do controle — vai direto no Avançar / Pronto! da tela; sem ele, confirma o item escolhido
-  primary() {
-    if (!this.stack) return;
-    const i = this.items().findIndex(it => it.nav === 'next');
-    if (i >= 0) this.idx = i;
-    this.confirm();
+  // 5.0 (padrão de controle): X muda a opção da linha para a esquerda (o A muda para a direita, em confirm)
+  alt() {
+    const it = this.stack && this.items()[this.idx];
+    if (!it || it.type !== 'choice') return false;
+    this.change(-1);
+    return true;
+  }
+  // 5.0 (padrão de controle): Start leva o cursor ao Avançar / Pronto! e B ao Voltar — sem apertar (quem aperta
+  // é o A). Tela sem o botão: não faz nada. Na pausa (sem Voltar nem Avançar): Start leva ao Continuar e B volta
+  // direto ao jogo.
+  focusNav(kind) {
+    if (!this.stack) return false;
+    const items = this.items();
+    const isBack = it => it.nav === 'back' || (it.id === 'back' && !it.nav);
+    let i = items.findIndex(it => (kind === 'back' ? isBack(it) : it.nav === 'next'));
+    if (i < 0 && kind === 'back' && (this.screen === 'pause' || this.screen === 'swapbag')) { this.activate('resume'); return true; }
+    if (i < 0 && (this.screen === 'pause' || this.screen === 'swapbag')) i = items.findIndex(it => it.id === 'resume');
+    if (i < 0 || i === this.idx) return false;
+    this.idx = i;
+    this.render();
+    return true;
   }
 
   change(step) {
@@ -804,10 +819,12 @@ export class Hud {
     }[s];
     // 5.0: Voltar e Avançar / Pronto! ficam numa barra própria, separados das opções
     const isNav = it => it.nav || it.id === 'back';
+    // 5.0 (padrão de controle): Start leva ao Avançar / Pronto! — no teclado, o Start dos menus é o Enter (o Esc é o B)
+    const startIco = /^(full|kb1|kb2)$/.test(this.styles[1]) ? '<kbd class="key-cap">Enter</kbd>' : this.ico('start', 1, 18);
     const btn = (it, i) => {
       const focus = i === this.idx ? 'focus' : '';
       const navIco = isNav(it) ? ((it.nav || 'back') === 'back' ? this.ico('B', 1, 18) + ' ' : '') : '';
-      const navIcoR = isNav(it) && it.nav === 'next' ? ' ' + this.ico('C', 1, 18) : '';
+      const navIcoR = isNav(it) && it.nav === 'next' ? ' ' + startIco : '';
       return `<button type="button" class="menu-btn ${it.cls || ''} ${focus} ${it.tip ? 'has-tip' : ''} ${isNav(it) ? 'nav-' + (it.nav || 'back') : ''}" data-idx="${i}" ${it.tip ? `title="${it.tip}"` : ''}>${navIco}${it.html}${navIcoR}${it.tip ? `<span class="tip" role="tooltip">${it.tip}</span>` : ''}</button>`;
     };
     const navBack = items.map((it, i) => [it, i]).filter(([it]) => isNav(it) && (it.nav || 'back') === 'back');
@@ -835,7 +852,7 @@ export class Hud {
       ${s === 'controls' || s === 'tips' ? this.controlsHTML(s === 'tips') + (s === 'controls' ? `<div class="menu-list">${body}</div>` : '') : `<div class="menu-list ${['settings', 'set-controls', 'set-ctrlmode', 'set-padstyle', 'set-aim', 'set-visual', 'set-help', 'setup-match', 'exh', 'exh-more', 'visual', 'visual-ideias', 'visual-cast', 'items', 'timeout-pick'].includes(s) ? 'wide' : ''} ${grid} ${this.extClass ? this.extClass(s) : ''}">${body}</div>`}
       ${s === 'set-controls' ? `<p class="pad-test">${this.padTestHTML()}</p><p class="pads-status">${this.padsStatusHTML()}</p>` : ''}
       ${navHTML}
-      <p class="menu-hint">↑↓ escolhe${hasChoice ? ' · ←→ muda' : ''} · ${navNext.length ? `${this.ico('A', 1, 18)} / Enter seleciona · ${this.ico('C', 1, 18)} ${navNext[0][0].html.replace(/<[^>]+>/g, '')}` : `${this.ico('C', 1, 18)} / Enter confirma`}${this.stack.length > 1 || s === 'pause' ? ` · ${this.ico('B', 1, 18)} / Esc volta` : ''}</p></div>`;
+      <p class="menu-hint">↑↓←→ escolhe · ${this.ico('C', 1, 18)} ${hasChoice ? 'acessa / muda ▶' : 'acessa'}${hasChoice ? ` · ${this.ico('A', 1, 18)} muda ◀` : ''}${navNext.length ? ` · ${startIco} ${navNext[0][0].html.replace(/<[^>]+>/g, '')}` : ''}${navBack.length ? ` · ${this.ico('B', 1, 18)} / Esc Voltar` : ''}</p></div>`;
     this.fitOverlay();
   }
 
@@ -861,11 +878,10 @@ export class Hud {
     return { team: ti, list: own.length ? own : m.teamPlayers(ti), i: 0, picks: {} };
   }
 
-  // 5.0: ←→ — muda a opção da linha; num botão, vai para o botão ao lado na mesma altura (ex.: Voltar ↔ Avançar)
+  // 5.0: ←→ — vai para o botão ao lado na mesma altura (ex.: Voltar ↔ Avançar). Padrão de controle: o direcional
+  // não muda mais as opções (quem muda é A / X)
   side(d) {
     if (!this.stack) return;
-    const items = this.items(), it = items[this.idx];
-    if (it && it.type === 'choice') { this.change(d); return; }
     const els = [...this.overlay.querySelectorAll('[data-idx].menu-btn, [data-idx].menu-row')];
     const cur = els.find(e => +e.dataset.idx === this.idx);
     if (!cur) return;

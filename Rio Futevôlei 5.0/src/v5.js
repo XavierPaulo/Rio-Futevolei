@@ -31,13 +31,15 @@ export const PAD_BUTTONS = [
 export const PAD_ACTIONS = ['A', 'B', 'C', 'D', 'L', 'R', 'L2', 'R2', 'start'];
 export const ACTION_DEFAULT = { A: 2, B: 1, C: 0, D: 3, L: 4, R: 5, L2: 6, R2: 7, start: 9 };
 export const ACTION_NAMES = {
-  A: 'ataque (segure) · dois toques = ataque 100% · saque forte', B: 'defesa (segure) · dois toques = defesa 100% · saque viagem · voltar nos menus',
-  C: 'pulo · avançar / Pronto! nos menus', D: 'carrinho', L: 'especial de ataque 50% (dois toques)', R: 'especial de defesa 50% (dois toques)',
-  L2: 'ajudas visuais', R2: 'formação da dupla', start: 'pausa',
+  A: 'ataque (segure) · dois toques = ataque 100% · saque forte · muda a opção ◀ nos menus', B: 'defesa (segure) · dois toques = defesa 100% · saque viagem · cursor no Voltar nos menus',
+  C: 'pulo · acessa / muda a opção ▶ nos menus', D: 'carrinho', L: 'especial de ataque 50% (dois toques)', R: 'especial de defesa 50% (dois toques)',
+  L2: 'ajudas visuais', R2: 'formação da dupla', start: 'pausa · cursor no Avançar / Pronto! nos menus (segurar = Pronto! direto)',
 };
 const num = (v, d) => (v === undefined || v === null || v === '' || !isFinite(+v) ? d : +v);
 // botão (índice padrão) de cada ação
 export const padIndex = a => num((((V5.controle || {}).botoes) || {})[a], ACTION_DEFAULT[a]);
+// 5.0 (padrão de controle): segundos segurando Start nos menus para ir direto ao Pronto! (editor da Partida → Controle)
+export const menuHoldTime = () => num((V5.controle || {}).menuSegurar, 2);
 export const actionsAt = i => PAD_ACTIONS.filter(a => padIndex(a) === i);
 // andar, pulo e carrinho do jogador vêm do editor (src/config.js P guarda os valores de fábrica)
 const P0 = { ...P };

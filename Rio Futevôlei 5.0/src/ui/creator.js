@@ -9,6 +9,7 @@ import { poseFor } from '../art/poses.js';
 import { dummy } from './portraits.js';
 import { fitInto } from './fit.js';
 import { padIcon } from './padIcons.js';
+import { menuHoldTime } from '../v5.js';
 import { styleOf } from '../input.js';
 import { settings } from './settings.js';
 const CREATOR_STEPS = ['Aparência', 'Roupa e acessórios', 'Jogo'];
@@ -182,18 +183,22 @@ export class CreatorScreen {
     if (!typing) {
       const n = this.rows().length;
       let changed = false;
-      if (port.pressed('up')) { this.idx = (this.idx - 1 + n) % n; changed = true; }
-      else if (port.pressed('down')) { this.idx = (this.idx + 1) % n; changed = true; }
+      // 5.0 (padrão de controle): direcional só navega · A acessa / muda ▶ · X muda ◀ · Start vai ao
+      // Avançar / Pronto! · B vai ao Voltar (Start e B só levam o cursor; quem aperta é o A)
+      const k = port.menu();
+      if (k.up) { this.idx = (this.idx - 1 + n) % n; changed = true; }
+      else if (k.down) { this.idx = (this.idx + 1) % n; changed = true; }
       const rows = this.rows(), cur = rows[this.idx];
-      const navTo = kind => { const i = rows.findIndex(r => r.nav === kind); if (i >= 0) this.idx = i; };
-      if (port.pressed('left')) { if (cur && cur.nav) navTo('back'); else this.change(-1); changed = true; }
-      else if (port.pressed('right')) { if (cur && cur.nav) navTo('next'); else this.change(1); changed = true; }
-      // segurar A por 1 s: vai direto para o Pronto! (salva com as escolhas atuais)
-      this.holdA = port.down('C') ? (this.holdA || 0) + dt : 0;
-      if (this.holdA >= 1) { this.holdA = -99; this.step = this.steps().length - 1; const rr = this.rows(); this.idx = rr.findIndex(r => r.nav === 'next'); this.confirm(); if (!this.active) return; changed = true; }
-      else if (port.pressed('C')) { navTo('next'); this.confirm(); if (!this.active) return; changed = true; }
-      else if (port.pressed('A') || port.pressed('ok')) { this.confirm(); if (!this.active) return; changed = true; }
-      else if (port.pressed('B') || port.pressed('start')) { this.back(); if (!this.active) return; }
+      const navTo = kind => { const i = rows.findIndex(r => r.nav === kind); if (i >= 0 && i !== this.idx) { this.idx = i; this.beep(); } };
+      if (k.left) { if (cur && cur.nav) { navTo('back'); changed = true; } }
+      else if (k.right) { if (cur && cur.nav) { navTo('next'); changed = true; } }
+      // segurar Start (2 s, editável): vai direto para o Pronto! (salva com as escolhas atuais)
+      this.holdA = k.start ? 0.001 : (k.holdStart && this.holdA > 0 ? this.holdA + dt : 0);
+      if (this.holdA >= menuHoldTime()) { this.holdA = -99; this.step = this.steps().length - 1; const rr = this.rows(); this.idx = rr.findIndex(r => r.nav === 'next'); this.confirm(); if (!this.active) return; changed = true; }
+      else if (k.a) { this.confirm(); if (!this.active) return; changed = true; }
+      else if (k.x) { if (cur && !cur.nav && cur.type !== 'action') { this.change(-1); changed = true; } }
+      else if (k.start) { navTo('next'); changed = true; }
+      else if (k.b) { navTo('back'); changed = true; }
       if (changed) this.render();
     }
     // prévia animada: troca de pose a cada 1,6 s
@@ -227,7 +232,7 @@ export class CreatorScreen {
           </div>
           <div class="cr-form"></div>
         </div>
-        <p class="cr-hint">↑↓ escolhe · ←→ muda · X ou Enter escolhe · A avança · B ou Esc volta</p>
+        <p class="cr-hint">↑↓←→ escolhe · A acessa / muda ▶ · X muda ◀ · Start ou Enter Avançar · B ou Esc Voltar</p>
       </div>`;
     this.ctx = this.el.querySelector('canvas').getContext('2d');
   }
@@ -273,7 +278,7 @@ export class CreatorScreen {
     } else {
       const steps = this.steps(), step = Math.min(this.step || 0, steps.length - 1);
       const ic = a => padIcon(a, styleOf(1, settings.p1 === 'xbox' ? 'xbox' : 'ps'), 18); // 5.0: dispositivo do J1
-      const navBtn = (row, i) => `<button type="button" class="cr-btn cr-${row.nav} ${i === this.idx ? 'focus' : ''}" data-act="row" data-row="${i}">${row.nav === 'back' ? ic('B') + ' ' : ''}${row.label}${row.nav === 'next' ? ' ' + ic('C') : ''}</button>`;
+      const navBtn = (row, i) => `<button type="button" class="cr-btn cr-${row.nav} ${i === this.idx ? 'focus' : ''}" data-act="row" data-row="${i}">${row.nav === 'back' ? ic('B') + ' ' : ''}${row.label}${row.nav === 'next' ? ' ' + (/^(full|kb1|kb2)$/.test(styleOf(1, 'ps')) ? '<kbd class="key-cap">Enter</kbd>' : ic('start')) : ''}</button>`;
       const navs = rows.map((row, i) => [row, i]).filter(([row]) => row.nav);
       form.innerHTML = `<div class="fit-in"><p class="cr-step">Etapa ${step + 1} de ${steps.length} · <b>${steps[step].name}</b></p>${html}
         ${steps[step].rows.some(r => r.type === 'stat') ? `<p class="cr-points ${left ? 'warn' : ''}">Pontos sobrando: <b>${left}</b> de ${STAT_TOTAL}</p>` : ''}${this.msg ? `<p class="cr-msg">${this.msg}</p>` : ''}

@@ -23,8 +23,9 @@ export const LAYOUTS = {
     R: ['Quote', 'Numpad3'], L: ['Numpad7'], L2: ['Backslash', 'Numpad6'], R2: ['Numpad4', 'BracketRight'], sel: ['Numpad8'],
   },
 };
-const SYSTEM = { start: ['Escape', 'KeyP'], ok: ['Enter', 'NumpadEnter'] };
-const ACTIONS = ['left', 'right', 'up', 'down', 'A', 'B', 'C', 'D', 'R', 'L', 'L2', 'R2', 'start', 'ok', 'sel'];
+// 5.0: 'esc' marca o Esc à parte (ele também é 'start'): nos menus o Esc vale como B (Voltar) e o Enter como Start
+const SYSTEM = { start: ['Escape', 'KeyP'], ok: ['Enter', 'NumpadEnter'], esc: ['Escape'] };
+const ACTIONS = ['left', 'right', 'up', 'down', 'A', 'B', 'C', 'D', 'R', 'L', 'L2', 'R2', 'start', 'ok', 'sel', 'esc'];
 
 // Teclado físico (compartilhado por todas as portas).
 export class Keyboard {
@@ -189,6 +190,19 @@ export class Port {
   pressed(a) { return this.pressedLatch.has(a); }
   released(a) { return this.releasedLatch.has(a); }
   consume() { this.pressedLatch.clear(); this.releasedLatch.clear(); }
+
+  // 5.0: padrão de controle dos menus (nomes no padrão Xbox; ações internas: A do Xbox = 'C', X = 'A')
+  //   Start (ou Enter): leva o cursor ao Avançar / Pronto! · A (no teclado, a tecla de pulo): acessa o botão /
+  //   muda a opção para a direita · X: muda a opção para a esquerda · B (ou Esc): leva o cursor ao Voltar ·
+  //   direcional: só navega
+  menu() {
+    const p = a => this.pressed(a), d = a => this.down(a);
+    return {
+      a: p('C'), x: p('A'), b: p('B') || p('esc'), start: (p('start') && !p('esc')) || p('ok'),
+      up: p('up'), down: p('down'), left: p('left'), right: p('right'),
+      holdStart: (d('start') && !d('esc')) || d('ok'), // segurar Start: passa direto até o Pronto! (tempo: menuHoldTime)
+    };
+  }
 }
 
 // ================= 5.0: jogadores 1 a 4 =================

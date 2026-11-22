@@ -163,6 +163,7 @@ data.campeonato.dificuldades = { facil: [1, 3, 5], medio: [3, 6, 9], dificil: [4
 if (!data.controle) data.controle = {};
 { const C = data.controle;
   C.botoes = { ...ACTION_DEFAULT, ...(C.botoes || {}) };
+  if (C.menuSegurar === undefined) C.menuSegurar = 2; // 5.0: padrão de controle dos menus
   C.andar = { velocidade: 5.4, aceleracao: 38, ...(C.andar || {}) };
   C.pulo = { forca: 5.4, ...(C.pulo || {}) };
   C.carrinho = { velocidade: 7.4, duracao: 0.42, recuperacao: 0.6, ...(C.carrinho || {}) };
@@ -629,8 +630,8 @@ function secControle(ed) {
     hint('Vale para os atletas controlados por gente. A CPU corre conforme o nível dela. Segurando o ataque ou a defesa, o atleta anda mais devagar ("Andar segurando", logo abaixo). No saque, o analógico anda pela linha de fundo e mira.')));
 
   // ataque e defesa (segurar e mirar)
-  ed.append(actCard('A', 'Ataque', 'Segure: a hitbox em 3 partes aparece; quando a bola entra nela o jogo para e você mira com o analógico (soltar bate). Bola rápida, longa e menos precisa. Dois toques rápidos = especial de ataque 100% (também durante a mira). Com o pulo, golpe no ar. No saque: saque forte.'));
-  ed.append(actCard('B', 'Defesa', 'Segure: igual ao ataque, mas a bola sai alta, curta e precisa (no ar vai direto para o parceiro). Dois toques rápidos = especial de defesa 100% (levantada perfeita no 1º e 2º toque). No saque: saque viagem. Nos menus: voltar.'));
+  ed.append(actCard('A', 'Ataque', 'Segure: a hitbox em 3 partes aparece; quando a bola entra nela o jogo para e você mira com o analógico (soltar bate). Bola rápida, longa e menos precisa. Dois toques rápidos = especial de ataque 100% (também durante a mira). Com o pulo, golpe no ar. No saque: saque forte. Nos menus: muda a opção para a esquerda.'));
+  ed.append(actCard('B', 'Defesa', 'Segure: igual ao ataque, mas a bola sai alta, curta e precisa (no ar vai direto para o parceiro). Dois toques rápidos = especial de defesa 100% (levantada perfeita no 1º e 2º toque). No saque: saque viagem. Nos menus: leva o cursor ao Voltar.'));
   ed.append(card('Segurar ataque / defesa e mirar', fields(
     col(row('Modelo da mira', select([['giro', 'Giro (seta gira)'], ['direto', 'Direta (na hora)']], C.mira.modo || 'giro', v => { C.mira.modo = v; changed(); }))),
     col()), fields(
@@ -645,7 +646,7 @@ function secControle(ed) {
   const jumpHint = hint('');
   const jumpUpd = () => { jumpHint.textContent = 'Força = velocidade de subida. Vale para todos os atletas (gente e CPU). Agora: ' + jh() + '.'; };
   jumpUpd();
-  ed.append(actCard('C', 'Pulo', 'Pula. Pulo + ataque / defesa = golpe no ar. Nos menus: avançar / Pronto! (segurar 1 s = Pronto! direto).',
+  ed.append(actCard('C', 'Pulo', 'Pula. Pulo + ataque / defesa = golpe no ar. Nos menus: acessa o botão / muda a opção para a direita (no teclado, a tecla de pulo).',
     row('Força do pulo', slider(+C.pulo.forca, v => { C.pulo.forca = v; changed(); jumpUpd(); }, { min: 3, max: 9, step: 0.1, unit: 'm/s' })), jumpHint));
   data.aterrissagem = data.aterrissagem || { max: 2, porPonto: 0.2044, min: 0.16 };
   const landTxt = () => [1, 4, 7, 10].map(a => `agilidade ${a}: ${Math.max(data.aterrissagem.min, data.aterrissagem.max - data.aterrissagem.porPonto * (a - 1)).toFixed(2).replace('.', ',')} s`).join(' · ');
@@ -681,7 +682,9 @@ function secControle(ed) {
   // outros
   ed.append(actCard('L2', 'Ajudas visuais', 'Liga e desliga o arco da trajetória e o alvo no chão (também em Configurações → Visual).'));
   ed.append(actCard('R2', 'Formação', 'Na dupla, passa para a próxima formação (as posições ficam na aba Formações).'));
-  ed.append(actCard('start', 'Pausa', 'Pausa a partida (Comandos, Configurações, Sair). A pausa técnica com consumíveis é automática na troca de lado.'));
+  ed.append(actCard('start', 'Pausa', 'Pausa a partida (Comandos, Configurações, Sair). A pausa técnica com consumíveis é automática na troca de lado. Nos menus: leva o cursor ao Avançar / Pronto! (no teclado: Enter). Segurando, vai direto ao Pronto!.',
+    row('Segurar nos menus', slider(+C.menuSegurar, v => { C.menuSegurar = v; changed(); }, { min: 0.5, max: 5, step: 0.1, unit: 's' })),
+    hint('Quanto tempo segurando Start (ou Enter) para passar direto por todas as etapas e apertar o Pronto!.')));
   const free = PAD_BUTTONS.filter(b => !PAD_ACTIONS.some(a => +C.botoes[a] === b.i)).map(b => b[padSt()]);
   ed.append(card('Botões sem uso', hint((free.length ? free.join(', ') : 'nenhum') + '. O analógico direito também não é usado.')));
 }

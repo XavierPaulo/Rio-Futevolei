@@ -13,6 +13,11 @@ Responda sempre em **português**. Na dúvida, **pergunte** antes de fazer.
 8. Telas: **sem rolagem** em lugar nenhum; texto com **no mínimo 14 px**; em telas pequenas, **dividir** em mais telas/colunas em vez de encolher.
 9. As versões anteriores (pastas irmãs 2.0, 3.0, 4.0) ficam **intactas**.
 10. Nos testes, **não altere as configurações reais do jogador** (localStorage); se mexer, restaure.
+11. **Padrão de controle dos menus** (vale para todo menu, inclusive os novos; `Port.menu()` em `src/input.js`):
+    Start (teclado: Enter) só leva o cursor ao Avançar / Pronto! · A (teclado: tecla de pulo) acessa o botão e muda
+    a opção para a direita · X muda a opção para a esquerda · B (teclado: Esc) só leva o cursor ao Voltar (na pausa,
+    B volta direto ao jogo) · direcional só navega, nunca muda valor · segurar Start 2 s (editável) = Pronto! direto ·
+    na escolha de lado e no nível da CPU, Start começa.
 
 ## Como rodar
 - Servidor: `powershell -ExecutionPolicy Bypass -File serve.ps1 -Port 8769` (ou "Abrir Rio Futevolei 5.0.bat").

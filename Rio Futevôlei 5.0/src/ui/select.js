@@ -13,7 +13,7 @@ import { settings, saveSettings } from './settings.js';
 import { LEVEL_NAMES, TIERS, tierOf, MIN_LEVEL, MAX_LEVEL } from '../difficulty.js';
 import { TILT, tiltSpecial } from '../tilt.js';
 import { HOODS } from '../story/data.js';
-import { SLOTS, SLOT_KEYS, specialsFor, choicesFor, normalizeSpecials, V5 } from '../v5.js';
+import { SLOTS, SLOT_KEYS, specialsFor, choicesFor, normalizeSpecials, V5, menuHoldTime } from '../v5.js';
 import { SPECIAL_INFO } from '../art/custom.js';
 import { seatedPlayers } from '../input.js';
 
@@ -179,7 +179,7 @@ export class SelectScreen {
     const html = `<div class="sel-screen sd-screen"><h2 class="sel-title">ESCOLHAM O LADO</h2>
       <p class="sel-sub">${SIZE_NAME[this.size]} · no máximo ${this.size} por lado · vaga sem jogador fica com a CPU</p>
       <div class="sd-teams"><div class="sd-team"><b>Time da esquerda</b>${col(0)}</div><div class="sd-team"><b>Time da direita</b>${col(1)}</div></div>
-      <p class="sel-hint">${this.players.map(n => `${tagOf(n)} ◀ ▶ lado · ${ico('C', n)} pronto · ${ico('B', n)} desfaz`).join(' &nbsp; ')}</p>
+      <p class="sel-hint">${this.players.map(n => `${tagOf(n)} ◀ ▶ lado · ${ico('C', n)} pronto · ${this.startIco(n)} começar · ${ico('B', n)} desfaz`).join(' &nbsp; ')}</p>
       <p class="sd-note">${this.sideNote}</p><button type="button" class="menu-btn sd-go" data-sgo="1">Começar</button></div>`;
     if (html !== this.sideKey) { this.sideKey = html; this.el.innerHTML = html; }
   }
@@ -187,12 +187,15 @@ export class SelectScreen {
     for (const n of this.players) {
       const p = this.ports[n];
       if (!p) continue;
+      // 5.0 (padrão de controle): ◀▶ move o jogador de lado · A pronto · Start começa · B (ou Esc) desfaz / volta
+      const k = p.menu();
       if (!this.sideReady[n]) {
-        if (p.pressed('left')) this.setSide(n, 0);
-        else if (p.pressed('right')) this.setSide(n, 1);
-        if (p.pressed('C') || p.pressed('ok') || p.pressed('A')) { this.sideReady[n] = true; this.sideNote = ''; this.beep(true); }
-        else if ((p.pressed('B') || p.pressed('start')) && n === this.lead && !this.players.some(x => this.sideReady[x])) { this.close(); this.onCancel(); return; }
-      } else if (p.pressed('B') || p.pressed('start')) { this.sideReady[n] = false; this.beep(true, 0.3); }
+        if (k.left) this.setSide(n, 0);
+        else if (k.right) this.setSide(n, 1);
+        if (k.a) { this.sideReady[n] = true; this.sideNote = ''; this.beep(true); }
+        else if (k.b && n === this.lead && !this.players.some(x => this.sideReady[x])) { this.close(); this.onCancel(); return; }
+      } else if (k.b) { this.sideReady[n] = false; this.beep(true, 0.3); }
+      if (k.start) { this.confirmSides(true); if (this.phase !== 'side') return; } // Start: Começar
     }
     this.confirmSides();
     if (this.phase === 'side') this.renderSide();
@@ -261,7 +264,7 @@ export class SelectScreen {
       ? ' &nbsp; o 1º escolhido é o seu; os outros ficam com a CPU' : '';
     this.pickHint = who + ownHint;
     const L = this.lead;
-    this.levelsHint = `<span class="ptag" style="--pc:${PLAYER_COLORS[L]}">J${L}</span> direcional escolhe a CPU · ${ico('L', L)} ${ico('R', L)} nível − / + · ${ico('C', L)} começa · ${ico('B', L)} volta`;
+    this.levelsHint = `<span class="ptag" style="--pc:${PLAYER_COLORS[L]}">J${L}</span> direcional escolhe a CPU · ${ico('A', L)} ${ico('L', L)} nível − · ${ico('C', L)} ${ico('R', L)} nível + · ${this.startIco(L)} começa · ${ico('B', L)} volta`;
     this.updatePickHint();
   }
 
@@ -316,7 +319,7 @@ export class SelectScreen {
   // ---------- 5.0: especiais e nível, em sequência ----------
   // Depois de escolher os atletas, cada jogador passa pelos atletas do time dele (inclusive o
   // parceiro da CPU): ataque 1 → ataque 2 → defesa 1 → defesa 2 → nível (só CPU). O jogador 1
-  // termina com o nível de cada adversário da CPU. LS ←→ muda, A ou X confirma e passa, B volta.
+  // termina com o nível de cada adversário da CPU. A / X (ou L1 / R1) muda, Start confirma e passa, B volta.
   ownerOf(team, k) {
     if (team === this.cpuTeam) return this.lead;
     if (this.humans) { const hs = this.humans[team]; return hs[k] || hs[0]; }
@@ -388,7 +391,7 @@ export class SelectScreen {
     this.spFocus = {}; this.spDone = {};
     for (const n of players) this.spFocus[n] = { p: 0, r: 0 };
     const ico = (a, n) => padIcon(a, this.styles[n], 18);
-    this.el.querySelector('.sel-hint').innerHTML = players.map(n => `<span class="ptag" style="--pc:${PLAYER_COLORS[n]}">J${n}</span> ↑↓ escolhe a linha · ←→ troca · ${ico('C', n)} ou ${ico('A', n)} confirma o atleta · ${ico('B', n)} volta`).join(' &nbsp; ');
+    this.el.querySelector('.sel-hint').innerHTML = players.map(n => `<span class="ptag" style="--pc:${PLAYER_COLORS[n]}">J${n}</span> ↑↓ escolhe a linha · ${ico('C', n)} troca ▶ · ${ico('A', n)} troca ◀ · ${this.startIco(n)} Avançar / Pronto! · ${ico('B', n)} volta`).join(' &nbsp; ');
     this.buildPanels();
     const go = this.el.querySelector('.lv-go');
     if (go) go.hidden = false;
@@ -523,15 +526,17 @@ export class SelectScreen {
       for (const c of this.cursors) {
         const p = this.ports[c.n];
         if (!p) continue;
+        // 5.0 (padrão de controle): direcional navega · A escolhe · B (ou Esc) desfaz
+        const k = p.menu();
         if (!c.done) {
-          if (p.pressed('left')) this.moveCursor(c, -1, 0);
-          else if (p.pressed('right')) this.moveCursor(c, 1, 0);
-          if (p.pressed('up')) this.moveCursor(c, 0, -1);
-          else if (p.pressed('down')) this.moveCursor(c, 0, 1);
-          if (p.pressed('C') || p.pressed('ok') || p.pressed('A')) this.pick(c);
+          if (k.left) this.moveCursor(c, -1, 0);
+          else if (k.right) this.moveCursor(c, 1, 0);
+          if (k.up) this.moveCursor(c, 0, -1);
+          else if (k.down) this.moveCursor(c, 0, 1);
+          if (k.a) this.pick(c);
         }
         if (p.pressed('D')) this.toggleWantSp(this.mode === 'coop' ? 1 : c.n);
-        if (p.pressed('B') || p.pressed('start')) this.undo(c);
+        if (k.b) this.undo(c);
         if (!this.active) return;
         c.shake = Math.max(0, c.shake - dt);
       }
@@ -540,35 +545,39 @@ export class SelectScreen {
       // (↑↓ no mesmo time, ←→ para o outro time) e L1 / R1 diminuem / aumentam o nível
       const p = this.ports[this.lead];
       const slots = this.cpuSlots();
+      // 5.0 (padrão de controle): A aumenta / X diminui o nível (L1 / R1 continuam) · Start confirma · B volta
       if (p) {
-        const dir = p.pressed('up') ? 'up' : p.pressed('down') ? 'down' : p.pressed('left') ? 'left' : p.pressed('right') ? 'right' : null;
+        const k = p.menu();
+        const dir = k.up ? 'up' : k.down ? 'down' : k.left ? 'left' : k.right ? 'right' : null;
         if (dir) this.moveLevelFocus(slots, dir);
         const f = slots[this.lvFocus];
-        if (p.pressed('L')) this.changeLevel(f.team, f.k, -1);
-        else if (p.pressed('R')) this.changeLevel(f.team, f.k, 1);
-        if (p.pressed('C') || p.pressed('ok') || p.pressed('A')) this.confirmLevels();
-        else if (p.pressed('B') || p.pressed('start')) this.backFromLevels();
+        if (p.pressed('L') || k.x) this.changeLevel(f.team, f.k, -1);
+        else if (p.pressed('R') || k.a) this.changeLevel(f.team, f.k, 1);
+        if (k.start) this.confirmLevels();
+        else if (k.b) this.backFromLevels();
       }
     } else if (this.phase === 'specials') {
-      // 5.0: painel de cada jogador — ↑↓ escolhe a linha, ←→ troca, A ou X confirma o atleta, B volta
+      // 5.0: painel de cada jogador
       for (const n of this.spPlayers()) {
         const p = this.ports[n];
         if (!p) continue;
         const pages = this.spPages(n), f = this.spFocus[n];
-        if (this.spDone[n]) { if (p.pressed('B') || p.pressed('start')) { this.spDone[n] = false; this.beep(true, 0.3); } continue; }
+        // 5.0 (padrão de controle): ↑↓ escolhe a linha · A troca ▶ · X troca ◀ · Start página seguinte / Pronto!
+        // (segurar 2 s, editável: Pronto! direto) · B (ou Esc) volta
+        const k = p.menu();
+        if (this.spDone[n]) { if (k.b) { this.spDone[n] = false; this.beep(true, 0.3); } continue; }
         const page = pages[f.p], it = page.items[f.r];
-        if (p.pressed('up')) { f.r = (f.r - 1 + page.items.length) % page.items.length; this.beep(true, 0.3); }
-        else if (p.pressed('down')) { f.r = (f.r + 1) % page.items.length; this.beep(true, 0.3); }
-        if (p.pressed('left')) this.cycleSpecial(it.team, it.k, it.row, -1);
-        else if (p.pressed('right')) this.cycleSpecial(it.team, it.k, it.row, 1);
+        if (k.up) { f.r = (f.r - 1 + page.items.length) % page.items.length; this.beep(true, 0.3); }
+        else if (k.down) { f.r = (f.r + 1) % page.items.length; this.beep(true, 0.3); }
         this.holdA = this.holdA || {};
-        this.holdA[n] = p.down('C') ? (this.holdA[n] || 0) + dt : 0;
-        if (this.holdA[n] >= 1) { this.holdA[n] = 0; this.spDone[n] = true; this.note = { text: 'Pronto!', t: performance.now() }; this.beep(true); continue; }
-        if (p.pressed('C')) {
+        this.holdA[n] = k.start ? 0.001 : (k.holdStart && this.holdA[n] > 0 ? this.holdA[n] + dt : 0);
+        if (this.holdA[n] >= menuHoldTime()) { this.holdA[n] = 0; this.spDone[n] = true; this.note = { text: 'Pronto!', t: performance.now() }; this.beep(true); continue; }
+        if (k.start) {
           if (f.p < pages.length - 1) { f.p++; f.r = 0; this.beep(true, 0.5); }
           else { this.spDone[n] = true; this.beep(true); }
-        } else if (p.pressed('A') || p.pressed('ok')) this.cycleSpecial(it.team, it.k, it.row, 1);
-        else if (p.pressed('B') || p.pressed('start')) {
+        } else if (k.a) this.cycleSpecial(it.team, it.k, it.row, 1);
+        else if (k.x) this.cycleSpecial(it.team, it.k, it.row, -1);
+        else if (k.b) {
           if (f.p > 0) { f.p--; f.r = 0; this.beep(true, 0.3); }
           else { this.backFromSpecials(); return; }
         }
@@ -743,10 +752,10 @@ export class SelectScreen {
       const curId = cur.row && cur.row !== 'lv' ? (this.tsp[cur.team][cur.k] || {})[cur.row] : null;
       const desc = cur.row === 'lv' ? 'Nível da CPU: de 1 (Turista) a 12 (Lenda).' : curId ? (SPECIAL_INFO[curId] || this.spName(curId)) : '';
       const note = this.note && performance.now() - this.note.t < 1200 ? `<span class="spp-note">✔ ${this.note.text}</span>` : '';
-      const hold = this.holdA && this.holdA[n] > 0.15 ? `<span class="spp-hold"><i style="width:${Math.min(100, this.holdA[n] * 100).toFixed(0)}%"></i>Segure ${this.padPair(n, 'C', 1)}: Pronto!</span>` : '';
+      const hold = this.holdA && this.holdA[n] > 0.15 ? `<span class="spp-hold"><i style="width:${Math.min(100, this.holdA[n] / menuHoldTime() * 100).toFixed(0)}%"></i>Segure ${this.startIco(n, 16)}: Pronto!</span>` : '';
       const html = `<div class="spp-head">${ch ? `<img src="${portrait(ch.id)}" alt="">` : ''}<div><small>J${n} · ${f.p + 1} de ${pages.length}</small><h3>${title}</h3></div></div>${rows}
         <p class="spp-desc">${desc}</p>${note}${hold}
-        <div class="spp-nav">${done ? '<span class="spp-wait">Pronto! Esperando…</span>' : `<span class="spp-nb back">${this.padPair(n, 'B', 1)} Voltar</span><span class="spp-nb next">${f.p < pages.length - 1 ? 'Avançar' : 'Pronto!'} ${this.padPair(n, 'C', 1)}</span>`}</div>`;
+        <div class="spp-nav">${done ? '<span class="spp-wait">Pronto! Esperando…</span>' : `<span class="spp-nb back">${this.padPair(n, 'B', 1)} Voltar</span><span class="spp-nb next">${f.p < pages.length - 1 ? 'Avançar' : 'Pronto!'} ${this.startIco(n, 16)}</span>`}</div>`;
       // 5.0: nada de rolagem — se não couber, o conteúdo do painel encolhe
       if (this.panelKey[n] !== html) { this.panelKey[n] = html; d.innerHTML = `<div class="fit-in">${html}</div>`; d._fitSz = ''; }
       const sz = d.clientWidth + 'x' + d.clientHeight; // refaz o encaixe quando o painel muda de tamanho
@@ -764,6 +773,8 @@ export class SelectScreen {
     return `<span class="spp-bars">${bar('Precisão', prec)}${bar('Força', forca)}${bar('Hitbox', hit)}</span>`;
   }
   // ícone(s) do botão no estilo do controle do jogador (Xbox, PlayStation ou teclado)
+  // 5.0 (padrão de controle): ícone do Start nos menus (no teclado é o P; o Esc vale como B)
+  startIco(n, size = 18) { return /^(full|kb1|kb2)$/.test(this.styles[n]) ? '<kbd class="key-cap">Enter</kbd>' : padIcon('start', this.styles[n], size); }
   padPair(n, action, times = 2) { const i = padIcon(action, this.styles[n], 16); return times === 2 ? i + i : i; }
 
   whoFor(team, k) {

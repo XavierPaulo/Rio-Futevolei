@@ -15,7 +15,8 @@
 //                  2º toque e +50% no 3º)
 //   aterrissagem   depois de um pulo, o atleta fica parado ao tocar o chão: max (s, agilidade 1) − porPonto
 //                  por ponto de agilidade acima de 1, nunca menos que min (s); arredonda em 0,00 s
-//   controle       aba Controle do editor: botoes (ação do jogo → botão do controle, pelo índice padrão:
+//   controle       aba Controle do editor: menuSegurar (s segurando Start nos menus = Pronto! direto),
+//                  botoes (ação do jogo → botão do controle, pelo índice padrão:
 //                  0 A · 1 B · 2 X · 3 Y · 4 LB · 5 RB · 6 LT · 7 RT · 8 View · 9 Menu · 10 LS · 11 RS),
 //                  andar (velocidade m/s, aceleracao), pulo (forca = velocidade de subida m/s),
 //                  carrinho (velocidade m/s, duracao s, recuperacao s) e mira (segurar X/B: modo "giro" = a seta
@@ -497,6 +498,7 @@ export default {
       "R2": 7,
       "start": 9
     },
+    "menuSegurar": 2,
     "andar": {
       "velocidade": 5.4,
       "aceleracao": 38

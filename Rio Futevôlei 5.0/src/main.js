@@ -23,7 +23,7 @@ import { StoryMode } from './story/story.js';
 import { newSave, readSave, writeSave } from './story/save.js';
 import { installCampUI, campDuplaPlayers, campCfgOut } from './ui/campUI.js';
 import { loadCamp, saveCamp, newTournament, nextMatch, recordResult, finish as campFinish, formatOf, PHASE_NAME, CAMP, teamName, isHuman, playersOf, humanTeams, levelOf, simulate as campSimulate, advance as campAdvanceT, recordWatched, simulateStage, campAthletes } from './camp.js';
-import { V5 } from './v5.js';
+import { V5, menuHoldTime } from './v5.js';
 
 const canvas = document.getElementById('game');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
@@ -518,23 +518,26 @@ function menuInput(dt, escTapped) {
     if (escTapped) hud.activate('calib-cancel');
     return;
   }
-  const moved = p.pressed('up') || p.pressed('down') || p.pressed('left') || p.pressed('right');
-  if (p.pressed('up')) hud.move(-1);
-  else if (p.pressed('down')) hud.move(1);
-  if (p.pressed('left')) hud.side(-1);
-  else if (p.pressed('right')) hud.side(1);
-  if (moved) menuFeel(false);
-  // segurar A por 1 s: passa direto pelas etapas e aperta o Pronto!
-  menuHoldA = p.down('C') ? menuHoldA + dt : 0;
-  if (menuHoldA >= 1) { menuHoldA = -99; menuFeel(true); hud.rush(); return; }
+  // 5.0: padrão de controle dos menus (ver Port.menu em src/input.js) — o direcional só navega
+  const k = p.menu();
+  if (k.up) hud.move(-1);
+  else if (k.down) hud.move(1);
+  if (k.left) hud.side(-1);
+  else if (k.right) hud.side(1);
+  if (k.up || k.down || k.left || k.right) menuFeel(false);
+  // segurar Start (2 s, editável): passa direto pelas etapas e aperta o Pronto! (só conta um Start apertado já no menu,
+  // para o Start que abriu a pausa não fechá-la sozinho)
+  menuHoldA = k.start ? 0.001 : (k.holdStart && menuHoldA > 0 ? menuHoldA + dt : 0);
+  if (menuHoldA >= menuHoldTime()) { menuHoldA = -99; menuFeel(true); hud.rush(); return; }
   // teste do controle na tela de configurações
   if (hud.screen === 'set-controls') {
     const a = ['A', 'B', 'C', 'D', 'R', 'L', 'L2', 'start'].find(k => p.pressed(k));
     if (a) hud.setLastButton(a);
   }
-  if (p.pressed('C')) { sfx.unlock(); menuFeel(true); hud.primary(); } // A: Avançar / Pronto! direto (sem ele na tela, confirma)
-  else if (p.pressed('ok') || p.pressed('A')) { sfx.unlock(); menuFeel(true); hud.confirm(); }
-  else if (p.pressed('start') || p.pressed('B')) hud.back();
+  if (k.a) { sfx.unlock(); menuFeel(true); hud.confirm(); }        // A: acessa o botão / muda a opção (→)
+  else if (k.x) { if (hud.alt()) menuFeel(false); }                // X: muda a opção (←)
+  else if (k.start) { sfx.unlock(); if (hud.focusNav('next')) menuFeel(false); } // Start: cursor no Avançar / Pronto!
+  else if (k.b) { if (hud.focusNav('back')) menuFeel(false); }     // B: cursor no Voltar (na pausa: volta ao jogo)
 }
 
 // L2: liga/desliga as ajudas visuais (nota da ação, arco da trajetória e alvo no chão)
