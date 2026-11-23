@@ -1,5 +1,6 @@
 // 4.0 Modo História — o interior de cada lugar (fundo da tela enquanto o menu dele está aberto).
 // Desenhado à mão em canvas, uma vez por lugar (fica em cache como imagem).
+import { troca, arteUrl } from '../art/artes.js'; // 5.0: interiores enviados no editor de artes
 const W = 1280, H = 720;
 const cache = {};
 
@@ -142,6 +143,8 @@ const DRAW = {
 export const INTERIOR_KINDS = Object.keys(DRAW);
 export function interior(kind) {
   if (!DRAW[kind]) return null;
+  const t = troca(`cenarios/interiores/${kind}`);
+  if (t) return arteUrl(t.arquivo);
   if (!cache[kind]) {
     const c = document.createElement('canvas');
     c.width = W; c.height = H;

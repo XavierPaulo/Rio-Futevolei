@@ -22,13 +22,14 @@ Responda sempre em **português**. Na dúvida, **pergunte** antes de fazer.
 ## Como rodar
 - Servidor: `powershell -ExecutionPolicy Bypass -File serve.ps1 -Port 8769` (ou "Abrir Rio Futevolei 5.0.bat").
 - Jogo: http://localhost:8769/ · Hub dos editores: http://localhost:8769/docs/
-- O servidor também grava os dados dos editores (`POST /api/dados/<atletas|marcas|itens|clima|partida|visual|teaser>`, `/api/golpes`, `/api/imagem`, `/api/video`).
+- O servidor também grava os dados dos editores (`POST /api/dados/<atletas|marcas|itens|clima|partida|visual|teaser|artes>`, `/api/golpes`, `/api/imagem`, `/api/video`).
 - Portas das outras versões: 1.x 8765 · 2.0 8766 · 3.0 8767 · 4.0 8768.
 
 ## Onde fica cada coisa
 - `src/data/partida5.js` — todas as regras da 5.0 (hitbox, especiais, saque, controle, campeonato, atributos…), lido por `src/v5.js`; editor: `docs/editor-partida.html`.
 - `src/data/tilt.js` — trajetórias dos golpes/especiais; editor: `docs/editor-golpes.html`.
 - `src/data/athletes.js`, `items.js`, `brands.js`, `weather.js`, `colagem.js`, `teaser.js` — editores atletas, itens, marcas, clima, visual, teaser.
+- `src/data/artes.js` + `assets/artes/` — artes trocadas por imagem (peças dos atletas e bola na Colagem, paisagens dos CTs e bairros, fachadas, interiores, placas); catálogo e carregamento em `src/art/artes.js`; editor: `docs/editor-artes.html`.
 - `src/match.js` (partida), `src/hud.js` (menus), `src/ui/` (seleção, configurações, jogadores, campeonato), `src/story/` (modo história), `src/render.js` (desenho), `src/input.js` (controles J1–J4).
 - `docs/teste-telas.html` — testa todas as telas em 3 tamanhos (rolagem, fora da tela, texto < 14 px). Rode depois de mudar menus.
 - `tools/build-itch.ps1` / "Gerar pacote itch.io.bat" — pacote para o itch.io.
