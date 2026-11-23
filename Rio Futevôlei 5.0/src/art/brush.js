@@ -11,7 +11,7 @@ const K = 1.6;            // escala das distâncias das poses
 // (let: o estilo Colagem desenha o mesmo corpo em versão caricata — drawBrush(..., opts))
 let HEAD = 0.43;          // escala da cabeça do cartoon (raio 46 → ~20 px)
 let OUTW = 1.3;           // espessura do contorno (metade da versão anterior)
-let HANDK = 1, FOOTK = 1, HEADOUT = 0.5, CARIC = null, BODY = 1, MUSC = 0; // MUSC: atleta sarado (0–1) // BODY: comprimento do tronco, pernas e braços
+let HANDK = 1, FOOTK = 1, HEADOUT = 0.5, CARIC = null, BODY = 1, MUSC = 0, PEC = null; // PEC: peças trocadas por imagem (editor de artes) // MUSC: atleta sarado (0–1) // BODY: comprimento do tronco, pernas e braços
 const SHIFT = { x: 0.45, y: 0.55 }; // contorno mais grosso para baixo/trás (lado da sombra)
 const TAU = Math.PI * 2;
 
@@ -89,6 +89,32 @@ function part(ctx, outer, inner, color, { light = V(2.6, -2.4), shadow = 0.8 } =
   ctx.restore();
 }
 
+// 5.0 Artes: peça trocada por imagem (src/art/artes.js). A imagem fica em pé ao longo do osso a→b:
+// topo = a, base = b, cobrindo também a ponta arredondada (wa antes de a, wb depois de b).
+// t = { escala, x, y, giro } do editor de artes; back = membro de trás (um pouco mais escuro).
+function boneImg(ctx, pc, a, b, wa, wb, back) {
+  const { img, t } = pc, s = t.escala ?? 1;
+  const dx = b.x - a.x, dy = b.y - a.y, L = Math.hypot(dx, dy) || 1;
+  const h = (L + wa + wb) * s, w = h * img.width / (img.height || 1);
+  ctx.save();
+  ctx.translate(a.x, a.y);
+  ctx.rotate(Math.atan2(dy, dx) - Math.PI / 2 + (t.giro || 0) * Math.PI / 180);
+  if (back && 'filter' in ctx) ctx.filter = 'brightness(0.82)';
+  ctx.drawImage(img, -w / 2 + (t.x || 0), (L + wb - wa) / 2 - h / 2 + (t.y || 0), w, h); // escala a partir do meio da peça
+  ctx.restore();
+}
+// imagem centrada num ponto (cabeça, mão), girada pelo ângulo ang; size = lado da imagem com escala 1
+function pointImg(ctx, pc, c, ang, size, back) {
+  const { img, t } = pc, s = t.escala ?? 1;
+  const h = size * s, w = h * img.width / (img.height || 1);
+  ctx.save();
+  ctx.translate(c.x, c.y);
+  ctx.rotate(ang + (t.giro || 0) * Math.PI / 180);
+  if (back && 'filter' in ctx) ctx.filter = 'brightness(0.82)';
+  ctx.drawImage(img, -w / 2 + (t.x || 0), -h / 2 + (t.y || 0), w, h);
+  ctx.restore();
+}
+
 function limb(ctx, a, b, wa, wb, color, opts) {
   part(ctx, capsule(a, b, wa + OUTW, wb + OUTW), capsule(a, b, wa, wb), color, opts);
 }
@@ -98,6 +124,17 @@ function drawLeg(ctx, L, ch, back) {
   const k = back ? 0.82 : 1;
   const skin = shade(ch.skin, k), shorts = shade(ch.shorts, k), acc = shade(ch.shortsAccent, k);
   const style = ch.shortsStyle || 'faixa';
+  const P = PEC || {};
+  if (P.pe) {
+    // pé: deitado, calcanhar à esquerda e ponta à direita, ao longo de tornozelo→ponta
+    const r = 5 * Math.sqrt(FOOTK), toe = FOOTK === 1 ? L.toe : lerp(L.ank, L.toe, FOOTK);
+    ctx.save(); ctx.translate(L.ank.x, L.ank.y); ctx.rotate(Math.atan2(toe.y - L.ank.y, toe.x - L.ank.x));
+    const { img, t } = P.pe, s = t.escala ?? 1, len = (Math.hypot(toe.x - L.ank.x, toe.y - L.ank.y) + r * 2.2) * s, hh = len * img.height / (img.width || 1);
+    ctx.rotate((t.giro || 0) * Math.PI / 180);
+    if (back && 'filter' in ctx) ctx.filter = 'brightness(0.82)';
+    ctx.drawImage(img, -r * s + (t.x || 0), -hh / 2 + (t.y || 0), len, hh);
+    ctx.restore();
+  } else {
   limb(ctx, L.ank, FOOTK === 1 ? L.toe : lerp(L.ank, L.toe, FOOTK), 5 * Math.sqrt(FOOTK), 4 * FOOTK, skin);
   // 5.0 Colagem: pé de pato (nadadeira) calçado na areia (Seu Pé de Pato)
   if (ch.fins) {
@@ -109,7 +146,10 @@ function drawLeg(ctx, L, ch, back) {
     ctx.strokeStyle = shade(ch.fins, 0.7 * k); ctx.lineWidth = 1.4;
     for (const s of [-4, 0, 4]) { ctx.beginPath(); ctx.moveTo(L.toe.x + nx * s * 0.5, L.toe.y + ny * s * 0.5); ctx.lineTo(tip.x + nx * s, tip.y + ny * s); ctx.stroke(); }
   }
-  limb(ctx, L.knee, L.ank, 7 + MUSC * 1.6, 5 + MUSC * 0.3, skin); // panturrilha
+  }
+  if (P.canela) boneImg(ctx, P.canela, L.knee, L.ank, 7 + MUSC * 1.6, 5 + MUSC * 0.3, back);
+  else limb(ctx, L.knee, L.ank, 7 + MUSC * 1.6, 5 + MUSC * 0.3, skin); // panturrilha
+  if (P.coxa) { boneImg(ctx, P.coxa, L.hip, L.knee, 11, 7 + MUSC * 0.6, back); return; } // a coxa enviada já traz a bermuda
   limb(ctx, L.hip, L.knee, 9.5 + MUSC * 1.6, 7 + MUSC * 0.6, skin);
   const end = lerp(L.hip, L.knee, style === 'sunga' ? 0.2 : 0.58);
   limb(ctx, L.hip, end, 11, 10, shorts);
@@ -120,12 +160,15 @@ function drawLeg(ctx, L, ch, back) {
 function drawArm(ctx, A, ch, back, sleeve) {
   const k = back ? 0.82 : 1;
   const skin = shade(ch.skin, k);
-  limb(ctx, A.el, A.ha, 5.2 + MUSC * 1.2, 4.2 + MUSC * 0.4, skin);
+  const P = PEC || {};
+  if (P.antebraco) boneImg(ctx, P.antebraco, A.el, A.ha, 5.2 + MUSC * 1.2, 4.2 + MUSC * 0.4, back);
+  else limb(ctx, A.el, A.ha, 5.2 + MUSC * 1.2, 4.2 + MUSC * 0.4, skin);
   // braço de academia: mais grosso no meio (bíceps), afinando no cotovelo
-  if (MUSC > 0) { const mid = lerp(A.sh, A.el, 0.45); limb(ctx, mid, A.el, 6.4 + MUSC * 1.9, 5.2 + MUSC * 0.7, skin); limb(ctx, A.sh, mid, 6.4 + MUSC * 1.4, 6.4 + MUSC * 1.9, skin); }
+  if (P.braco) boneImg(ctx, P.braco, A.sh, A.el, 6.4 + MUSC * 1.9, 5.2 + MUSC * 0.7, back);
+  else if (MUSC > 0) { const mid = lerp(A.sh, A.el, 0.45); limb(ctx, mid, A.el, 6.4 + MUSC * 1.9, 5.2 + MUSC * 0.7, skin); limb(ctx, A.sh, mid, 6.4 + MUSC * 1.4, 6.4 + MUSC * 1.9, skin); }
   else limb(ctx, A.sh, A.el, 6.4, 5.2, skin);
   // 5.0 Colagem: tatuagem de traço no braço da frente (punk)
-  if (!back && ch.tattoo) {
+  if (!back && ch.tattoo && !P.braco) {
     const c = lerp(A.sh, A.el, 0.45), dx = A.el.x - A.sh.x, dy = A.el.y - A.sh.y, L = Math.hypot(dx, dy) || 1, ux = dx / L, uy = dy / L;
     ctx.strokeStyle = ch.tattoo; ctx.lineWidth = 1.3; ctx.lineCap = 'round';
     ctx.beginPath(); for (let i = 0; i < 5; i++) { const a = -Math.PI / 2 + i * TAU * 2 / 5, rr = 3.6; const x = c.x + Math.cos(a) * rr, y = c.y + Math.sin(a) * rr; i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); } ctx.closePath(); ctx.stroke();
@@ -133,9 +176,11 @@ function drawArm(ctx, A, ch, back, sleeve) {
   }
   // mão
   const hr = 5.6 * HANDK, hand = capsule(A.ha, A.ha, hr, hr), handO = capsule(A.ha, A.ha, hr + OUTW, hr + OUTW);
-  part(ctx, handO, hand, skin);
+  if (P.mao) pointImg(ctx, P.mao, A.ha, Math.atan2(A.ha.y - A.el.y, A.ha.x - A.el.x) - Math.PI / 2, (hr + OUTW) * 2.4, back);
+  else part(ctx, handO, hand, skin);
+  if (P.braco) return; // o braço enviado já traz a manga; antebraço enviado traz os acessórios do pulso
   if (sleeve) limb(ctx, A.sh, lerp(A.sh, A.el, 0.5), 8, 7.5, shade(ch.top, k));
-  if (!back && ch.wrist) {
+  if (!back && ch.wrist && !P.antebraco) {
     const w = ch.wristColor || ch.topAccent;
     if (ch.wrist === 'munhequeira') limb(ctx, lerp(A.el, A.ha, 0.62), lerp(A.el, A.ha, 0.88), 6.2, 5.6, w);
     else if (ch.wrist === 'spikes') {
@@ -159,6 +204,11 @@ function drawArm(ctx, A, ch, back, sleeve) {
 
 function drawTorso(ctx, sk, ch) {
   const { P, N } = sk;
+  if (PEC && PEC.tronco) { // tronco enviado: blusa, bermuda e acessórios do peito vêm na imagem
+    const L = Math.hypot(N.x - P.x, N.y - P.y) || 1;
+    boneImg(ctx, PEC.tronco, N, P, L * 0.04, L * 0.1);
+    return;
+  }
   const d = V(N.x - P.x, N.y - P.y), L = Math.hypot(d.x, d.y) || 1;
   const n = V(-d.y / L, d.x / L);
   const ring = (ws, extra = 0) => {
@@ -235,6 +285,7 @@ function drawTorso(ctx, sk, ch) {
 function drawHead(ctx, ch, sk, face, time) {
   // pescoço
   limb(ctx, sk.N, lerp(sk.N, sk.H, 0.7), 5, 5, shade(ch.skin, 0.88));
+  if (PEC && PEC.cabeca) { pointImg(ctx, PEC.cabeca, sk.H, sk.headAng, 46 * HEAD * 2.6); return; } // cabeça enviada (cabelo, rosto e chapéu)
   ctx.save();
   ctx.translate(sk.H.x, sk.H.y);
   ctx.scale(HEAD, HEAD);
@@ -246,7 +297,7 @@ function drawHead(ctx, ch, sk, face, time) {
 // opts (estilo Colagem): { cabeca, contorno, contornoCabeca, maos, pes, rosto } — versão caricata
 export function drawBrush(ctx, ch, pose, time, opts = null) {
   const o = opts || {};
-  HEAD = o.cabeca ?? 0.43; OUTW = o.contorno ?? 1.3; HEADOUT = o.contornoCabeca ?? 0.5; HANDK = o.maos ?? 1; FOOTK = o.pes ?? 1; CARIC = o.rosto || null; BODY = o.corpo ?? 1; MUSC = o.musculo ?? 0;
+  HEAD = o.cabeca ?? 0.43; OUTW = o.contorno ?? 1.3; HEADOUT = o.contornoCabeca ?? 0.5; HANDK = o.maos ?? 1; FOOTK = o.pes ?? 1; CARIC = o.rosto || null; BODY = o.corpo ?? 1; MUSC = o.musculo ?? 0; PEC = o.pecas || null;
   const W = ctx.canvas.width;
   ctx.clearRect(0, 0, W, W);
   ctx.save();

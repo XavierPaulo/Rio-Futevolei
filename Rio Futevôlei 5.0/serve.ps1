@@ -6,8 +6,8 @@
 #   POST /api/golpes   { moves: { id: golpe }, models: { id: parametros }, hitbox, aiTreeText } grava
 #                      src/data/moves.js e src/data/trajectories.js (via tools/sync-moves.ps1),
 #                      src/data/hitbox.js e src/data/ai-tree.js (arvore de decisao da CPU)
-#   POST /api/dados/<atletas|marcas|itens|clima|partida|visual|teaser> { text } grava src/data/athletes.js, brands.js, items.js, weather.js, partida5.js ou colagem.js
-#   POST /api/imagem   { folder, id, dataUrl } grava uma imagem enviada em assets/<marcas|itens>/ (hub: docs/index.html)
+#   POST /api/dados/<atletas|marcas|itens|clima|partida|visual|teaser|artes> { text } grava src/data/athletes.js, brands.js, items.js, weather.js, partida5.js, colagem.js ou artes.js
+#   POST /api/imagem   { folder, id, dataUrl } grava uma imagem enviada em assets/<marcas|itens|artes>/ (hub: docs/index.html)
 # So aceita pedidos da propria pagina (mesma origem), nunca de outro site.
 param([int]$Port = 8765)
 $root = [IO.Path]::GetFullPath((Split-Path -Parent $MyInvocation.MyCommand.Path))
@@ -114,12 +114,13 @@ while ($listener.IsListening) {
         try {
           $data = $body | ConvertFrom-Json
           if ($rel -eq 'api/imagem') {
-            if ($data.folder -notin @('marcas', 'itens')) { throw 'pasta invalida' }
-            if ($data.id -notmatch '^[A-Za-z0-9_-]{1,40}$') { throw 'id invalido' }
+            if ($data.folder -notin @('marcas', 'itens', 'artes')) { throw 'pasta invalida' }
+            if ($data.id -notmatch '^[A-Za-z0-9_-]{1,80}$') { throw 'id invalido' }
             $mm = [regex]::Match([string]$data.dataUrl, '^data:image/(png|jpeg|webp|gif);base64,([A-Za-z0-9+/=]+)$')
             if (-not $mm.Success) { throw 'imagem invalida (use PNG, JPG, WEBP ou GIF)' }
             $bytes = [Convert]::FromBase64String($mm.Groups[2].Value)
-            if ($bytes.Length -gt 3MB) { throw 'imagem grande demais (max. 3 MB)' }
+            $maxMB = if ($data.folder -eq 'artes') { 8 } else { 3 } # 5.0: paisagens e interiores do editor de artes sao maiores
+            if ($bytes.Length -gt $maxMB * 1MB) { throw "imagem grande demais (max. $maxMB MB)" }
             $ext = @{ png = 'png'; jpeg = 'jpg'; webp = 'webp'; gif = 'gif' }[$mm.Groups[1].Value]
             $dir = Join-Path $root "assets\$($data.folder)"
             New-Item -ItemType Directory -Force $dir | Out-Null
@@ -129,7 +130,7 @@ while ($listener.IsListening) {
             Send-Json $res 200 @{ ok = $true; path = "assets/$($data.folder)/$name" }
           } else {
             $kind = if ($rel -eq 'api/atletas') { 'atletas' } else { $rel.Substring(10) }
-            $files = @{ atletas = 'athletes.js'; marcas = 'brands.js'; itens = 'items.js'; clima = 'weather.js'; partida = 'partida5.js'; visual = 'colagem.js'; teaser = 'teaser.js' }
+            $files = @{ atletas = 'athletes.js'; marcas = 'brands.js'; itens = 'items.js'; clima = 'weather.js'; partida = 'partida5.js'; visual = 'colagem.js'; teaser = 'teaser.js'; artes = 'artes.js' }
             if (-not $files.ContainsKey($kind)) { throw "dados desconhecidos: $kind" }
             $text = if ($data.text) { $data.text } else { $data.athletesText }
             if (-not $text) { throw 'sem dados' }
@@ -140,6 +141,7 @@ while ($listener.IsListening) {
             if ($kind -eq 'partida' -and (-not $chk.zonas -or -not $chk.especiais -or -not $chk.formacoes)) { throw 'faltam zonas/especiais/formacoes' }
             if ($kind -eq 'visual' -and (-not $chk.paleta -or -not $chk.recorte)) { throw 'faltam paleta/recorte' }
             if ($kind -eq 'teaser' -and (-not $chk.volumes -or -not $chk.vhs)) { throw 'faltam volumes/vhs' }
+            if ($kind -eq 'artes' -and $null -eq $chk.trocas) { throw 'faltam trocas' }
             $tf = Join-Path $root "src\data\$($files[$kind])"
             $old = [IO.File]::ReadAllText($tf, $utf8)
             $m = [regex]::Match($old, '(?m)^export default') # a linha do export (nao um comentario que cite o nome)

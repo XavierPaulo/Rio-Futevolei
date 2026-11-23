@@ -6,6 +6,7 @@ import { drawAthlete } from '../art/draw.js';
 import { poseFor } from '../art/poses.js';
 import { dummy } from '../ui/portraits.js';
 import { settings } from '../ui/settings.js';
+import { quandoArte } from '../art/artes.js'; // 5.0: artes enviadas no editor de artes
 
 const SPRITE = { cartoon: { size: 2.5, feet: 10 }, pincel: { size: 3.05, feet: 8 }, colagem: { size: 3.05, feet: 8 } };
 const CANVAS = 256;
@@ -22,6 +23,16 @@ function canvasTex(w, h, draw) {
   t.anisotropy = 4;
   return t;
 }
+// 5.0 Artes: textura desenhada por código que vira a imagem enviada no editor de artes (quando houver)
+function arteTex(codigo, w, h, draw) {
+  const t = canvasTex(w, h, draw);
+  quandoArte(codigo, img => {
+    const c = t.image, g = c.getContext('2d');
+    g.clearRect(0, 0, c.width, c.height); g.drawImage(img, 0, 0, c.width, c.height);
+    t.needsUpdate = true;
+  });
+  return t;
+}
 const flat = color => new THREE.MeshBasicMaterial({ color });
 function shade(hex, k) {
   const c = new THREE.Color(hex); c.multiplyScalar(k); return c;
@@ -30,7 +41,7 @@ function shade(hex, k) {
 // fachada de um prédio: parede, janelas, porta e placa com o nome
 function facadeTex(b, w, h) {
   const PX = 64;
-  return canvasTex(Math.round(w * PX), Math.round(h * PX), (g, W, H) => {
+  return arteTex(`cenarios/bairros/fachada-${b.id}`, Math.round(w * PX), Math.round(h * PX), (g, W, H) => {
     g.fillStyle = b.color; g.fillRect(0, 0, W, H);
     // faixa do telhado
     g.fillStyle = b.roof; g.fillRect(0, 0, W, PX * 0.45);
@@ -82,7 +93,7 @@ function wavesTex() {
 }
 
 // cores e nome da fachada de cada tipo de prédio
-const BUILDING = {
+export const BUILDING = { // (5.0: exportado para o editor de artes)
   casa: { id: 'casa', name: 'Casa da Giulia', color: '#f2c4a0', roof: '#c96f4a' },
   predio: { id: 'predio', name: 'Residencial', color: '#d8d2c4', roof: '#8a8478' },
   lanchonete: { id: 'lanchonete', name: 'Lanchonete', color: '#ffe08a', roof: '#e8281f' },
@@ -135,16 +146,19 @@ export function buildStreet(hood) {
   const dome = (r, color, x, z, sx = 1, sy = 1, sz = 1) => { const m = add(new THREE.SphereGeometry(r, 24, 16, 0, Math.PI * 2, 0, Math.PI / 2), flat(color), x, 0, z); m.scale.set(sx, sy, sz); return m; };
   const tower = (w, h, color, x, z) => add(new THREE.BoxGeometry(w, h, w * 0.8), flat(color), x, h / 2, z);
   const lifeguard = (label, x, z) => {
+    const n0 = root.children.length;
     add(new THREE.BoxGeometry(2.4, 2, 2), new THREE.MeshBasicMaterial({ map: canvasTex(128, 96, (g, W, H) => {
       g.fillStyle = '#ffffff'; g.fillRect(0, 0, W, H); g.fillStyle = '#e8281f'; g.fillRect(0, H * 0.62, W, H * 0.38);
       g.fillStyle = '#1d1a22'; g.font = '900 48px Nunito, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(label, W / 2, H * 0.34);
     }) }), x, 3.6, z);
     for (const dx of [-0.9, 0.9]) add(new THREE.CylinderGeometry(0.1, 0.1, 2.6, 6), flat('#f5f1e8'), x + dx, 1.3, z);
+    for (const m of root.children.slice(n0)) m.userData.chao = true; // o posto fica mesmo com paisagem enviada
   };
   const B = hood.backdrop;
   // mar ao fundo (no CT privado de Jacarepaguá, o bairro verde até as montanhas)
   const sea = add(new THREE.PlaneGeometry(900, 330), flat(hood.private ? '#7fa060' : B === 'baia' ? '#4a9cc4' : '#3fa3d6'), 20, -0.02, -155);
   sea.rotation.x = -Math.PI / 2;
+  const nBack = root.children.length; // daqui até o chão: a paisagem de fundo (trocável no editor de artes)
   if (B === 'paoDeAcucar' || B === 'enseada' || B === 'aterro') {
     // Pão de Açúcar e Morro da Urca (de perto na Urca; do outro lado da enseada em Botafogo e no Aterro)
     const far = B === 'paoDeAcucar' ? 1 : 1.5, sx = B === 'paoDeAcucar' ? -70 : B === 'enseada' ? -20 : 30;
@@ -152,7 +166,7 @@ export function buildStreet(hood) {
     dome(40, '#5d6b4c', sx + 60, -250 * far, 1.4, 1.1, 0.8);
     root.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(sx, 70, -228 * far), new THREE.Vector3(sx + 60, 44, -240 * far)]), new THREE.LineBasicMaterial({ color: '#333333' })));
     if (B === 'enseada') for (let i = 0; i < 5; i++) add(new THREE.ConeGeometry(1.2, 3, 3), flat('#ffffff'), -60 + i * 18, 1.5, -90 - i * 10); // veleiros
-    if (B === 'aterro') { const park = add(new THREE.PlaneGeometry(400, 40), flat('#6fbf5a'), 0, 0.02, -60); park.rotation.x = -Math.PI / 2; }
+    if (B === 'aterro') { const park = add(new THREE.PlaneGeometry(400, 40), flat('#6fbf5a'), 0, 0.02, -60); park.rotation.x = -Math.PI / 2; park.userData.chao = true; }
   } else if (B === 'pedraLeme') {
     dome(26, '#5f5a50', -48, -70, 1.1, 1.6, 0.9); // a Pedra do Leme, na ponta da praia
   } else if (B === 'posto9' || B === 'leblon') {
@@ -181,6 +195,16 @@ export function buildStreet(hood) {
     for (let i = 0; i < 4; i++) dome(10 + i * 4, '#5d7a52', -80 + i * 55, -120 - i * 25, 1.3, 0.6, 1); // ilhas da baía
     for (let i = 0; i < 2; i++) add(new THREE.BoxGeometry(14, 4, 3), flat(i ? '#e8281f' : '#1d5cff'), -40 + i * 70, 2, -90 - i * 15); // navios
   }
+
+  // 5.0 Artes: paisagem enviada (cenarios/bairros/<bairro>-paisagem): um painel atrás do mar no lugar
+  // dos morros e prédios desenhados; x, y em metros, escala 1 = 360 m de largura
+  const drawnBack = root.children.slice(nBack).filter(m => !m.userData.chao);
+  quandoArte(`cenarios/bairros/${hood.id}-paisagem`, (img, t) => {
+    const tex = new THREE.Texture(img); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4; tex.needsUpdate = true;
+    const w = 360 * (t.escala ?? 1), h = w * img.height / (img.width || 1);
+    for (const m of drawnBack) m.visible = false;
+    add(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ map: tex, transparent: true, alphaTest: 0.05 }), 20 + (t.x || 0), h / 2 - 1 + (t.y || 0), -230);
+  });
 
   // chão: praia (ou o CT privado), calçadão, calçada e rua
   if (hood.private) {
@@ -238,7 +262,7 @@ export function buildStreet(hood) {
   // ponto de ônibus (esquina do 2º quarteirão)
   const busX = ROAD[1] + 0.2;
   add(new THREE.CylinderGeometry(0.06, 0.06, 2.6, 8), flat('#9a9a9a'), busX, 1.3, 3.6);
-  add(new THREE.CircleGeometry(0.5, 32), new THREE.MeshBasicMaterial({ map: canvasTex(128, 128, (g, W) => {
+  add(new THREE.CircleGeometry(0.5, 32), new THREE.MeshBasicMaterial({ map: arteTex('cenarios/placas/placa-onibus', 128, 128, (g, W) => {
     g.fillStyle = '#ffd21a'; g.beginPath(); g.arc(W / 2, W / 2, W / 2 - 2, 0, 7); g.fill();
     g.fillStyle = '#1d1a22'; g.fillRect(36, 34, 56, 50); g.fillStyle = '#ffd21a'; g.fillRect(42, 40, 44, 20);
     g.fillStyle = '#1d1a22'; g.beginPath(); g.arc(48, 92, 7, 0, 7); g.arc(80, 92, 7, 0, 7); g.fill();
@@ -263,7 +287,7 @@ export function buildStreet(hood) {
   net.rotation.y = Math.PI / 2;
   const ctX = -6.5;
   add(new THREE.CylinderGeometry(0.06, 0.06, 2.4, 8), flat('#9a9a9a'), ctX, 1.2, 0.6);
-  add(new THREE.CircleGeometry(0.55, 32), new THREE.MeshBasicMaterial({ map: canvasTex(128, 128, (g, W) => {
+  add(new THREE.CircleGeometry(0.55, 32), new THREE.MeshBasicMaterial({ map: arteTex('cenarios/placas/placa-ct', 128, 128, (g, W) => {
     g.fillStyle = '#ffffff'; g.beginPath(); g.arc(W / 2, W / 2, W / 2 - 1, 0, 7); g.fill();
     g.fillStyle = '#e8281f'; g.beginPath(); g.arc(W / 2, W / 2, W / 2 - 10, 0, 7); g.fill();
     g.fillStyle = '#ffffff'; g.font = '900 46px Nunito, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('CT', W / 2, W / 2 + 2);

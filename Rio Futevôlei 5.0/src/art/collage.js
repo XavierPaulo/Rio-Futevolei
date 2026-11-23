@@ -6,6 +6,7 @@
 import COL from '../data/colagem.js';
 import { drawBrush } from './brush.js';
 import { drawBall } from './chibi.js';
+import { ARTES, arte, troca, pecasDoAtleta } from './artes.js'; // 5.0: artes enviadas no editor de artes
 
 const bufs = new Map(); // por tamanho: canvases reaproveitados (nada de criar canvas a cada quadro)
 function buffers(W) {
@@ -128,6 +129,18 @@ export function drawCollage(ctx, ch, pose, time) {
     const W = f.canvas.width;
     f.setTransform(1, 0, 0, 1, 0, 0); f.clearRect(0, 0, W, W);
     const C = COL.visualAtletas;
+    // 5.0 Artes: atleta inteiro enviado no editor de artes (imagem parada, pés na base, virada para a direita)
+    const inteiro = ch.id && arte(`personagens/atletas/${ch.id}`);
+    if (inteiro) {
+      const t = troca(`personagens/atletas/${ch.id}`), s = (t.escala ?? 1) * W / Math.max(inteiro.width, inteiro.height);
+      const w = inteiro.width * s, h = inteiro.height * s, k = W / 256;
+      f.translate(W / 2 + (t.x || 0) * k, W - 8 * k + (t.y || 0) * k); f.rotate((t.giro || 0) * Math.PI / 180);
+      f.drawImage(inteiro, -w / 2, -h, w, h);
+      f.setTransform(1, 0, 0, 1, 0, 0);
+      if (ARTES.fotoNasArtes !== false && C && C.ligado !== false) photoFinish(f, W, C.foto);
+      return;
+    }
+    const pecas = ch.id ? pecasDoAtleta(ch.id) : null;
     if (C && C.ligado !== false) {
       const per = (C.atletas || {})[ch.id] || {};
       const look = { ...ch };
@@ -139,13 +152,14 @@ export function drawCollage(ctx, ch, pose, time) {
         cabeca: C.cabeca, contorno: C.contorno, contornoCabeca: C.contornoCabeca, maos: C.maos, pes: C.pes, corpo: C.corpo,
         musculo: per.musculo ?? C.musculo,
         rosto: { real: C.rostoHumano !== false, olhar: per.olhar || (C.padrao || {}).olhar, sorriso: per.sorriso || (C.padrao || {}).sorriso, barba: !!per.barbaPorFazer },
+        pecas,
       });
       f.setTransform(1, 0, 0, 1, 0, 0);
-      photoFinish(f, W, C.foto);
+      if (!pecas || ARTES.fotoNasArtes !== false) photoFinish(f, W, C.foto);
       if (C.desgaste > 0) { f.save(); f.globalCompositeOperation = 'source-atop'; f.globalAlpha = Math.min(1, C.desgaste); f.fillStyle = wornPattern(f); f.fillRect(0, 0, W, W); f.restore(); }
     } else {
       f.translate(0, -Math.round(4 * W / 256));
-      drawBrush(f, ch, pose, time);
+      drawBrush(f, ch, pose, time, pecas ? { pecas } : null);
       f.setTransform(1, 0, 0, 1, 0, 0);
     }
   });
@@ -156,7 +170,12 @@ export function drawCollageBall(ctx) {
     const W = f.canvas.width;
     f.setTransform(1, 0, 0, 1, 0, 0); f.clearRect(0, 0, W, W);
     f.setTransform(0.84, 0, 0, 0.84, W * 0.08, W * 0.08); // encolhe um pouco para caber a borda
-    drawBall(f);
+    const bola = arte('personagens/bola/bola'); // 5.0 Artes: bola enviada no editor de artes
+    if (bola) {
+      const t = troca('personagens/bola/bola'), s = (t.escala ?? 1) * W / Math.max(bola.width, bola.height);
+      f.translate(W / 2 + (t.x || 0) * W / 256, W / 2 + (t.y || 0) * W / 256); f.rotate((t.giro || 0) * Math.PI / 180);
+      f.drawImage(bola, -bola.width * s / 2, -bola.height * s / 2, bola.width * s, bola.height * s);
+    } else drawBall(f);
     f.setTransform(1, 0, 0, 1, 0, 0);
   }, 0.6);
 }

@@ -1,0 +1,243 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Editor de Artes 5.0</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Nunito:wght@600;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="editores.css">
+<script type="importmap">{ "imports": { "three": "../vendor/three/three.module.js" } }</script>
+<style>
+.slots { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 330px), 1fr)); gap: 12px; }
+.slot { background: var(--surface); border-radius: 16px; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; border: 2px solid transparent; min-width: 0; }
+.slot.on { border-color: var(--ok); }
+.slot h3 { margin: 0; font: 400 20px/1.1 var(--display); }
+.slot code { font: 800 14px ui-monospace, Consolas, monospace; color: var(--muted); word-break: break-all; }
+.slot p { margin: 0; font-size: 14px; font-weight: 700; color: var(--muted); }
+.slot .spec { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 14px; font-weight: 900; }
+.slot .spec span { background: var(--surface-2); border-radius: 8px; padding: 2px 8px; }
+.thumb { display: grid; place-items: center; height: 120px; border-radius: 10px; background: repeating-conic-gradient(var(--surface-2) 0 25%, var(--surface) 0 50%) 0 0 / 16px 16px; overflow: hidden; }
+.thumb img { max-width: 100%; max-height: 120px; object-fit: contain; }
+.thumb em { font-style: normal; font-weight: 800; color: var(--muted); font-size: 14px; padding: 8px; text-align: center; }
+.sl { display: flex; gap: 8px; align-items: center; min-width: 0; }
+.sl input[type="range"] { flex: 1; min-width: 0; accent-color: var(--zone); }
+.sl input[type="number"] { width: 78px; flex: none; }
+.adj .row { margin: 2px 0; grid-template-columns: 70px minmax(0, 1fr); }
+.live { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
+.live figure { margin: 0; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.live canvas { width: 200px; height: 200px; background: #e9cf9a; border-radius: 12px; }
+.live figcaption { font-weight: 900; font-size: 14px; color: var(--muted); }
+nav .it b { font-size: 14px; color: var(--ok); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <a class="back" href="index.html">← Editores</a>
+      <h1>Editor de <span>Artes</span> 5.0</h1>
+      <p class="kicker">Troque as artes do jogo por imagens suas: peças dos atletas e a bola (estilo Colagem) e as paisagens, fachadas, interiores e placas dos bairros e CTs. Envie a imagem, ajuste na prévia, grave e recarregue o jogo.</p>
+    </div>
+    <div class="tools">
+      <span class="status" id="status"><i></i><span>carregando…</span></span>
+      <button id="undo" type="button" disabled>Desfazer tudo</button>
+      <button id="save" class="primary" type="button" disabled>Gravar no jogo</button>
+    </div>
+  </header>
+  <div class="main">
+    <nav id="nav" aria-label="Grupos de artes"></nav>
+    <div class="editor" id="editor"></div>
+  </div>
+</div>
+<script type="module">
+import { ARTES, PECA_IDS, catalogoArtes, arteUrl } from '../src/art/artes.js';
+import { CHARACTERS } from '../src/art/characters.js';
+import { HOODS } from '../src/story/data.js'; // também registra os atletas do Modo História
+import { BUILDING } from '../src/story/street.js';
+import { INTERIOR_KINDS } from '../src/story/interiors.js';
+import { drawCollage, drawCollageBall } from '../src/art/collage.js';
+import { poseFor } from '../src/art/poses.js';
+import { dummy } from '../src/ui/portraits.js';
+import { clone, esc, saver, uploadImage, row, check, button, filePick } from './editores.js';
+
+// ---------- catálogo (o mesmo do PDF de artes) ----------
+const atletas = Object.values(CHARACTERS).filter(c => c && c.id && c.name && !c.custom).map(c => [c.id, c.name]);
+const bairros = Object.entries(HOODS).map(([id, h]) => [id, h.name, h.ct]);
+const predios = Object.values(BUILDING).map(b => [b.id, b.name]);
+const nomeLugar = k => (BUILDING[k] && BUILDING[k].name) || (k === 'ct' ? 'CT' : k);
+const interiores = INTERIOR_KINDS.map(k => [k, nomeLugar(k)]);
+const CAT = catalogoArtes({ atletas, bairros, predios, interiores });
+window.catalogoArtes = CAT; // para consulta (console)
+
+const original = JSON.stringify(ARTES);
+let data = clone(ARTES);
+data.trocas ||= {};
+let cur = 'atleta:todos';
+
+const S = saver({
+  kind: 'artes', original, get: () => data,
+  statusEl: document.getElementById('status'), saveBtn: document.getElementById('save'), undoBtn: document.getElementById('undo'),
+  onRestore: d => { data = d; sync(); render(); },
+  onUndo: () => { data = JSON.parse(original); sync(); render(); },
+});
+// o jogo lê o mesmo objeto: copia as mudanças para ele (a prévia muda na hora)
+function sync() { ARTES.fotoNasArtes = data.fotoNasArtes; ARTES.trocas = clone(data.trocas); }
+const changed = () => { sync(); S.dirty(); renderNav(); };
+
+// ---------- grupos (lista à esquerda) ----------
+const GROUPS = [
+  ['Personagens (Colagem)', [['atleta:todos', 'Todos os atletas'], ...atletas.map(([id, n]) => ['atleta:' + id, n]), ['bola', 'Bola']]],
+  ['Cenários', [['cts', 'Paisagens dos CTs (arena)'], ['bairros', 'Paisagens dos bairros (rua)'], ['fachadas', 'Fachadas'], ['interiores', 'Interiores'], ['placas', 'Placas']]],
+  ['Opções', [['opcoes', 'Acabamento']]],
+];
+function slotsOf(key) {
+  if (key.startsWith('atleta:')) return CAT.filter(s => s.grupo === 'personagens' && s.sub === key.slice(7));
+  if (key === 'bola') return CAT.filter(s => s.sub === 'bola');
+  return CAT.filter(s => s.grupo === 'cenarios' && s.sub === key);
+}
+const active = s => { const t = data.trocas[s.codigo]; return t && t.arquivo && t.ligado !== false; };
+
+const nav = document.getElementById('nav');
+function renderNav() {
+  nav.innerHTML = '';
+  for (const [title, items] of GROUPS) {
+    const h = document.createElement('h3'); h.textContent = title; nav.append(h);
+    for (const [key, name] of items) {
+      const n = key === 'opcoes' ? 0 : slotsOf(key).filter(active).length;
+      const b = button('', () => { cur = key; render(); });
+      b.className = 'it'; b.setAttribute('aria-current', String(key === cur));
+      b.innerHTML = `<span class="nm">${esc(name)}</span>${n ? `<b>${n} trocada${n > 1 ? 's' : ''}</b>` : ''}`;
+      nav.append(b);
+    }
+  }
+}
+
+// ---------- cartão de uma arte ----------
+function slider(label, value, set, { min, max, step }) {
+  const box = document.createElement('div'); box.className = 'sl';
+  const r = document.createElement('input'); r.type = 'range'; r.min = min; r.max = max; r.step = step; r.value = value;
+  const n = document.createElement('input'); n.type = 'number'; n.min = min; n.max = max; n.step = step; n.value = value;
+  const go = v => { v = Math.max(min, Math.min(max, +v || 0)); set(v); changed(); };
+  r.oninput = () => { n.value = r.value; go(r.value); };
+  n.oninput = () => { r.value = n.value; go(n.value); };
+  box.append(r, n);
+  return row(label, box);
+}
+function slotCard(s) {
+  const el = document.createElement('section'); el.className = 'slot' + (active(s) ? ' on' : '');
+  const t = data.trocas[s.codigo];
+  el.innerHTML = `<h3>${esc(s.nome)}</h3><code>${esc(s.codigo)}</code><p>${esc(s.desc)}</p>
+    <div class="spec"><span>${esc(s.tamanho)}</span><span>${esc(s.tipo)}</span></div>`;
+  const th = document.createElement('div'); th.className = 'thumb';
+  th.innerHTML = t && t.arquivo ? `<img alt="${esc(s.nome)}" src="${esc(arteUrl(t.arquivo))}">` : '<em>arte do jogo (desenhada por código)</em>';
+  el.append(th);
+  const msg = document.createElement('p');
+  const tools = document.createElement('div'); tools.className = 'inline';
+  tools.append(filePick(t && t.arquivo ? 'Trocar imagem' : 'Enviar arte', async file => {
+    msg.textContent = 'enviando…';
+    try {
+      const path = await uploadImage('artes', s.codigo.replace(/\//g, '_'), file, 8);
+      const old = data.trocas[s.codigo] || {};
+      data.trocas[s.codigo] = { arquivo: path, ligado: true, escala: old.escala ?? 1, x: old.x ?? 0, y: old.y ?? 0, giro: old.giro ?? 0 };
+      changed(); render();
+    } catch (e) { msg.textContent = 'não enviou: ' + e.message; }
+  }));
+  if (t && t.arquivo) {
+    tools.append(check('Ligada', t.ligado !== false, v => { t.ligado = v; changed(); el.classList.toggle('on', active(s)); }));
+    tools.append(button('Voltar à arte do jogo', () => { delete data.trocas[s.codigo]; changed(); render(); }, 'danger'));
+  }
+  el.append(tools, msg);
+  if (t && t.arquivo) {
+    const cen = s.grupo === 'cenarios';
+    const adj = document.createElement('div'); adj.className = 'adj';
+    // fachadas, interiores e placas ocupam o espaço inteiro da arte original: sem ajuste
+    if (!cen || s.sub === 'cts' || s.sub === 'bairros') {
+      adj.append(slider('Escala', t.escala ?? 1, v => { t.escala = v; }, { min: 0.2, max: 3, step: 0.01 }));
+      adj.append(slider(cen ? 'X (m)' : 'X', t.x ?? 0, v => { t.x = v; }, { min: cen ? -300 : -60, max: cen ? 300 : 60, step: cen ? 1 : 0.5 }));
+      adj.append(slider(cen ? 'Y (m)' : 'Y', t.y ?? 0, v => { t.y = v; }, { min: cen ? -100 : -60, max: cen ? 200 : 60, step: cen ? 1 : 0.5 }));
+      if (!cen) adj.append(slider('Giro (°)', t.giro ?? 0, v => { t.giro = v; }, { min: -180, max: 180, step: 1 }));
+      el.append(adj);
+    }
+  }
+  return el;
+}
+
+// ---------- prévia ao vivo dos atletas (o mesmo desenho do jogo, estilo Colagem) ----------
+let anim = null;
+function livePreview(ids, withBall) {
+  const box = document.createElement('section'); box.className = 'card';
+  box.innerHTML = '<h4>Prévia (estilo Colagem, igual ao jogo)</h4>';
+  const live = document.createElement('div'); live.className = 'live'; box.append(live);
+  const views = [];
+  for (const id of ids) {
+    const ch = CHARACTERS[id]; if (!ch) continue;
+    for (const [cap, run] of [['parado', false], ['correndo', true]]) {
+      const f = document.createElement('figure'), c = document.createElement('canvas'); c.width = c.height = 256;
+      const fc = document.createElement('figcaption'); fc.textContent = `${ch.name} · ${cap}`;
+      f.append(c, fc); live.append(f); views.push({ c, ch, run });
+    }
+  }
+  let ball = null;
+  if (withBall) { const f = document.createElement('figure'); ball = document.createElement('canvas'); ball.width = ball.height = 128; f.append(ball); const fc = document.createElement('figcaption'); fc.textContent = 'bola'; f.append(fc); live.append(f); }
+  const tick = now => {
+    const t = now / 1000;
+    for (const v of views) {
+      const d = dummy({ speed: v.run ? 6 : 0, runPhase: v.run ? t * 12 : 0 });
+      drawCollage(v.c.getContext('2d'), v.ch, poseFor(d, t), t);
+    }
+    if (ball) drawCollageBall(ball.getContext('2d'));
+    anim = requestAnimationFrame(tick);
+  };
+  anim = requestAnimationFrame(tick);
+  return box;
+}
+
+// ---------- tela ----------
+const ed = document.getElementById('editor');
+const hint = html => { const p = document.createElement('p'); p.className = 'hint'; p.innerHTML = html; return p; };
+const TITLES = {
+  cts: ['Paisagens dos CTs', 'O fundo da arena de cada bairro, atrás do mar (a quadra, o mar e a areia continuam os do jogo). Use um panorama largo com o céu transparente; ajuste a altura com Y. Aparece em todos os estilos de arte.'],
+  bairros: ['Paisagens dos bairros', 'O fundo da rua de cada bairro no Modo História, atrás do mar. Os prédios da rua e o posto de salva-vidas continuam os do jogo.'],
+  fachadas: ['Fachadas', 'A frente dos prédios da rua (vale para todos os bairros). A imagem é esticada para o tamanho do prédio: mantenha a proporção sugerida.'],
+  interiores: ['Interiores', 'O fundo da tela quando o menu de um lugar está aberto (lanchonete, loja, CT…).'],
+  placas: ['Placas', 'As placas redondas da rua do Modo História.'],
+  bola: ['Bola', 'A bola no estilo Colagem (ganha a borda de papel recortado, como os atletas).'],
+};
+function render() {
+  if (anim) cancelAnimationFrame(anim), anim = null;
+  renderNav();
+  ed.innerHTML = '';
+  const head = document.createElement('section'); head.className = 'card';
+  if (cur === 'opcoes') {
+    head.innerHTML = '<div class="title-row"><h2>Acabamento</h2></div>';
+    head.append(check('Artes enviadas dos atletas ganham o acabamento de foto de revista (Visual Colagem)', data.fotoNasArtes !== false, v => { data.fotoNasArtes = v; changed(); }));
+    head.append(hint('Ligado: as imagens enviadas passam pelo mesmo filtro de foto P&amp;B pintada que o Visual Colagem aplica nos atletas. Desligado: aparecem com as cores do arquivo. A borda de papel recortado e a sombra sempre entram.'));
+    head.append(hint('As imagens enviadas ficam em <code>assets/artes/</code> e a lista de trocas em <code>src/data/artes.js</code>. “Voltar à arte do jogo” tira a troca, mas não apaga o arquivo.'));
+    ed.append(head);
+    return;
+  }
+  if (cur.startsWith('atleta:')) {
+    const id = cur.slice(7), todos = id === 'todos';
+    head.innerHTML = `<div class="title-row"><h2>${todos ? 'Todos os atletas' : esc(CHARACTERS[id].name)}</h2></div>`;
+    head.append(hint(todos
+      ? 'Peças que valem para todos os atletas que não tiverem a própria. Cada peça é colada no esqueleto do atleta e se mexe com ele (braços, pernas e cabeça seguem as poses do jogo). Só no estilo Colagem.'
+      : 'Envie o atleta inteiro (fica parado) ou peça por peça (se mexe com as poses). Peças que este atleta não tiver usam as de “Todos os atletas”, e o que não tiver imagem continua desenhado pelo jogo. Só no estilo Colagem.'));
+    ed.append(head, livePreview(todos ? ['tito', 'dada', 'rosa'].filter(k => CHARACTERS[k]) : [id], false));
+  } else {
+    const [t, d] = TITLES[cur];
+    head.innerHTML = `<div class="title-row"><h2>${esc(t)}</h2></div>`;
+    head.append(hint(d + ' Grave e recarregue o jogo para ver.'));
+    ed.append(head);
+    if (cur === 'bola') ed.append(livePreview([], true));
+  }
+  const grid = document.createElement('div'); grid.className = 'slots';
+  for (const s of slotsOf(cur)) grid.append(slotCard(s));
+  ed.append(grid);
+}
+sync();
+render();
+</script>
+</body>
+</html>

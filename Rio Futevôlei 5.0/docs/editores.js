@@ -68,9 +68,9 @@ export function saver({ kind, original, get, statusEl, saveBtn, undoBtn, onUndo,
 }
 
 // envia uma imagem (arquivo escolhido) para assets/<folder>/ e devolve o caminho (a partir da raiz do jogo)
-export async function uploadImage(folder, id, file) {
+export async function uploadImage(folder, id, file, maxMB = 3) { // 5.0: o editor de artes aceita até 8 MB
   if (!/^image\/(png|jpeg|webp|gif)$/.test(file.type)) throw new Error('use PNG, JPG, WEBP ou GIF');
-  if (file.size > 3 * 1024 * 1024) throw new Error('imagem maior que 3 MB');
+  if (file.size > maxMB * 1024 * 1024) throw new Error(`imagem maior que ${maxMB} MB`);
   const dataUrl = await new Promise((ok, bad) => { const r = new FileReader(); r.onload = () => ok(r.result); r.onerror = bad; r.readAsDataURL(file); });
   const res = await fetch('/api/imagem', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ folder, id, dataUrl }) });
   const j = await res.json();

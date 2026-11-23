@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { COURT } from '../config.js';
 import { buildAds } from './ads.js';
+import { quandoArte } from '../art/artes.js'; // 5.0: paisagens enviadas no editor de artes
 
 // Arena 1: Copacabana. Câmera no lado do calçadão, olhando para o mar:
 // Morro do Leme e Pão de Açúcar à esquerda, Forte de Copacabana à direita.
@@ -365,13 +366,13 @@ export function buildCopacabana(scene) {
   p = group('jacarepagua');
   for (let i = 0; i < 7; i++) mountain({ x: -210 + i * 70, z: -170 - (i % 2) * 40, sx: 50 + (i % 3) * 10, sy: 30 + (i % 3) * 12, sz: 30, seed: 30 + i, rocky: 0.2, parent: p });
   const grass = new THREE.Mesh(new THREE.PlaneGeometry(900, 460), toon('#7fae6a'));
-  grass.rotation.x = -Math.PI / 2; grass.position.set(0, -0.05, -244); p.add(grass);
+  grass.rotation.x = -Math.PI / 2; grass.position.set(0, -0.05, -244); grass.userData.chao = true; p.add(grass);
   const fence = new THREE.Mesh(new THREE.PlaneGeometry(80, 4), new THREE.MeshBasicMaterial({ map: canvasTex(256, 64, (g, W, H) => {
     g.strokeStyle = '#4a4a4a'; g.lineWidth = 2;
     for (let x = -H; x < W + H; x += 10) { g.beginPath(); g.moveTo(x, 0); g.lineTo(x + H, H); g.moveTo(x + H, 0); g.lineTo(x, H); g.stroke(); }
     g.fillStyle = '#2a6a3a'; g.fillRect(0, 0, W, 5);
   }), transparent: true, side: THREE.DoubleSide }));
-  fence.position.set(0, 2, -15); p.add(fence);
+  fence.position.set(0, 2, -15); fence.userData.chao = true; p.add(fence);
   for (let i = 0; i < 5; i++) box(p, 14, 8 + (i % 2) * 6, 10, i % 2 ? '#f2e3c9' : '#e6e0d4', -120 + i * 60, -60);
 
   // Flamengo: o Aterro (verde) com o Pão de Açúcar à direita
@@ -387,6 +388,19 @@ export function buildCopacabana(scene) {
   box(p, 420, 1.5, 3, '#cfcfcf', 30, -320, 12);
   for (let i = 0; i < 12; i++) box(p, 1.5, 12, 2, '#bdbdbd', -170 + i * 36, -320, 6);
   box(p, 16, 5, 4, '#e8281f', -40, -110, 2); box(p, 12, 4, 3.5, '#1d5cff', 50, -130, 2);
+
+  // 5.0 Artes: paisagem da arena enviada no editor de artes (cenarios/cts/<bairro>-arena) — um painel
+  // grande atrás do mar no lugar dos morros desenhados; x, y em metros, escala 1 = 600 m de largura
+  for (const id of Object.keys(marks)) {
+    quandoArte(`cenarios/cts/${id}-arena`, (img, t) => {
+      const tex = new THREE.Texture(img); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 8; tex.needsUpdate = true;
+      const w = 600 * (t.escala ?? 1), h = w * img.height / (img.width || 1);
+      const pano = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ map: tex, transparent: true, alphaTest: 0.05, fog: true }));
+      pano.position.set(t.x || 0, h / 2 - 2 + (t.y || 0), -270);
+      for (const c of marks[id].children) if (!c.userData.chao) c.visible = false; // o gramado e o alambrado do CT privado ficam
+      marks[id].add(pano);
+    });
+  }
 
   // postos de salva-vidas: o número muda com a praia (Copacabana 5, Ipanema 9, Leblon 12)
   const postoAt = {};
