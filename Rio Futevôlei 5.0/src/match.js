@@ -554,6 +554,7 @@ export class Match {
   }
   stepTiltPause(dt) {
     const tp = this.tiltPause;
+    tp.shownT = tp.t; // o tamanho da seta que o jogador está vendo agora (soltou: vale este)
     tp.t += dt;
     const input = this.portOf(tp.n);
     // o direcional (d-pad, setas/WASD ou analógico; cima, baixo, esquerda, direita e diagonais)
@@ -589,13 +590,13 @@ export class Match {
     if (tp.waitT != null) {
       tp.waitT -= dt;
       if (input.pressed(tp.key) && this.upgradeTilt(tp, slotOfKey(tp.key), tp.key)) { tp.waitT = null; return; }
-      if ((tp.waitT <= 0 && !tapOpen) || tp.t >= TILT.maxPause) this.commitTilt();
+      if ((tp.waitT <= 0 && !tapOpen) || tp.shownT >= TILT.maxPause) this.commitTilt();
       return;
     }
-    // soltou o botão (ou acabou o tempo): decide
-    if (!input.down(tp.key) || tp.t >= TILT.maxPause) {
-      tp.held = Math.min(tp.t, TILT.maxPause); // 5.0: a seta para no tamanho de quando soltou (esperar também é escolha)
-      if (!tp.special && tp.t < TILT.maxPause && !novo) { tp.waitT = +(V5.duploMira ?? 0.25); return; } // modo Novo: sem X X / B B
+    // soltou o botão (ou acabou o tempo — depois de mostrar a seta no tamanho máximo por um quadro): decide
+    if (!input.down(tp.key) || tp.shownT >= TILT.maxPause) {
+      tp.held = Math.min(tp.shownT, TILT.maxPause); // 5.0: a seta para no tamanho que o jogador viu ao soltar / acabar o tempo (esperar também é escolha)
+      if (!tp.special && tp.shownT < TILT.maxPause && !novo) { tp.waitT = +(V5.duploMira ?? 0.25); return; } // modo Novo: sem X X / B B
       this.commitTilt();
     }
   }
@@ -632,7 +633,8 @@ export class Match {
     pl.swing.specialId = tp.special ? tp.mv.id : null;
     pl.swing.cost = tp.cost;
     pl.swing.slot = tp.slot || null;
-    pl.swing.tilt = { key: tp.key, special: tp.special, slot: tp.slot || null, air: tp.air, angle: tp.angle, id: tp.mv.id, zone: tp.mv.zone || null, stretch: tp.stretch || null, want: tp.want || null };
+    pl.swing.tilt = { key: tp.key, special: tp.special, slot: tp.slot || null, air: tp.air, angle: tp.angle, id: tp.mv.id, zone: tp.mv.zone || null, stretch: tp.stretch || null, want: tp.want || null,
+      from: { x: pl.x, z: pl.z } }; // 5.0: a seta sai daqui (o deslize até a bola não muda onde ela cai)
     if (this.startApproach(pl, tp.mv, { f: 0, l: 0 }, tp.touchNo)) return; // 5.0: chega até a bola antes do toque
     this.performHit(pl, tp.mv, { f: 0, l: 0 }, tp.touchNo);
   }
@@ -663,6 +665,19 @@ export class Match {
     }
     return null;
   }
+  // 5.0: distância (m) e raio (m) da área do golpe antes da esticada — os mesmos que a seta da mira
+  // desenha (src/render.js), para a bola cair sempre dentro do círculo: especial = specialDefs × nível;
+  // golpe normal = a bola do botão com o efeito da parte da hitbox (distancia e precisao)
+  tiltAimBase(tl) {
+    if (tl.special) {
+      const sp = tiltSpecial(tl.id);
+      if (!sp) return null;
+      const simple = tiltBall(typeOfSpecial(tl.id) === 'defesa' ? 'B' : 'A', false).radius || 1.5;
+      return { dist: Math.max(1, sp.dist), radius: Math.max(0.1, simple * levelFx(tl.slot).area) };
+    }
+    const c = tiltBall(tl.key, tl.air), fx = ((V5.zonas || {})[tl.zone] || {}).efeito || {};
+    return { dist: Math.max(0.5, c.dist * (1 + (+fx.distancia || 0))), radius: Math.max(0.1, c.radius * (1 - (+fx.precisao || 0))) };
+  }
   applyTilt(res, pl, tl, touchNo = 1) {
     const miss = pl.mods.miss, away = Math.cos(tl.angle) || -pl.side;
     if (tl.special) {
@@ -678,10 +693,9 @@ export class Match {
       if (sp) {
         // 5.0: a área onde cai = a da bola simples do tipo (ataque = X, defesa = B) × a precisão do
         // nível do botão (50% menos precisa que 100%; as duas mais precisas que a simples)
-        const simple = tiltBall(typeOfSpecial(tl.id) === 'defesa' ? 'B' : 'A', false).radius || 1.5;
-        const st = this.stretchFor(pl, tl, Math.max(1, sp.dist)); // 5.0: a seta que estica (distância e área)
-        const radius = Math.max(0.1, simple * levelFx(tl.slot).area * (st ? st.area : 1));
-        const ctr = tiltAimAt(pl, Math.max(1, sp.dist) * (st ? st.len : 1), radius, tl.angle); res.aimC = ctr;
+        const ab = this.tiltAimBase(tl), st = this.stretchFor(pl, tl, ab.dist); // 5.0: a seta que estica (distância e área)
+        const radius = Math.max(0.1, ab.radius * (st ? st.area : 1));
+        const ctr = tiltAimAt(tl.from || pl, ab.dist * (st ? st.len : 1), radius, tl.angle); res.aimC = ctr;
         res.traj = { to: tiltPoint(ctr, miss, Math.random, away),
           model: sp.model, apex: sp.apex, launch: sp.launch || 0, bend: sp.bend || 0, pace: sp.pace };
         return;
@@ -709,10 +723,10 @@ export class Match {
     apex *= 1 + (+fx.altura || 0);
     res.forceMul = 1 + (+fx.forca || 0);
     // 5.0: a parte da hitbox também muda a distância da bola (efeito.distancia: + mais longe, − mais curta)
-    const base = Math.max(0.5, c.dist * (1 + (+fx.distancia || 0)));
-    const st = this.stretchFor(pl, tl, base); // 5.0: a seta que estica: a bola cai na ponta dela, área junto
-    const radius = Math.max(0.1, c.radius * (1 - (+fx.precisao || 0)) * (st ? st.area : 1));
-    const ctr = tiltAimAt(pl, base * (st ? st.len : 1), radius, tl.angle); res.aimC = ctr;
+    const ab = this.tiltAimBase(tl);
+    const st = this.stretchFor(pl, tl, ab.dist); // 5.0: a seta que estica: a bola cai na ponta dela, área junto
+    const radius = Math.max(0.1, ab.radius * (st ? st.area : 1));
+    const ctr = tiltAimAt(tl.from || pl, ab.dist * (st ? st.len : 1), radius, tl.angle); res.aimC = ctr;
     let bend = c.bend || 0;
     if (Math.random() < (+fx.banana || 0)) { bend = (Math.random() < 0.5 ? -1 : 1) * (+V5.bananaCurva || 1.4); res.banana = true; }
     res.traj = { to: tiltPoint(ctr, miss, Math.random, away), model: c.model, apex, launch: c.launch || 0, pace: c.pace, bend };

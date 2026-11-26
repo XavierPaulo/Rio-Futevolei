@@ -252,12 +252,12 @@ export class Renderer {
     this.tiltDark.scale.set(h * cam.aspect, h, 1);
     // seta saindo do atleta na direção escolhida e a área no fim dela
     const pl = tp.pl;
-    let dist, radius;
-    if (tp.special) { const sp = tiltSpecial(tp.mv.id); dist = Math.max(1, sp ? sp.dist : (tp.mv.aim && tp.mv.aim.dist) || 6); radius = sp ? sp.radius : 1; }
-    else { const c = tiltBall(tp.key, tp.air); dist = c.dist || 4; radius = c.radius; }
+    // 5.0: a mesma distância e área que o golpe vai usar (com o efeito da parte da hitbox), sem surpresas
+    const ab = m.tiltAimBase({ special: tp.special, id: tp.mv.id, slot: tp.slot, key: tp.key, air: tp.air, zone: tp.mv.zone || null });
+    let dist = ab ? ab.dist : Math.max(1, (tp.mv.aim && tp.mv.aim.dist) || 6), radius = ab ? ab.radius : 1;
     // 5.0: a seta estica com o tempo da pausa (70% → 140%) e a área cresce junto (80% → 130%)
     const st = m.tiltStretchNow(tp);
-    dist *= st.len; radius *= st.area;
+    dist *= st.len; radius = Math.max(0.1, radius * st.area);
     const a = tiltAimAt(pl, dist, radius, tp.angle), col = TILT.color[tp.special ? 'S' : tp.key];
     const arrow = this.tiltArrow;
     const shapeKey = `${tp.special ? 'S' : tp.key}|${dist.toFixed(3)}|${radius.toFixed(3)}`;
