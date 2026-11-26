@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { heightScale, V5 } from './v5.js';
 import { PLAYER_COLORS as PCOL } from './ui/portraits.js';
 import { BALL_R, P, COURT } from './config.js';
-import { TILT, tiltBall, tiltAimAt, tiltSpecial } from './tilt.js';
+import { TILT, tiltBall, tiltAimAt, tiltSpecial, tiltStretchCfg } from './tilt.js';
 import { drawAthlete, drawBallArt, isPen } from './art/draw.js';
 import { poseFor } from './art/poses.js';
 import { settings } from './ui/settings.js';
@@ -216,6 +216,21 @@ export class Renderer {
     this.tiltRing.rotation.x = -Math.PI / 2;
     this.tiltOn = false;
   }
+  // 5.0: a câmera treme quando a seta da mira passa do tamanho normal (100%), mais forte quanto mais
+  // estica (até tremorMax em setaFim); soltou o botão ou acabou a pausa: some suave em tremorSome s
+  tiltShake(m, dt) {
+    const tp = m.tilt && m.tiltPause, c = tiltStretchCfg();
+    const ts = this.tShake || (this.tShake = { v: 0, from: 0, t: 0, fading: false });
+    const target = tp && tp.held == null ? c.tremor * m.tiltStretchNow(tp).over : 0;
+    if (target >= ts.v) { ts.v = target; ts.fading = false; return ts.v; }
+    // abaixo do que estava (soltou, acabou a pausa, virou especial e a seta voltou a 70%): some aos poucos
+    if (!ts.fading) { ts.fading = true; ts.from = ts.v; ts.t = 0; }
+    ts.t += dt;
+    const u = Math.min(1, ts.t / c.some);
+    ts.v = Math.max(target, ts.from * 0.5 * (1 + Math.cos(Math.PI * u))); // suave no começo e no fim
+    if (u >= 1) ts.fading = false;
+    return ts.v;
+  }
   updateTilt(m) {
     const tp = m.tilt && m.tiltPause;
     const on = !!tp;
@@ -240,11 +255,15 @@ export class Renderer {
     let dist, radius;
     if (tp.special) { const sp = tiltSpecial(tp.mv.id); dist = Math.max(1, sp ? sp.dist : (tp.mv.aim && tp.mv.aim.dist) || 6); radius = sp ? sp.radius : 1; }
     else { const c = tiltBall(tp.key, tp.air); dist = c.dist || 4; radius = c.radius; }
+    // 5.0: a seta estica com o tempo da pausa (70% → 140%) e a área cresce junto (80% → 130%)
+    const st = m.tiltStretchNow(tp);
+    dist *= st.len; radius *= st.area;
     const a = tiltAimAt(pl, dist, radius, tp.angle), col = TILT.color[tp.special ? 'S' : tp.key];
     const arrow = this.tiltArrow;
-    if (this.tiltArrowFor !== tp) {
-      // nova pausa: seta com o comprimento da bola (□ fina e comprida, ○ larga e curta, especial dourada)
-      this.tiltArrowFor = tp;
+    const shapeKey = `${tp.special ? 'S' : tp.key}|${dist.toFixed(3)}|${radius.toFixed(3)}`;
+    if (this.tiltArrowFor !== tp || this.tiltArrowKey !== shapeKey) {
+      // seta com o comprimento da bola (□ fina e comprida, ○ larga e curta, especial dourada), refeita enquanto estica
+      this.tiltArrowFor = tp; this.tiltArrowKey = shapeKey;
       const len = Math.max(0.8, dist - radius * 0.5), sw = TILT.arrowW[tp.special ? 'S' : tp.key];
       const hl = Math.min(0.9, len * 0.4), hw = sw * 2.2 + 0.3;
       const s = new THREE.Shape();
@@ -395,12 +414,13 @@ export class Renderer {
     // fixa ou acompanhando a bola de leve, com tremida nos golpes fortes
     this.shake = Math.max(0, this.shake - dt * 1.2);
     const rig = this.rig;
+    const tShake = this.tiltShake(m, dt); // 5.0: tremor da seta esticando
     rig.update(dt, {
       id: settings.view,
       homeSide: m.teams[0].side,
       ball: m.ball.pos,
       follow: settings.camera === 'follow' && m.state !== 'intro',
-      shake: this.shake,
+      shake: Math.max(this.shake, tShake),
     });
 
     const piloted = m.state !== 'intro' ? m.piloted() : [];

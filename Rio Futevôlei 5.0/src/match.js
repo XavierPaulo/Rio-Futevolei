@@ -7,7 +7,7 @@ import { cpuParams, DEFAULT_LEVEL } from './difficulty.js';
 import { formationSpot, steer, nearest, cpuPlan, cpuUpdate } from './ai.js';
 import { KIDS, KIDS_KEYS, kidsZone, kidsTarget, kidsMoveKey, smoothstep } from './kids.js';
 import HITBOX from './data/hitbox.js';
-import { TILT, TILT_KEYS, tiltBall, tiltName, tiltAimAt, tiltPoint, tiltSpecial } from './tilt.js';
+import { TILT, TILT_KEYS, tiltBall, tiltName, tiltAimAt, tiltPoint, tiltSpecial, tiltStretch, tiltStretchFor } from './tilt.js';
 import { specialsFor } from './v5.js';
 import { V5, SLOTS, slotOfKey, costOf, levelFx, typeOfSpecial, normalizeSpecials, zoneBand, zoneBands, zoneAt, zoneMove, specialBand, formations, heightOf } from './v5.js';
 import { freshCondition, refreshMods, tickBuffs, consume, MATCH_DRAIN, WEATHER_FX, CONSUMABLES } from './condition.js';
@@ -502,16 +502,21 @@ export class Match {
   // direção automática do especial: defesa antes do 3º toque = para o parceiro; senão, para o
   // ponto do campo adversário mais longe dos defensores
   autoAngle(pl, mv, touchNo) {
+    const p = this.autoPoint(pl, mv, touchNo);
+    return Math.atan2(p.z - pl.z, p.x - pl.x);
+  }
+  // o ponto da direção automática (a CPU também usa a distância até ele para esticar a seta)
+  autoPoint(pl, mv, touchNo) {
     const mate = this.partnerOf(pl);
     const def = (V5.especiais[mv.id] || {}).tipo === 'defesa';
-    if (def && touchNo < 3 && mate && mate !== pl) return Math.atan2(mate.z - pl.z, mate.x - pl.x);
+    if (def && touchNo < 3 && mate && mate !== pl) return { x: mate.x, z: mate.z };
     const opp = this.teamPlayers(1 - pl.team), x = -pl.side * 5.2;
     let best = 0, bd = -1;
     for (const z of [-3.4, -1.7, 0, 1.7, 3.4]) {
       const d = opp.length ? Math.min(...opp.map(o => Math.hypot(o.x - x, o.z - z))) : 0;
       if (d > bd) { bd = d; best = z; }
     }
-    return Math.atan2(best - pl.z, x - pl.x);
+    return { x, z: best };
   }
   // 5.0: especial de defesa no 1º ou 2º toque: vai direto no parceiro (sem mira) e dá a "levantada perfeita"
   defToMate(pl, mv, touchNo) {
@@ -589,6 +594,7 @@ export class Match {
     }
     // soltou o botão (ou acabou o tempo): decide
     if (!input.down(tp.key) || tp.t >= TILT.maxPause) {
+      tp.held = Math.min(tp.t, TILT.maxPause); // 5.0: a seta para no tamanho de quando soltou (esperar também é escolha)
       if (!tp.special && tp.t < TILT.maxPause && !novo) { tp.waitT = +(V5.duploMira ?? 0.25); return; } // modo Novo: sem X X / B B
       this.commitTilt();
     }
@@ -602,14 +608,17 @@ export class Match {
     if (pl.meter < cost) { this.emit('callout', { text: `BARRA ${Math.floor(pl.meter)}% · PRECISA ${cost}%`, small: true, team: pl.team }); return false; }
     const mv = this.tiltHoldMove(pl, 'S' + slot);
     if (!mv) return false;
-    Object.assign(tp, { key, special: true, slot, cost, kind: 'S', mv, angle: this.aimDirect(pl, tp.n) ? tp.angle : this.autoAngle(pl, mv, tp.touchNo), t: 0 });
+    Object.assign(tp, { key, special: true, slot, cost, kind: 'S', mv, angle: this.aimDirect(pl, tp.n) ? tp.angle : this.autoAngle(pl, mv, tp.touchNo), t: 0, held: null }); // a seta volta a 70%
     pl.hold = 'S' + slot; pl.holdBtn = key;
     if (this.defToMate(pl, mv, tp.touchNo)) { this.commitTilt(); return true; } // defesa: direto no parceiro, sem mira
     this.emit('tilt', { player: pl, key, special: true, air: tp.air, name: mv.name.replace('!', '') });
     return true;
   }
+  // 5.0: quanto a seta da pausa está esticada agora (para no tamanho de quando o botão foi solto)
+  tiltStretchNow(tp) { return tiltStretch(tp.held != null ? tp.held : Math.min(tp.t, TILT.maxPause)); }
   commitTilt() {
     const tp = this.tiltPause;
+    tp.stretch = this.tiltStretchNow(tp);
     this.tiltPause = null;
     this.emit('tiltEnd', { player: tp.pl });
     this.tiltHit(tp);
@@ -623,7 +632,7 @@ export class Match {
     pl.swing.specialId = tp.special ? tp.mv.id : null;
     pl.swing.cost = tp.cost;
     pl.swing.slot = tp.slot || null;
-    pl.swing.tilt = { key: tp.key, special: tp.special, slot: tp.slot || null, air: tp.air, angle: tp.angle, id: tp.mv.id, zone: tp.mv.zone || null };
+    pl.swing.tilt = { key: tp.key, special: tp.special, slot: tp.slot || null, air: tp.air, angle: tp.angle, id: tp.mv.id, zone: tp.mv.zone || null, stretch: tp.stretch || null, want: tp.want || null };
     if (this.startApproach(pl, tp.mv, { f: 0, l: 0 }, tp.touchNo)) return; // 5.0: chega até a bola antes do toque
     this.performHit(pl, tp.mv, { f: 0, l: 0 }, tp.touchNo);
   }
@@ -634,13 +643,26 @@ export class Match {
     const air = pl.state === 'air', t = Math.min(touchNo, 3);
     const mv = this.zonedMove(pl, key, air, t);
     const mate = this.partnerOf(pl);
-    let angle;
-    if (!plan.attack && mate && mate !== pl) angle = Math.atan2(mate.z - pl.z, mate.x - pl.x);
-    else if (Math.random() < this.paramsOf(pl).smart) angle = this.autoAngle(pl, { id: null }, 3);
-    else { const x = -pl.side * rand(2.5, 8), z = rand(-3.8, 3.8); angle = Math.atan2(z - pl.z, x - pl.x); }
-    this.tiltHit({ pl, key, special: false, air, mv, touchNo, angle, cost: 0 });
+    let to;
+    if (!plan.attack && mate && mate !== pl) to = { x: mate.x, z: mate.z };
+    else if (Math.random() < this.paramsOf(pl).smart) to = this.autoPoint(pl, { id: null }, 3);
+    else to = { x: -pl.side * rand(2.5, 8), z: rand(-3.8, 3.8) };
+    const angle = Math.atan2(to.z - pl.z, to.x - pl.x);
+    // 5.0: a CPU segue a regra da seta que estica: "espera" o tanto que leva a bola até o ponto escolhido
+    const want = Math.hypot(to.x - pl.x, to.z - pl.z);
+    this.tiltHit({ pl, key, special: false, air, mv, touchNo, angle, cost: 0, want });
   }
   // troca a trajetória do golpe pela bola do botão (ou do especial), na direção escolhida
+  // 5.0: a esticada da seta deste golpe (null = sem pausa de mira: distância normal). A CPU escolhe
+  // a esticada que leva a bola até o ponto que ela quer (want, m), com o erro de mira do nível.
+  stretchFor(pl, tl, base) {
+    if (tl.stretch) return tl.stretch;
+    if (pl.ai && tl.want) {
+      const want = tl.want + (Math.random() * 2 - 1) * this.paramsOf(pl).aimErr * 0.5;
+      return tl.stretch = tiltStretchFor(want / Math.max(0.5, base));
+    }
+    return null;
+  }
   applyTilt(res, pl, tl, touchNo = 1) {
     const miss = pl.mods.miss, away = Math.cos(tl.angle) || -pl.side;
     if (tl.special) {
@@ -657,8 +679,9 @@ export class Match {
         // 5.0: a área onde cai = a da bola simples do tipo (ataque = X, defesa = B) × a precisão do
         // nível do botão (50% menos precisa que 100%; as duas mais precisas que a simples)
         const simple = tiltBall(typeOfSpecial(tl.id) === 'defesa' ? 'B' : 'A', false).radius || 1.5;
-        const radius = Math.max(0.1, simple * levelFx(tl.slot).area);
-        const ctr = tiltAimAt(pl, Math.max(1, sp.dist), radius, tl.angle); res.aimC = ctr;
+        const st = this.stretchFor(pl, tl, Math.max(1, sp.dist)); // 5.0: a seta que estica (distância e área)
+        const radius = Math.max(0.1, simple * levelFx(tl.slot).area * (st ? st.area : 1));
+        const ctr = tiltAimAt(pl, Math.max(1, sp.dist) * (st ? st.len : 1), radius, tl.angle); res.aimC = ctr;
         res.traj = { to: tiltPoint(ctr, miss, Math.random, away),
           model: sp.model, apex: sp.apex, launch: sp.launch || 0, bend: sp.bend || 0, pace: sp.pace };
         return;
@@ -684,10 +707,12 @@ export class Match {
     // em cima = um pouco mais alta, precisa e forte; embaixo = o espelho; Banana Shot = curva lateral
     const fx = ((V5.zonas || {})[tl.zone] || {}).efeito || {};
     apex *= 1 + (+fx.altura || 0);
-    const radius = Math.max(0.1, c.radius * (1 - (+fx.precisao || 0)));
     res.forceMul = 1 + (+fx.forca || 0);
     // 5.0: a parte da hitbox também muda a distância da bola (efeito.distancia: + mais longe, − mais curta)
-    const ctr = tiltAimAt(pl, Math.max(0.5, c.dist * (1 + (+fx.distancia || 0))), radius, tl.angle); res.aimC = ctr;
+    const base = Math.max(0.5, c.dist * (1 + (+fx.distancia || 0)));
+    const st = this.stretchFor(pl, tl, base); // 5.0: a seta que estica: a bola cai na ponta dela, área junto
+    const radius = Math.max(0.1, c.radius * (1 - (+fx.precisao || 0)) * (st ? st.area : 1));
+    const ctr = tiltAimAt(pl, base * (st ? st.len : 1), radius, tl.angle); res.aimC = ctr;
     let bend = c.bend || 0;
     if (Math.random() < (+fx.banana || 0)) { bend = (Math.random() < 0.5 ? -1 : 1) * (+V5.bananaCurva || 1.4); res.banana = true; }
     res.traj = { to: tiltPoint(ctr, miss, Math.random, away), model: c.model, apex, launch: c.launch || 0, pace: c.pace, bend };
@@ -873,7 +898,11 @@ export class Match {
     pl.swing.cost = slot ? costOf(slot) : SPECIAL.max;
     pl.swing.slot = slot;
     // 5.0: a trajetória do especial vem de src/data/tilt.js (specialDefs), na direção automática
-    if (this.tilt) pl.swing.tilt = { special: true, slot, id: mv.id, key: null, air: pl.state === "air", angle: this.autoAngle(pl, mv, Math.min(this.touchNoFor(pl), 3)) };
+    if (this.tilt) {
+      const tn = Math.min(this.touchNoFor(pl), 3), to = this.autoPoint(pl, mv, tn);
+      pl.swing.tilt = { special: true, slot, id: mv.id, key: null, air: pl.state === "air", angle: Math.atan2(to.z - pl.z, to.x - pl.x),
+        want: pl.ai ? Math.hypot(to.x - pl.x, to.z - pl.z) : null }; // 5.0: a CPU estica a seta até o ponto
+    }
     if (mv.lunge) pl.vx += pl.facing * mv.lunge; // Escorpião: pula para a frente
     this.emit('charge', { player: pl });
   }

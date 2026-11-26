@@ -167,7 +167,7 @@ if (!data.controle) data.controle = {};
   C.andar = { velocidade: 5.4, aceleracao: 38, ...(C.andar || {}) };
   C.pulo = { forca: 5.4, ...(C.pulo || {}) };
   C.carrinho = { velocidade: 7.4, duracao: 0.42, recuperacao: 0.6, ...(C.carrinho || {}) };
-  C.mira = { modo: 'giro', giro: 360, pausaMax: 3, andarSegurando: 0.75, alcance: 1.35, ...(TILT.controle || {}), ...(C.mira || {}) }; }
+  C.mira = { modo: 'giro', giro: 360, pausaMax: 3, andarSegurando: 0.75, alcance: 1.35, setaInicio: 0.7, setaFim: 1.4, setaCurva: 2, areaInicio: 0.8, areaFim: 1.3, tremorMax: 0.2, tremorSome: 0.5, ...(TILT.controle || {}), ...(C.mira || {}) }; }
 const heightOf = id => +data.alturas[id] || H();
 const spName = id => (TILT.specialDefs[id] && TILT.specialDefs[id].name) || (MOVES[id] ? MOVES[id].name.replace('!', '') : id);
 
@@ -640,6 +640,27 @@ function secControle(ed) {
     col(row('Giro da seta', slider(+C.mira.giro, v => { C.mira.giro = v; changed(); }, { min: 60, max: 1080, step: 10, unit: '°/s' })),
       row('Pausa máxima mirando', slider(+C.mira.pausaMax, v => { C.mira.pausaMax = v; changed(); }, { min: 0.5, max: 8, step: 0.1, unit: 's' })))),
     hint('Alcance: até onde, para a frente e para trás, a hitbox pega a bola. Andar segurando: velocidade enquanto segura o botão. Modelo Giro: a seta gira pelo caminho mais curto até onde o analógico aponta. Modelo Direta: a seta aponta na hora para onde o analógico está; sem direção, todo golpe (especiais também) começa reto para a rede, e soltando o analógico a seta fica na última direção. Giro da seta: quão rápido a seta gira no modelo Giro (360 = uma volta por segundo). Pausa máxima: depois disso o golpe sai sozinho. As alturas das 3 partes ficam na aba Hitbox; a trajetória de cada bola, no editor de Golpes.')));
+
+  // 5.0: a seta estica durante a pausa (e a câmera treme passando do tamanho normal)
+  const pct = v => Math.round(v * 100) + '%';
+  const curveHint = hint('');
+  const curveUpd = () => {
+    const ini = +C.mira.setaInicio, fim = +C.mira.setaFim, k = Math.max(0.1, +C.mira.setaCurva), max = +C.mira.pausaMax || 3;
+    const at100 = fim > ini && ini < 1 && fim >= 1 ? max * Math.pow((1 - ini) / (fim - ini), 1 / k) : null;
+    curveHint.textContent = 'Curva 1 = estica sempre na mesma velocidade · 2 = quadrática (começa devagar e acelera no fim) · 3 ou mais = guarda quase tudo para o fim. '
+      + (at100 != null ? `Agora a seta chega ao tamanho normal (100%) em ${at100.toFixed(2).replace('.', ',')} s de ${max.toFixed(1).replace('.', ',')} s.` : '');
+  };
+  curveUpd();
+  ed.append(card('Seta esticando na mira', fields(
+    col(row('Seta no começo', slider(+C.mira.setaInicio, v => { C.mira.setaInicio = v; changed(); curveUpd(); }, { min: 0.3, max: 1.5, step: 0.05, unit: '× distância' })),
+      row('Seta no fim da pausa', slider(+C.mira.setaFim, v => { C.mira.setaFim = v; changed(); curveUpd(); }, { min: 0.5, max: 2.5, step: 0.05, unit: '× distância' })),
+      row('Curva da esticada', slider(+C.mira.setaCurva, v => { C.mira.setaCurva = v; changed(); curveUpd(); }, { min: 1, max: 5, step: 0.1, unit: 'potência' }))),
+    col(row('Área no começo', slider(+C.mira.areaInicio, v => { C.mira.areaInicio = v; changed(); }, { min: 0.3, max: 1.5, step: 0.05, unit: '× raio' })),
+      row('Área no fim da pausa', slider(+C.mira.areaFim, v => { C.mira.areaFim = v; changed(); }, { min: 0.5, max: 2.5, step: 0.05, unit: '× raio' })),
+      row('Tremor máximo da câmera', slider(+C.mira.tremorMax, v => { C.mira.tremorMax = v; changed(); }, { min: 0, max: 0.5, step: 0.01, unit: '' })),
+      row('Tremor some em', slider(+C.mira.tremorSome, v => { C.mira.tremorSome = v; changed(); }, { min: 0.05, max: 2, step: 0.05, unit: 's' })))),
+    hint('Na pausa da mira (golpes de X e B e especiais), a seta começa em "Seta no começo" × a distância da bola e estica até "Seta no fim da pausa" × quando acaba a pausa máxima. A bola cai sempre na ponta da seta, e a área onde ela cai cresce junto. Soltando antes, vale o tamanho daquele momento. Trocar pelo especial no meio da mira volta a seta ao começo. A CPU segue a mesma regra: escolhe o tamanho que leva a bola aonde ela quer. Passando de 100%, a câmera treme, mais forte quanto mais estica, até o tremor máximo (como referência: golpe forte 0,08, especial 0,35). Ao soltar, o tremor some aos poucos.'),
+    curveHint));
 
   // pulo
   const jh = () => { const v = +C.pulo.forca; return `sobe cerca de ${(v * v / 18).toFixed(2).replace('.', ',')} m e fica ${(2 * v / 9).toFixed(2).replace('.', ',')} s no ar`; };

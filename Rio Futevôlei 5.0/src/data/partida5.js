@@ -21,7 +21,9 @@
 //                  andar (velocidade m/s, aceleracao), pulo (forca = velocidade de subida m/s),
 //                  carrinho (velocidade m/s, duracao s, recuperacao s) e mira (segurar X/B: modo "giro" = a seta
 //                  gira até a direção do analógico / "direto" = aponta na hora para onde o analógico está (sem
-//                  direção, reto para a rede), giro °/s, pausaMax s, andarSegurando ×, alcance m)
+//                  direção, reto para a rede), giro °/s, pausaMax s, andarSegurando ×, alcance m; a seta estica na pausa de
+//                  setaInicio a setaFim × a distância da bola, com curva (t/pausaMax)^setaCurva, e a área de areaInicio
+//                  a areaFim × o raio; acima de 100% a câmera treme até tremorMax e some em tremorSome s depois)
 //   aproximacao    bola entrou na hitbox longe do corpo: o atleta desliza até ela antes do toque — perto (m: a
 //                  esta distância ou menos não desliza), velocidade (m/s), min e max (s de deslize)
 //   caraOuCoroa    sorteio no início da partida (e do set decisivo): quem ganha escolhe o saque ou o lado; o outro
@@ -516,7 +518,14 @@ export default {
       "giro": 360,
       "pausaMax": 3,
       "andarSegurando": 0.75,
-      "alcance": 1.35
+      "alcance": 1.35,
+      "setaInicio": 0.7,
+      "setaFim": 1.4,
+      "setaCurva": 2,
+      "areaInicio": 0.8,
+      "areaFim": 1.3,
+      "tremorMax": 0.2,
+      "tremorSome": 0.5
     }
   },
   "aproximacao": {

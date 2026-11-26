@@ -31,6 +31,32 @@ Object.defineProperties(TILT, {
   holdMove: { get: () => +(CTL().andarSegurando ?? 0.75) },       // velocidade segurando o botão (×)
   reach: { get: () => +CTL().alcance || 0 },                       // alcance da hitbox de X / B (m; 0 = o do golpe)
 });
+// 5.0: a seta estica durante a pausa: começa em setaInicio × a distância da bola e chega a setaFim × no
+// fim da pausa máxima, acelerando (progresso = (t / pausaMax) ^ setaCurva; 2 = quadrática). A área onde a
+// bola cai cresce junto, de areaInicio a areaFim. Passando de 100%, a câmera treme até tremorMax.
+const num = (v, d) => (v == null || v === '' || isNaN(+v) ? d : +v);
+export function tiltStretchCfg() {
+  const c = CTL();
+  return { ini: num(c.setaInicio, 0.7), fim: num(c.setaFim, 1.4), curva: Math.max(0.1, num(c.setaCurva, 2)),
+    aIni: num(c.areaInicio, 0.8), aFim: num(c.areaFim, 1.3), tremor: num(c.tremorMax, 0.2), some: Math.max(0.01, num(c.tremorSome, 0.5)) };
+}
+// esticada da seta depois de t s mirando: { len (× distância), area (× raio), over (0..1 acima de 100%), p (0..1) }
+export function tiltStretch(t) {
+  const c = tiltStretchCfg(), max = Math.max(0.01, TILT.maxPause);
+  const k = Math.min(1, Math.max(0, t / max)) ** c.curva;
+  return stretchOf(c, k);
+}
+// a mesma esticada pelo comprimento (× distância) que se quer — a CPU escolhe quanto "esperar" assim
+export function tiltStretchFor(want) {
+  const c = tiltStretchCfg(), span = c.fim - c.ini;
+  const k = span ? Math.min(1, Math.max(0, (want - c.ini) / span)) : 0;
+  return stretchOf(c, k);
+}
+function stretchOf(c, k) {
+  const len = c.ini + (c.fim - c.ini) * k;
+  const over = c.fim > 1 ? Math.min(1, Math.max(0, (len - 1) / (c.fim - 1))) : 0;
+  return { len, area: c.aIni + (c.aFim - c.aIni) * k, over, p: k };
+}
 export const TILT_KEYS = ['A', 'B'];
 
 // a bola de um toque: { kind: 'A' | 'B' | 'SA' | 'SB', air }
